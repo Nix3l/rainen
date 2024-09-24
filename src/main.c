@@ -1,5 +1,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 
+// TODO(nix3l): arena vectors
+
 #include "game.h"
 #include "util/log.h"
 #include "util/math.h"
@@ -33,17 +35,15 @@ static void show_debug_stats_window() {
 
     igText("permenant memory in use: %u/%u\n",
             sizeof(game_state_s) + 
-            game_state->shader_arena.size + 
-            game_state->mesh_arena.size +
             game_state->fbo_arena.size +
-            game_state->texture_arena.size +
+            game_state->draw_groups_arena.size + 
+            game_state->draw_calls_arena.size,
             game_memory->permenant_storage_size);
     igIndent(12.0f);
     igText("of which state: %u\n", sizeof(game_state_s));
-    igText("of which shaders: %u/%u\n", game_state->shader_arena.size, game_state->shader_arena.capacity);
     igText("of which framebuffers: %u/%u\n", game_state->fbo_arena.size, game_state->fbo_arena.capacity);
-    igText("of which textures: %u/%u\n", game_state->texture_arena.size, game_state->texture_arena.capacity);
-    igText("of which meshes: %u/%u\n", game_state->mesh_arena.size, game_state->mesh_arena.capacity);
+    igText("of which draw groups: %u/%u\n", game_state->draw_groups_arena.size, game_state->draw_groups_arena.capacity);
+    igText("of which draw calls: %u/%u\n", game_state->draw_calls_arena.size, game_state->draw_calls_arena.capacity);
     igText("of which frame: %u/%u\n", game_state->frame_arena.size, game_state->frame_arena.capacity);
     igUnindent(12.0f);
 
@@ -124,14 +124,13 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
     void* memory = game_memory->permenant_storage + sizeof(game_state_s);
     usize remaining_memory = permenant_memory_to_allocate - sizeof(game_state_s);
 
-    game_state->shader_arena  = partition_permenant_memory(&memory, KILOBYTES(1),     &remaining_memory);
-    game_state->fbo_arena     = partition_permenant_memory(&memory, KILOBYTES(1),     &remaining_memory);
-    game_state->texture_arena = partition_permenant_memory(&memory, KILOBYTES(4),     &remaining_memory);
-    game_state->mesh_arena    = partition_permenant_memory(&memory, KILOBYTES(8),     &remaining_memory);
-    game_state->frame_arena   = partition_permenant_memory(&memory, remaining_memory, &remaining_memory);
+    game_state->fbo_arena         = partition_permenant_memory(&memory, KILOBYTES(1), &remaining_memory);
+    game_state->draw_groups_arena = partition_permenant_memory(&memory, MAX_DRAW_GROUPS * sizeof(draw_group_s), &remaining_memory);
+    game_state->draw_calls_arena  = partition_permenant_memory(&memory, MAX_DRAW_CALLS * MAX_DRAW_GROUPS * sizeof(draw_call_s), &remaining_memory);
+    game_state->frame_arena       = partition_permenant_memory(&memory, remaining_memory, &remaining_memory);
 
     // IO
-    create_window(1600, 900, "clouds");
+    create_window(1600, 900, "rainen");
     init_input();
 
     // SHADERS
@@ -148,6 +147,8 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
         .speed      = 200.0f,
         .sens       = 7500.0f
     };
+
+    init_renderer(&game_state->renderer, &game_state->draw_groups_arena);
 
     game_state->screen_buffer = create_fbo(
             game_state->window.width,
@@ -181,10 +182,12 @@ int main(void) {
         // UPDATE
         update_frame_stats();
 
-        update_camera(&game_state->camera);
+        // update_camera(&game_state->camera);
 
         // RENDER
         fbo_clear(&game_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        render_groups(&game_state->renderer);
 
         fbo_copy_texture_to_screen(&game_state->screen_buffer, GL_COLOR_ATTACHMENT0);
 

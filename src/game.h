@@ -12,6 +12,7 @@
 #include "framebuffer/fbo.h"
 #include "shader/shader.h"
 #include "camera/camera.h"
+#include "render/renderer.h"
 
 typedef struct {
     usize permenant_storage_size;
@@ -24,10 +25,9 @@ typedef struct {
 typedef struct {
     // ARENAS
     arena_s frame_arena; // for any and all memory that needs to be allocated and used for one frame only
-    arena_s shader_arena; // mostly contains text for shader paths/names
-    arena_s fbo_arena; // contains texture metadata for fbos
-    arena_s mesh_arena; // contains text for mesh names/filepaths
-    arena_s texture_arena; // contains texture filepaths
+    arena_s fbo_arena; // for storing data about fbo textures
+    arena_s draw_groups_arena; // for storing draw groups for the renderer
+    arena_s draw_calls_arena; // for storing draw calls for each group
 
     // IO
     window_s window;
@@ -43,13 +43,13 @@ typedef struct {
     u32 fps_counter;
     u32 fps;
 
-    // SHADERS
-
-    // TIME SCALE
     f32 time_scale;
+
+    // SHADERS
 
     // RENDERER
     camera_s camera;
+    renderer_s renderer;
 
     mesh_s screen_quad;
     fbo_s screen_buffer;

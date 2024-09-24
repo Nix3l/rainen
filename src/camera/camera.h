@@ -11,6 +11,10 @@ typedef struct {
     f32 near_plane;
     f32 far_plane;
 
+    mat4s projection;
+    mat4s view;
+    mat4s projection_view;
+
     // MOVEMENT
     f32 speed;
     f32 sens;

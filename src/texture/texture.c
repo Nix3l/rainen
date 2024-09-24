@@ -66,10 +66,6 @@ texture_s create_texture(char* filename, arena_s* arena) {
 
     load_image_stb(filepath, GL_TEXTURE_2D, &texture);
 
-    texture.full_path = filepath;
-    // NOTE(nix3l): assuming that the file name is in the arena already
-    texture.name = filename;
-
     // TODO(nix3l): parameters
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_REPEAT);
@@ -84,8 +80,6 @@ texture_s create_texture(char* filename, arena_s* arena) {
 
 texture_3d_s create_texture_3d(i32 width, i32 height, i32 depth, void* data) {
     texture_3d_s texture;
-
-    texture.name = NULL;
 
     texture.width  = width;
     texture.height = height;
@@ -118,8 +112,6 @@ texture_3d_s create_texture_3d(i32 width, i32 height, i32 depth, void* data) {
 
 texture_3d_s create_texture_3d_format(i32 width, i32 height, i32 depth, GLenum internal_format, GLenum data_format, void* data) {
     texture_3d_s texture;
-
-    texture.name = NULL;
 
     texture.width  = width;
     texture.height = height;
@@ -198,9 +190,6 @@ texture_s create_cubemap(char** filenames, arena_s* arena) {
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    texture.full_path = NULL;
-    texture.name = NULL;
 
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     return texture;

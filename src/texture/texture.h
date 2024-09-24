@@ -5,10 +5,6 @@
 #include "memory/memory.h"
 
 typedef struct {
-    // metadata
-    char* name;
-    char* full_path;
-
     // format & dimensions
     i32 width;
     i32 height;
@@ -20,9 +16,6 @@ typedef struct {
 } texture_s;
 
 typedef struct {
-    // metadata
-    char* name;
-
     // format & dimensions
     i32 width;
     i32 height;
