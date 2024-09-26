@@ -62,5 +62,6 @@ mesh_s load_mesh_from_file(char* filepath, arena_s* arena);
 // PRIMITIVES
 mesh_s primitive_plane_mesh(v3f bottom_left, v2i num_vertices, v2f world_size, arena_s* arena);
 mesh_s primitive_cube_mesh();
+mesh_s primitive_unit_square();
 
 #endif

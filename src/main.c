@@ -63,8 +63,8 @@ static void show_settings_window() {
         igDragFloat("sensetivity", &game_state->camera.sens, 10.0f, 0.0f, MAX_f32, "%.0f", ImGuiSliderFlags_None);
         igDragFloat("move speed", &game_state->camera.speed, 1.0f, 0.0f, MAX_f32, "%.0f", ImGuiSliderFlags_None);
 
-        igDragFloat3("position", game_state->camera.position.raw, 1.0f, -MAX_f32, MAX_f32, "%.1f", ImGuiSliderFlags_ReadOnly);
-        igDragFloat3("rotation", game_state->camera.rotation.raw, 1.0f, -MAX_f32, MAX_f32, "%.1f", ImGuiSliderFlags_ReadOnly);
+        igDragFloat3("position", game_state->camera.position.raw, 0.1f, -MAX_f32, MAX_f32, "%.1f", ImGuiSliderFlags_None);
+        igDragFloat3("rotation", game_state->camera.rotation.raw, 0.1f, -MAX_f32, MAX_f32, "%.1f", ImGuiSliderFlags_None);
         igPopID();
     }
   
@@ -134,6 +134,7 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
     init_input();
 
     // SHADERS
+    init_default_shader(&game_state->default_shader);
 
     // RENDERER
     game_state->camera = (camera_s) {
@@ -148,6 +149,8 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
         .sens       = 7500.0f
     };
 
+    game_state->unit_square = primitive_unit_square();
+
     init_renderer(&game_state->renderer, &game_state->draw_groups_arena);
 
     game_state->screen_buffer = create_fbo(
@@ -158,6 +161,9 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
 
     fbo_create_texture(&game_state->screen_buffer, GL_COLOR_ATTACHMENT0, GL_RGB16F, GL_RGB);
     fbo_create_depth_texture(&game_state->screen_buffer);
+
+    game_state->default_group = push_draw_group(&game_state->renderer, &game_state->default_shader.program, &game_state->camera);
+    push_draw_call(game_state->default_group, NULL, V2F_ZERO(), 0, V2F_ZERO(), V4F_ONE());
 
     // GUI
     init_imgui();
@@ -187,7 +193,7 @@ int main(void) {
         // RENDER
         fbo_clear(&game_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        render_groups(&game_state->renderer);
+        render_draw_groups(&game_state->renderer);
 
         fbo_copy_texture_to_screen(&game_state->screen_buffer, GL_COLOR_ATTACHMENT0);
 

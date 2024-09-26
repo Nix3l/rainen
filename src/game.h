@@ -13,6 +13,7 @@
 #include "shader/shader.h"
 #include "camera/camera.h"
 #include "render/renderer.h"
+#include "shader/default_shader.h"
 
 typedef struct {
     usize permenant_storage_size;
@@ -46,13 +47,16 @@ typedef struct {
     f32 time_scale;
 
     // SHADERS
+    default_shader_s default_shader;
 
     // RENDERER
     camera_s camera;
     renderer_s renderer;
 
-    mesh_s screen_quad;
+    mesh_s unit_square;
     fbo_s screen_buffer;
+
+    draw_group_s* default_group;
 
     // IMGUI
     struct ImGuiContext* imgui_ctx;

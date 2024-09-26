@@ -26,7 +26,7 @@ static GLuint compile_shader(char* src_code, GLuint shader_type) {
 shader_s create_shader(
         char* filename,
         char* vertex_src, char* fragment_src,
-        void (*bind_attributes) (),
+        void (*bind_attributes) (void*),
         void (*load_uniforms) (void*)) {
     shader_s shader;
 
@@ -45,7 +45,7 @@ shader_s create_shader(
 
     // must be called before linking the program unfortunately
     // would have made my life a bit easier if it didnt have to but oh well
-    if(bind_attributes) bind_attributes();
+    if(bind_attributes) bind_attributes(&shader);
 
     glLinkProgram(shader.program_id);
     glValidateProgram(shader.program_id);
@@ -78,7 +78,7 @@ shader_s create_shader(
 shader_s load_and_create_shader(
         char* name,
         char* vertex_path, char* fragment_path,
-        void (*bind_attributes) (),
+        void (*bind_attributes) (void*),
         void (*load_uniforms) (void*),
         arena_s* arena) {
     usize vertex_length, fragment_length;
@@ -206,20 +206,28 @@ void shader_load_bool(uniform_t uniform, bool value) {
     glUniform1i(uniform, value ? 1 : 0);
 }
 
-void shader_load_vec2(uniform_t uniform, vec2s value) {
+void shader_load_vec2(uniform_t uniform, v2f value) {
     glUniform2f(uniform, value.x, value.y);
 }
 
-void shader_load_vec3(uniform_t uniform, vec3s value) {
+void shader_load_vec3(uniform_t uniform, v3f value) {
     glUniform3f(uniform, value.x, value.y, value.z);
 }
 
-void shader_load_ivec2(uniform_t uniform, ivec2s value) {
+void shader_load_vec4(uniform_t uniform, v4f value) {
+    glUniform4f(uniform, value.x, value.y, value.z, value.w);
+}
+
+void shader_load_ivec2(uniform_t uniform, v2i value) {
     glUniform2i(uniform, value.x, value.y);
 }
 
-void shader_load_ivec3(uniform_t uniform, ivec3s value) {
+void shader_load_ivec3(uniform_t uniform, v3i value) {
     glUniform3i(uniform, value.x, value.y, value.z);
+}
+
+void shader_load_ivec4(uniform_t uniform, v4i value) {
+    glUniform4i(uniform, value.x, value.y, value.z, value.w);
 }
 
 void shader_load_mat4(uniform_t uniform, mat4s value) {

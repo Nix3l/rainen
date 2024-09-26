@@ -34,7 +34,7 @@ typedef struct {
     GLenum cull_face;
 
     u32 num_calls;
-    arena_s* draw_calls;
+    arena_s draw_calls;
 } draw_group_s;
 
 typedef struct {

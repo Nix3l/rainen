@@ -368,3 +368,26 @@ mesh_s primitive_cube_mesh() {
             ARRAY_SIZE(vertices)
         );
 }
+
+mesh_s primitive_unit_square() {
+    f32 vertices[] = {
+         1.0f,  1.0f, 0.0f, // top right
+         1.0f, -1.0f, 0.0f, // bottom right
+        -1.0f, -1.0f, 0.0f, // bottom left
+        -1.0f,  1.0f, 0.0f  // top left 
+    };
+
+    u32 indices[] = {
+        0, 1, 3, // first triangle
+        1, 2, 3  // second triangle
+    };
+
+    f32 uvs[] = {
+        1.0f, 1.0f,
+        1.0f, 0.0f,
+        0.0f, 0.0f,
+        0.0f, 1.0f
+    };
+
+    return create_mesh(vertices, uvs, NULL, NULL, indices, 6, 12);
+}

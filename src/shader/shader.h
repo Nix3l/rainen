@@ -71,10 +71,12 @@ void shader_load_int(uniform_t uniform, i32 value);
 void shader_load_uint(uniform_t uniform, u32 value);
 void shader_load_float(uniform_t uniform, f32 value);
 void shader_load_bool(uniform_t uniform, bool value);
-void shader_load_vec2(uniform_t uniform, vec2s value);
-void shader_load_vec3(uniform_t uniform, vec3s value);
-void shader_load_ivec2(uniform_t uniform, ivec2s value);
-void shader_load_ivec3(uniform_t uniform, ivec3s value);
+void shader_load_vec2(uniform_t uniform, v2f value);
+void shader_load_vec3(uniform_t uniform, v3f value);
+void shader_load_vec4(uniform_t uniform, v4f value);
+void shader_load_ivec2(uniform_t uniform, v2i value);
+void shader_load_ivec3(uniform_t uniform, v3i value);
+void shader_load_ivec4(uniform_t uniform, v4i value);
 void shader_load_mat4(uniform_t uniform, mat4s value);
 
 // TODO(nix3l): make wrapper functions for glUniform*v()

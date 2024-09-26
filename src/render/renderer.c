@@ -16,7 +16,7 @@ draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f positio
     }
 
     group->num_calls ++;
-    draw_call_s* call = arena_push(group->draw_calls, sizeof(draw_call_s));
+    draw_call_s* call = arena_push(&group->draw_calls, sizeof(draw_call_s));
 
     call->texture = texture;
     call->position = position;
@@ -28,6 +28,9 @@ draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f positio
 }
 
 draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* camera) {
+    ASSERT(renderer->num_groups + 1 < MAX_DRAW_GROUPS);
+    renderer->num_groups ++;
+
     draw_group_s* group = arena_push(renderer->groups, sizeof(draw_group_s));
 
     group->shader = shader;
@@ -35,15 +38,16 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
     group->framebuffer = &game_state->screen_buffer;
 
-    group->enable_depth_test = true;
+    group->enable_depth_test = false;
     group->depth_mask = GL_TRUE;
     group->depth_func = GL_LESS;
 
-    group->enable_culling = true;
+    group->enable_culling = false;
     group->cull_face = GL_BACK;
 
     group->num_calls = 0;
-    group->draw_calls = arena_push(&game_state->draw_calls_arena, MAX_DRAW_CALLS * sizeof(draw_call_s));
+    usize call_buffer_size = MAX_DRAW_CALLS * sizeof(draw_call_s);
+    group->draw_calls = arena_create_in_block(arena_push(&game_state->draw_calls_arena, call_buffer_size), call_buffer_size);
 
     return group;
 }
@@ -54,14 +58,14 @@ void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera) {
         glBindTexture(GL_TEXTURE_2D, call->texture->id);
     }
 
-    shader->load_uniforms(NULL);
+    shader->load_uniforms(call);
 
-    glBindVertexArray(game_state->screen_quad.vao);
-    mesh_enable_attributes(&game_state->screen_quad);
+    glBindVertexArray(game_state->unit_square.vao);
+    mesh_enable_attributes(&game_state->unit_square);
 
-    glDrawElements(GL_TRIANGLES, game_state->screen_quad.index_count, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, game_state->unit_square.index_count, GL_UNSIGNED_INT, 0);
 
-    mesh_disable_attributes(&game_state->screen_quad);
+    mesh_disable_attributes(&game_state->unit_square);
     glBindVertexArray(0);
 }
 
@@ -69,7 +73,7 @@ void render_draw_group(draw_group_s* group) {
     // update camera matrices
     group->camera->projection = camera_projection(group->camera);
     group->camera->view = camera_view(group->camera);
-    group->camera->projection_view = camera_projection_view(group->camera);
+    group->camera->projection_view = glms_mul(group->camera->projection, group->camera->view);
 
     glBindFramebuffer(GL_FRAMEBUFFER, game_state->screen_buffer.id);    
     glDrawBuffers(game_state->screen_buffer.num_textures, game_state->screen_buffer.attachments);
@@ -89,7 +93,7 @@ void render_draw_group(draw_group_s* group) {
 
     shader_start(group->shader);
 
-    draw_call_s* calls = group->draw_calls->data;
+    draw_call_s* calls = group->draw_calls.data;
     for(u32 j = 0; j < group->num_calls; j ++) {
         draw_call_s call = calls[j];
         render_draw_call(&call, group->shader, group->camera);
