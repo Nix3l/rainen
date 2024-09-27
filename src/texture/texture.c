@@ -74,6 +74,9 @@ texture_s create_texture(char* filename, arena_s* arena) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    texture.min_filter = GL_LINEAR;
+    texture.mag_filter = GL_LINEAR;
+
     glBindTexture(GL_TEXTURE_2D, 0);
     return texture;
 }

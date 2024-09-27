@@ -24,7 +24,7 @@ typedef struct {
     GLuint vertex_id;
     GLuint fragment_id;
 
-    void (*load_uniforms) (void*); // optional user data can be passed as a parameter
+    void (*load_uniforms) (void*, void*); // draw call and optional user data can be passed as a parameters
 } shader_s;
 
 typedef struct {
@@ -38,14 +38,14 @@ shader_s create_shader(
         char* name,
         char* vertex_src, char* fragment_src,
         void (*bind_attributes) (),
-        void (*load_uniforms) (void*));
+        void (*load_uniforms) (void*, void*));
 
 // takes in file paths on disk and compiles a shader accordingly
 shader_s load_and_create_shader(
         char* name,
         char* vertex_path, char* fragment_path,
         void (*bind_attributes) (),
-        void (*load_uniforms) (void*),
+        void (*load_uniforms) (void*, void*),
         arena_s* arena);
 
 compute_shader_s create_compute_shader(char* src, v3i work_groups);

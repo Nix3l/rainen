@@ -15,9 +15,10 @@ typedef struct {
     texture_s* texture;
 
     v2f position;
+    mat4s transformation;
+
     i32 layer;
 
-    v2f uvs;
     v4f color;
 } draw_call_s;
 
@@ -44,7 +45,8 @@ typedef struct {
 
 void init_renderer(renderer_s* renderer, arena_s* arena);
 
-draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f position, i32 layer, v2f uvs, v4f colors);
+draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f position, i32 layer, v4f colors);
+draw_call_s* push_draw_call_transformed(draw_group_s* group, texture_s* texture, v2f position, f32 rotation, v2f scale, i32 layer, v4f color);
 draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* camera);
 
 void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera);

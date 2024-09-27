@@ -27,7 +27,7 @@ shader_s create_shader(
         char* filename,
         char* vertex_src, char* fragment_src,
         void (*bind_attributes) (void*),
-        void (*load_uniforms) (void*)) {
+        void (*load_uniforms) (void*, void*)) {
     shader_s shader;
 
     shader.name = filename;
@@ -79,7 +79,7 @@ shader_s load_and_create_shader(
         char* name,
         char* vertex_path, char* fragment_path,
         void (*bind_attributes) (void*),
-        void (*load_uniforms) (void*),
+        void (*load_uniforms) (void*, void*),
         arena_s* arena) {
     usize vertex_length, fragment_length;
     char* vertex_src = platform_load_text_from_file(vertex_path, &vertex_length, arena);

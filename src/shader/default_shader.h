@@ -8,6 +8,7 @@ typedef struct {
 
     uniform_t u_layer;
     uniform_t u_projection_view;
+    uniform_t u_transform;
     uniform_t u_color;
 } default_shader_s;
 

@@ -9,7 +9,7 @@ void init_renderer(renderer_s* renderer, arena_s* arena) {
     };
 }
 
-draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f position, i32 layer, v2f uvs, v4f color) {
+draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f position, i32 layer, v4f color) {
     if(group->num_calls + 1 > MAX_DRAW_CALLS) {
         LOG_ERR("reached max draw calls in group\n");
         return NULL;
@@ -20,8 +20,28 @@ draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f positio
 
     call->texture = texture;
     call->position = position;
+    call->transformation = glms_translate(MAT4_IDENTITY, V3F(position.x, position.y, 0.0f));
     call->layer = layer;
-    call->uvs = uvs;
+    call->color = color;
+
+    return call;
+}
+
+draw_call_s* push_draw_call_transformed(draw_group_s* group, texture_s* texture, v2f position, f32 rotation, v2f scale, i32 layer, v4f color) {
+    if(group->num_calls + 1 > MAX_DRAW_CALLS) {
+        LOG_ERR("reached max draw calls in group\n");
+        return NULL;
+    }
+
+    group->num_calls ++;
+    draw_call_s* call = arena_push(&group->draw_calls, sizeof(draw_call_s));
+
+    call->texture = texture;
+    call->position = position;
+    call->transformation = glms_translate(MAT4_IDENTITY, V3F(position.x, position.y, 0.0f));
+    call->transformation = glms_rotate(call->transformation, rotation, V3F(0.0f, 0.0f, 1.0f));
+    call->transformation = glms_scale(call->transformation, V3F(scale.x, scale.y, 1.0f));
+    call->layer = layer;
     call->color = color;
 
     return call;
@@ -58,7 +78,7 @@ void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera) {
         glBindTexture(GL_TEXTURE_2D, call->texture->id);
     }
 
-    shader->load_uniforms(call);
+    shader->load_uniforms(call, NULL);
 
     glBindVertexArray(game_state->unit_square.vao);
     mesh_enable_attributes(&game_state->unit_square);

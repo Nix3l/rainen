@@ -5,24 +5,19 @@
 #include "memory/memory.h"
 
 typedef struct {
-    // format & dimensions
-    i32 width;
-    i32 height;
+    i32 width, height;
 
-    GLenum internal_format;
-    GLenum data_format;
+    GLenum internal_format, data_format;
+
+    GLenum min_filter, mag_filter;
 
     GLuint id;
 } texture_s;
 
 typedef struct {
-    // format & dimensions
-    i32 width;
-    i32 height;
-    i32 depth;
+    i32 width, height, depth;
 
-    GLenum internal_format;
-    GLenum data_format;
+    GLenum internal_format, data_format;
 
     GLuint id;
 } texture_3d_s;

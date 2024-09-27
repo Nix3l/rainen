@@ -1,7 +1,5 @@
 #define STB_IMAGE_IMPLEMENTATION
 
-// TODO(nix3l): arena vectors
-
 #include "game.h"
 #include "util/log.h"
 #include "util/math.h"
