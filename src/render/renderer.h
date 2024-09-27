@@ -49,7 +49,8 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
 void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera);
 void render_draw_group(draw_group_s* group);
-
 void render_draw_groups(renderer_s* renderer);
+
+void flush_draw_group(draw_group_s* draw_group);
 
 #endif

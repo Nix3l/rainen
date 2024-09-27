@@ -138,14 +138,14 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
 
     // RENDERER
     game_state->camera = (camera_s) {
-        .position   = V3F(0.0f, 0.0f, 0.0f),
+        .position   = V3F(0.0f, 0.0f, 5.0f),
         .rotation   = V3F(0.0f, 0.0f, 0.0f),
         
         .fov        = 70.0f,
         .near_plane = 0.001f,
         .far_plane  = 2048.0f,
 
-        .speed      = 200.0f,
+        .speed      = 8.0f,
         .sens       = 7500.0f
     };
 
@@ -163,7 +163,6 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
     fbo_create_depth_texture(&game_state->screen_buffer);
 
     game_state->default_group = push_draw_group(&game_state->renderer, &game_state->default_shader.program, &game_state->camera);
-    push_draw_call(game_state->default_group, NULL, V2F_ZERO(), 0, V2F_ZERO(), V4F_ONE());
 
     // GUI
     init_imgui();
@@ -188,7 +187,7 @@ int main(void) {
         // UPDATE
         update_frame_stats();
 
-        // update_camera(&game_state->camera);
+        update_camera(&game_state->camera);
 
         // RENDER
         fbo_clear(&game_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

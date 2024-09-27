@@ -38,7 +38,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
     group->framebuffer = &game_state->screen_buffer;
 
-    group->enable_depth_test = false;
+    group->enable_depth_test = true;
     group->depth_mask = GL_TRUE;
     group->depth_func = GL_LESS;
 
@@ -94,8 +94,8 @@ void render_draw_group(draw_group_s* group) {
     shader_start(group->shader);
 
     draw_call_s* calls = group->draw_calls.data;
-    for(u32 j = 0; j < group->num_calls; j ++) {
-        draw_call_s call = calls[j];
+    for(u32 i = 0; i < group->num_calls; i ++) {
+        draw_call_s call = calls[i];
         render_draw_call(&call, group->shader, group->camera);
     }
 
@@ -115,7 +115,15 @@ void render_draw_groups(renderer_s* renderer) {
     draw_group_s* groups = renderer->groups->data;
 
     for(u32 i = 0; i < renderer->num_groups; i ++) {
-        draw_group_s group = groups[i];
-        render_draw_group(&group);
+        draw_group_s* group = &groups[i];
+        if(group->num_calls == 0) continue;
+
+        render_draw_group(group);
+        flush_draw_group(group);
     }
+}
+
+void flush_draw_group(draw_group_s* draw_group) {
+    arena_clear(&draw_group->draw_calls);
+    draw_group->num_calls = 0;
 }
