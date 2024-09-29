@@ -1,5 +1,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 
+// TODO(nix3l): fix orthographic projection
+
 #include "game.h"
 #include "util/log.h"
 #include "util/math.h"
@@ -136,15 +138,17 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
 
     // RENDERER
     game_state->camera = (camera_s) {
-        .position   = V3F(0.0f, 0.0f, 5.0f),
-        .rotation   = V3F(0.0f, 0.0f, 0.0f),
+        .position     = V3F(0.0f, 0.0f, 5.0f),
+        .rotation     = V3F(0.0f, 0.0f, 0.0f),
         
-        .fov        = 70.0f,
-        .near_plane = 0.001f,
-        .far_plane  = 2048.0f,
+        .near_plane   = 0.001f,
+        .far_plane    = 2048.0f,
+        .fov          = 70.0f,
+        .ortho_width  = 1600.0f,
+        .ortho_height = 900.0f,
 
-        .speed      = 8.0f,
-        .sens       = 7500.0f
+        .speed        = 8.0f,
+        .sens         = 7500.0f
     };
 
     game_state->unit_square = primitive_unit_square();
@@ -189,6 +193,8 @@ int main(void) {
 
         // RENDER
         fbo_clear(&game_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        push_draw_call(game_state->default_group, NULL, V2F_ZERO(), 0, V4F_ONE());
 
         render_draw_groups(&game_state->renderer);
 

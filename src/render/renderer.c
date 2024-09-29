@@ -4,7 +4,7 @@
 
 void init_renderer(renderer_s* renderer, arena_s* arena) {
     game_state->renderer = (renderer_s) {
-        .num_groups= 0,
+        .num_groups = 0,
         .groups = arena
     };
 }
@@ -65,6 +65,8 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
     group->enable_culling = false;
     group->cull_face = GL_BACK;
 
+    group->projection_type = ORTHOGRAPHIC_PROJECTION;
+
     group->num_calls = 0;
     usize call_buffer_size = MAX_DRAW_CALLS * sizeof(draw_call_s);
     group->draw_calls = arena_create_in_block(arena_push(&game_state->draw_calls_arena, call_buffer_size), call_buffer_size);
@@ -91,7 +93,11 @@ void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera) {
 
 void render_draw_group(draw_group_s* group) {
     // update camera matrices
-    group->camera->projection = camera_projection(group->camera);
+    if(group->projection_type == PERSPECTIVE_PROJECTION)
+        group->camera->projection = camera_perspective_projection(group->camera);
+    else if(group->projection_type == ORTHOGRAPHIC_PROJECTION)
+        group->camera->projection = camera_orthographic_projection(group->camera);
+
     group->camera->view = camera_view(group->camera);
     group->camera->projection_view = glms_mul(group->camera->projection, group->camera->view);
 

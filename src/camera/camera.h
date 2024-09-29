@@ -3,13 +3,19 @@
 
 #include "base.h"
 
+typedef enum {
+    PERSPECTIVE_PROJECTION = 1,
+    ORTHOGRAPHIC_PROJECTION = 2,
+} projection_e;
+
 typedef struct {
     v3f position;
     v3f rotation;
-
-    f32 fov;
-    f32 near_plane;
-    f32 far_plane;
+    
+    // PROJECTION
+    f32 near_plane, far_plane;
+    f32 fov; // PERSPECTIVE
+    f32 ortho_width, ortho_height; // ORTHOGRAPHIC
 
     mat4s projection;
     mat4s view;
@@ -22,7 +28,8 @@ typedef struct {
 
 void update_camera(camera_s* camera);
 
-mat4s camera_projection(camera_s* camera);
+mat4s camera_perspective_projection(camera_s* camera);
+mat4s camera_orthographic_projection(camera_s* camera);
 mat4s camera_view(camera_s* camera);
 mat4s camera_projection_view(camera_s* camera);
 

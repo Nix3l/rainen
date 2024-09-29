@@ -33,9 +33,13 @@ void update_camera(camera_s* camera) {
     camera->rotation.y += mouse_move.x * camera->sens * delta_time() / game_state->time_scale;
 }
 
-mat4s camera_projection(camera_s* camera) {
+mat4s camera_perspective_projection(camera_s* camera) {
     f32 aspect_ratio = (f32) game_state->window.width / (f32) game_state->window.height;
     return glms_perspective(camera->fov, aspect_ratio, camera->near_plane, camera->far_plane);
+}
+
+mat4s camera_orthographic_projection(camera_s* camera) {
+    return glms_ortho(0.0f, camera->ortho_width, 0.0f, camera->ortho_height, camera->near_plane, camera->far_plane);
 }
 
 mat4s camera_view(camera_s* camera) {
@@ -53,5 +57,5 @@ mat4s camera_view(camera_s* camera) {
 }
 
 mat4s camera_projection_view(camera_s* camera) {
-    return glms_mat4_mul(camera_projection(camera), camera_view(camera));
+    return glms_mat4_mul(camera_perspective_projection(camera), camera_view(camera));
 }

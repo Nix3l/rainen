@@ -34,6 +34,8 @@ typedef struct {
     bool enable_culling;
     GLenum cull_face;
 
+    projection_e projection_type;
+
     u32 num_calls;
     arena_s draw_calls;
 } draw_group_s;
