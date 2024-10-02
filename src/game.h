@@ -16,6 +16,9 @@
 #include "shader/default_shader.h"
 #include "entity/entity.h"
 
+#define ENGINE_VERSION_MAJOR 0
+#define ENGINE_VERSION_MINOR 0
+
 typedef struct {
     usize permenant_storage_size;
     void* permenant_storage; // must be cleared to zero on startup

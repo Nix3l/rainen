@@ -1,5 +1,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 
+// ENGINE FEATURES ------------------------
+// TODO(nix3l): rework textures
+// TODO(nix3l): meshes to match textures
+// TODO(nix3l): pixel perfect rendering
+// => LOW PRIORITY ------------------------
+// TODO(nix3l): time profiling
+
+// FIXES ----------------------------------
 // TODO(nix3l): fix orthographic projection
 
 #include "game.h"
