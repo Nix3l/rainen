@@ -166,6 +166,9 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
 
     game_state->default_group = push_draw_group(&game_state->renderer, &game_state->default_shader.program, &game_state->camera);
 
+    // ENTITES
+    init_entity_handler(&game_state->entity_handler);
+
     // GUI
     init_imgui();
     game_state->time_scale = 1.0f;
@@ -185,6 +188,18 @@ static void terminate_game() {
 int main(void) {
     init_game_state(GIGABYTES(1), MEGABYTES(16));
 
+    entity_s* entity = create_entity(&game_state->entity_handler);
+    entity->position = V2F_ZERO();
+    entity->sprite = (sprite_s) {
+        .texture = NULL,
+
+        .offset = V2F_ZERO(),
+        .rotation = 0.0f,
+        .scale = V2F_ONE(),
+
+        .color = V4F_ONE(),
+    };
+
     while(!glfwWindowShouldClose(game_state->window.glfw_window)) {
         // UPDATE
         update_frame_stats();
@@ -194,7 +209,7 @@ int main(void) {
         // RENDER
         fbo_clear(&game_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        push_draw_call(game_state->default_group, NULL, V2F_ZERO(), 0, V4F_ONE());
+        render_entity(entity);
 
         render_draw_groups(&game_state->renderer);
 

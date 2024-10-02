@@ -65,7 +65,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
     group->enable_culling = false;
     group->cull_face = GL_BACK;
 
-    group->projection_type = ORTHOGRAPHIC_PROJECTION;
+    group->projection_type = PERSPECTIVE_PROJECTION;
 
     group->num_calls = 0;
     usize call_buffer_size = MAX_DRAW_CALLS * sizeof(draw_call_s);

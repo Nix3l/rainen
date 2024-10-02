@@ -14,6 +14,7 @@
 #include "camera/camera.h"
 #include "render/renderer.h"
 #include "shader/default_shader.h"
+#include "entity/entity.h"
 
 typedef struct {
     usize permenant_storage_size;
@@ -57,6 +58,9 @@ typedef struct {
     fbo_s screen_buffer;
 
     draw_group_s* default_group;
+
+    // ENTITIES
+    entity_handler_s entity_handler;
 
     // IMGUI
     struct ImGuiContext* imgui_ctx;
