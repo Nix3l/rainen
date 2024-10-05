@@ -4,32 +4,46 @@
 #include "base.h"
 #include "memory/memory.h"
 
+typedef enum {
+    TEXTURE_16b = 1,
+    TEXTURE_32b = 2,
+} texture_depth_e;
+
+typedef enum {
+    TEXTURE_R     = GL_RED,
+    TEXTURE_RG    = GL_RG,
+    TEXTURE_RGB   = GL_RGB,
+    TEXTURE_RGBA  = GL_RGBA,
+    TEXTURE_DEPTH = GL_DEPTH_COMPONENT,
+} texture_data_e;
+
+typedef enum {
+    TEXTURE_NO_WRAP         = GL_CLAMP_TO_EDGE,
+    TEXTURE_REPEAT          = GL_REPEAT,
+    TEXTURE_MIRRORED_REPEAT = GL_MIRRORED_REPEAT,
+} texture_wrap_e;
+
+typedef enum {
+    TEXTURE_NEAREST = GL_NEAREST,
+    TEXTURE_LINEAR  = GL_LINEAR,
+} texture_filter_e;
+
 typedef struct {
+    GLuint handle;
+
     i32 width, height;
 
-    GLenum internal_format, data_format;
-
-    GLenum min_filter, mag_filter;
-
-    GLuint id;
+    i32 num_channels;
+    texture_data_e data_type;
+    texture_depth_e data_depth;
+    texture_filter_e min_filter, mag_filter;
+    texture_wrap_e wrap_mode;
 } texture_s;
 
-typedef struct {
-    i32 width, height, depth;
-
-    GLenum internal_format, data_format;
-
-    GLuint id;
-} texture_3d_s;
-
-// TODO(nix3l): create_texture_format and create_cubemap_format
-texture_s create_texture(char* filename, arena_s* arena);
-texture_3d_s create_texture_3d(i32 width, i32 height, i32 depth, void* data);
-texture_3d_s create_texture_3d_format(i32 width, i32 height, i32 depth, GLenum internal_format, GLenum data_format, void* data);
-// ordered: right, left, top, bottom, front, back
-texture_s create_cubemap(char** filenames, arena_s* arena);
-
+texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth);
+texture_s load_texture(char* filepath, arena_s* arena);
 void destroy_texture(texture_s* texture);
-void destroy_texture_3d(texture_3d_s* texture);
+
+void update_texture_params(texture_s* texture);
 
 #endif

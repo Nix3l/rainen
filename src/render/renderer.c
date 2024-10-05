@@ -2,10 +2,12 @@
 #include "game.h"
 #include "util/log.h"
 
-void init_renderer(renderer_s* renderer, arena_s* arena) {
+void init_renderer(renderer_s* renderer, arena_s* arena, fbo_s* screen) {
     game_state->renderer = (renderer_s) {
         .num_groups = 0,
-        .groups = arena
+        .groups = arena,
+
+        .screen_buffer = screen,
     };
 }
 
@@ -56,7 +58,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
     group->shader = shader;
     group->camera = camera;
 
-    group->framebuffer = &game_state->screen_buffer;
+    group->framebuffer = renderer->screen_buffer;
 
     group->enable_depth_test = true;
     group->depth_mask = GL_TRUE;
@@ -77,7 +79,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera) {
     if(call->texture) {
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, call->texture->id);
+        glBindTexture(GL_TEXTURE_2D, call->texture->handle);
     }
 
     shader->load_uniforms(call, NULL);
@@ -101,8 +103,8 @@ void render_draw_group(draw_group_s* group) {
     group->camera->view = camera_view(group->camera);
     group->camera->projection_view = glms_mul(group->camera->projection, group->camera->view);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, game_state->screen_buffer.id);    
-    glDrawBuffers(game_state->screen_buffer.num_textures, game_state->screen_buffer.attachments);
+    glBindFramebuffer(GL_FRAMEBUFFER, group->framebuffer->handle);    
+    glDrawBuffers(group->framebuffer->num_textures, group->framebuffer->attachments);
 
     if(group->enable_depth_test) {
         glEnable(GL_DEPTH_TEST);

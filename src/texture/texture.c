@@ -45,121 +45,100 @@ static void load_image_stb(char* filepath, GLenum target, texture_s* texture) {
             GL_UNSIGNED_BYTE,
             data);
 
-    if(texture) {
-        texture->width = width;
-        texture->height = width;
-
-        texture->internal_format = internal_format;
-        texture->data_format = format;
-    }
+    texture->width = width;
+    texture->height = width;
+    texture->num_channels = num_channels;
+    texture->data_type = format;
 
     stbi_image_free(data);
 }
 
-texture_s create_texture(char* filename, arena_s* arena) {
+static GLint get_internal_format(texture_s* texture) {
+    switch (texture->data_type) {
+        case TEXTURE_R:
+            if(texture->data_depth == TEXTURE_16b) return GL_R16F;
+            if(texture->data_depth == TEXTURE_32b) return GL_R32F;
+        break;
+        case TEXTURE_RG:
+            if(texture->data_depth == TEXTURE_16b) return GL_RG16F;
+            if(texture->data_depth == TEXTURE_32b) return GL_RG32F;
+        break;
+        case TEXTURE_RGB:
+            if(texture->data_depth == TEXTURE_16b) return GL_RGB16F;
+            if(texture->data_depth == TEXTURE_32b) return GL_RGB32F;
+        break;
+        case TEXTURE_RGBA:
+            if(texture->data_depth == TEXTURE_16b) return GL_RGBA16F;
+            if(texture->data_depth == TEXTURE_32b) return GL_RGBA32F;
+        break;
+        case TEXTURE_DEPTH:
+            if(texture->data_depth == TEXTURE_16b) { LOG_ERR("16 bit depth texture is not supported"); return 0; }
+            if(texture->data_depth == TEXTURE_32b) return GL_DEPTH_COMPONENT32F;
+        break;
+    }
+
+    return 0;
+}
+
+texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth) {
+    texture_s texture;
+
+    glGenTextures(1, &texture.handle);
+    glBindTexture(GL_TEXTURE_2D, texture.handle);
+
+    texture.data_type  = data_type;
+    texture.data_depth = data_depth;
+
+    texture.min_filter = TEXTURE_LINEAR;
+    texture.mag_filter = TEXTURE_LINEAR;
+    
+    texture.wrap_mode  = TEXTURE_NO_WRAP;
+
+    glTexImage2D(
+            texture.handle,
+            0,
+            get_internal_format(&texture),
+            width,
+            height,
+            0,
+            texture.data_type,
+            GL_UNSIGNED_BYTE,
+            NULL);
+
+    update_texture_params(&texture);
+
+    return texture;
+}
+
+texture_s load_texture(char* filename, arena_s* arena) {
     texture_s texture;
     
     char* filepath = platform_get_res_path(filename, arena);
 
-    glGenTextures(1, &texture.id);
-    glBindTexture(GL_TEXTURE_2D, texture.id);
+    glGenTextures(1, &texture.handle);
+    glBindTexture(GL_TEXTURE_2D, texture.handle);
 
     load_image_stb(filepath, GL_TEXTURE_2D, &texture);
 
-    // TODO(nix3l): parameters
+    // for now just assume 16 bit floats in all textures
+    texture.data_depth = TEXTURE_16b;
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    texture.min_filter = GL_LINEAR;
-    texture.mag_filter = GL_LINEAR;
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    return texture;
-}
-
-texture_3d_s create_texture_3d(i32 width, i32 height, i32 depth, void* data) {
-    texture_3d_s texture;
-
-    texture.width  = width;
-    texture.height = height;
-    texture.depth  = depth;
+    texture.min_filter = TEXTURE_LINEAR;
+    texture.mag_filter = TEXTURE_LINEAR;
     
-    texture.internal_format = GL_RGB;
-    texture.data_format = GL_RGB16F;
+    texture.wrap_mode  = TEXTURE_NO_WRAP;
 
-    glGenTextures(1, &texture.id);
-    glBindTexture(GL_TEXTURE_3D, texture.id);
+    update_texture_params(&texture);
 
-    glTexImage3D(
-            GL_TEXTURE_3D,
-            0,
-            texture.internal_format,
-            width,
-            height,
-            depth,
-            0,
-            texture.data_format,
-            GL_UNSIGNED_BYTE,
-            data);
-
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glBindTexture(GL_TEXTURE_3D, 0);
     return texture;
 }
 
-texture_3d_s create_texture_3d_format(i32 width, i32 height, i32 depth, GLenum internal_format, GLenum data_format, void* data) {
-    texture_3d_s texture;
-
-    texture.width  = width;
-    texture.height = height;
-    texture.depth  = depth;
-    
-    texture.internal_format = internal_format;
-    texture.data_format     = data_format;
-
-    glGenTextures(1, &texture.id);
-    glBindTexture(GL_TEXTURE_3D, texture.id);
-
-    glTexImage3D(
-            GL_TEXTURE_3D,
-            0,
-            texture.internal_format,
-            width,
-            height,
-            depth,
-            0,
-            texture.data_format,
-            GL_UNSIGNED_BYTE,
-            data);
-
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    /*
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    */
-
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-
-    glBindTexture(GL_TEXTURE_3D, 0);
-    return texture;
-}
-
+/*
 texture_s create_cubemap(char** filenames, arena_s* arena) {
     texture_s texture;
 
-    glGenTextures(1, &texture.id);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, texture.id);
+    glGenTextures(1, &texture.handle);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texture.handle);
 
     for(usize i = 0; i < 6; i ++) {
         stbi_set_flip_vertically_on_load(false);
@@ -190,18 +169,27 @@ texture_s create_cubemap(char** filenames, arena_s* arena) {
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     // NOTE(nix3l): these are order to prevent seams
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     return texture;
 }
+*/
 
 void destroy_texture(texture_s* texture) {
-    glDeleteTextures(1, &texture->id);
+    glDeleteTextures(1, &texture->handle);
 }
 
-void destroy_texture_3d(texture_3d_s* texture) {
-    glDeleteTextures(1, &texture->id);
+void update_texture_params(texture_s* texture) {
+    glBindTexture(GL_TEXTURE_2D, texture->handle);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, texture->min_filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, texture->mag_filter);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, texture->wrap_mode);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texture->wrap_mode);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
 }

@@ -4,17 +4,17 @@
 #include "util/log.h"
 #include "memory/memory.h"
 
-fbo_s create_fbo(u32 width, u32 height, usize num_textures, arena_s* arena) {
+fbo_s create_fbo(u32 width, u32 height, u32 num_textures, arena_s* arena) {
     fbo_s fbo;
 
-    glGenFramebuffers(1, &fbo.id);
+    glGenFramebuffers(1, &fbo.handle);
 
     fbo.width = width;
     fbo.height = height;
     fbo.num_textures = num_textures;
 
-    fbo.textures = arena_push(arena, num_textures * sizeof(fbo_texture_s));
-    MEM_ZERO(fbo.textures, num_textures * sizeof(fbo_texture_s));
+    fbo.textures = arena_push(arena, num_textures * sizeof(texture_s));
+    MEM_ZERO(fbo.textures, num_textures * sizeof(texture_s));
 
     fbo.attachments = arena_push(arena, num_textures * sizeof(GLenum));
 
@@ -23,17 +23,17 @@ fbo_s create_fbo(u32 width, u32 height, usize num_textures, arena_s* arena) {
 
 void destroy_fbo(fbo_s* fbo) {
     for(usize i = 0; i < fbo->num_textures; i ++)
-        glDeleteTextures(1, &fbo->textures[i].id);
+        glDeleteTextures(1, &fbo->textures[i].handle);
 
-    glDeleteFramebuffers(1, &fbo->id);
+    glDeleteFramebuffers(1, &fbo->handle);
 }
 
-void fbo_create_texture(fbo_s* fbo, GLenum attachment_type, GLint internal_format, GLenum format) {
-    fbo_texture_s* texture = NULL;
+void fbo_create_texture(fbo_s* fbo, GLenum attachment_type, texture_data_e data_type, texture_depth_e data_depth) {
+    texture_s* texture = NULL;
     
     // grab the first texture that has not been initialised
     for(usize i = 0; i < fbo->num_textures; i ++) {
-        if(fbo->textures[i].id == 0) {
+        if(fbo->textures[i].handle == 0) {
             texture = &fbo->textures[i];
 
             // not the biggest fan of putting this here
@@ -44,59 +44,40 @@ void fbo_create_texture(fbo_s* fbo, GLenum attachment_type, GLint internal_forma
     }
 
     if(!texture) {
-        LOG_ERR("not enough space in fbo for another texture! num_textures: [%lu]\n", fbo->num_textures);
+        LOG_ERR("not enough space in fbo for another texture! num_textures: [%u]\n", fbo->num_textures);
         return;
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo->id);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
 
-    glGenTextures(1, &texture->id);
-    texture->attachment = attachment_type;
-    texture->internal_format = internal_format;
-    texture->format = format;
+    *texture = create_texture(fbo->width, fbo->height, data_type, data_depth);
 
-    glBindTexture(GL_TEXTURE_2D, texture->id);
+    glBindTexture(GL_TEXTURE_2D, texture->handle);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, internal_format, fbo->width, fbo->height, 0, format, GL_FLOAT, NULL);
-
-    // NOTE(nix3l): for now hard code these to GL_NEAREST
-    // in the future (if i reuse this code) i would want to
-    // have a way to set the texture parameters through a function
-    // to give even more control over them
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment_type, GL_TEXTURE_2D, texture->id, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment_type, GL_TEXTURE_2D, texture->handle, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void fbo_create_depth_texture(fbo_s* fbo) {
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo->id);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
 
-    glGenTextures(1, &fbo->depth.id);
-    fbo->depth.attachment = GL_DEPTH_ATTACHMENT;
-    fbo->depth.internal_format = GL_DEPTH_COMPONENT32F;
-    fbo->depth.format = GL_DEPTH_COMPONENT;
+    fbo->depth = create_texture(fbo->width, fbo->height, TEXTURE_DEPTH, TEXTURE_32b);
 
-    glBindTexture(GL_TEXTURE_2D, fbo->depth.id);
+    glBindTexture(GL_TEXTURE_2D, fbo->depth.handle);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, fbo->width, fbo->height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,   GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,   GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
     glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE,   GL_ALPHA);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, fbo->depth.id, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, fbo->depth.handle, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void fbo_clear(fbo_s* fbo, v3f col, GLbitfield clear_bit) {
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo->id);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
     glClearColor(col.r, col.g, col.b, 1.0);
     glClear(clear_bit);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -104,7 +85,7 @@ void fbo_clear(fbo_s* fbo, v3f col, GLbitfield clear_bit) {
 
 void fbo_copy_texture_to_screen(fbo_s* fbo, GLenum src_att) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo->id);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo->handle);
 
     glReadBuffer(src_att);
 
@@ -117,8 +98,8 @@ void fbo_copy_texture_to_screen(fbo_s* fbo, GLenum src_att) {
 }
 
 void fbo_copy_texture(fbo_s* src, fbo_s* dest, GLenum src_att) {
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest->id);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, src->id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest->handle);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src->handle);
 
     glReadBuffer(src_att);
 
@@ -131,8 +112,8 @@ void fbo_copy_texture(fbo_s* src, fbo_s* dest, GLenum src_att) {
 }
 
 void fbo_copy_depth_texture(fbo_s* src, fbo_s* dest) {
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest->id);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, src->id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest->handle);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src->handle);
 
     glReadBuffer(GL_DEPTH_ATTACHMENT);
 

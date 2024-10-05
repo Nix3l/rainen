@@ -3,8 +3,8 @@
 // ENGINE FEATURES ------------------------
 // TODO(nix3l): rework textures
 // TODO(nix3l): meshes to match textures
-// TODO(nix3l): pixel perfect rendering
 // => LOW PRIORITY ------------------------
+// TODO(nix3l): pixel perfect rendering
 // TODO(nix3l): time profiling
 
 // FIXES ----------------------------------
@@ -161,7 +161,7 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
 
     game_state->unit_square = primitive_unit_square();
 
-    init_renderer(&game_state->renderer, &game_state->draw_groups_arena);
+    init_renderer(&game_state->renderer, &game_state->draw_groups_arena, &game_state->screen_buffer);
 
     game_state->screen_buffer = create_fbo(
             game_state->window.width,

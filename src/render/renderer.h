@@ -43,9 +43,11 @@ typedef struct {
 typedef struct {
     u32 num_groups;
     arena_s* groups;
+
+    fbo_s* screen_buffer;
 } renderer_s;
 
-void init_renderer(renderer_s* renderer, arena_s* arena);
+void init_renderer(renderer_s* renderer, arena_s* arena, fbo_s* screen);
 
 draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f position, i32 layer, v4f colors);
 draw_call_s* push_draw_call_transformed(draw_group_s* group, texture_s* texture, v2f position, f32 rotation, v2f scale, i32 layer, v4f color);
