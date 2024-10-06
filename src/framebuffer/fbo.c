@@ -63,7 +63,11 @@ void fbo_create_texture(fbo_s* fbo, GLenum attachment_type, texture_data_e data_
 void fbo_create_depth_texture(fbo_s* fbo) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
 
-    fbo->depth = create_texture(fbo->width, fbo->height, TEXTURE_DEPTH, TEXTURE_32b);
+    fbo->depth = create_texture_storage_type(fbo->width, fbo->height, TEXTURE_DEPTH, TEXTURE_32b, TEXTURE_FLOAT);
+
+    fbo->depth.min_filter = TEXTURE_NEAREST;
+    fbo->depth.mag_filter = TEXTURE_NEAREST;
+    update_texture_params(&fbo->depth);
 
     glBindTexture(GL_TEXTURE_2D, fbo->depth.handle);
 
@@ -78,7 +82,7 @@ void fbo_create_depth_texture(fbo_s* fbo) {
 
 void fbo_clear(fbo_s* fbo, v3f col, GLbitfield clear_bit) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-    glClearColor(col.r, col.g, col.b, 1.0);
+    glClearColor(col.r, col.g, col.b, 1.0f);
     glClear(clear_bit);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

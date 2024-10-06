@@ -1,7 +1,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): rework textures
 // TODO(nix3l): meshes to match textures
 // => LOW PRIORITY ------------------------
 // TODO(nix3l): pixel perfect rendering
@@ -169,7 +168,7 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
             1,
             &game_state->fbo_arena);
 
-    fbo_create_texture(&game_state->screen_buffer, GL_COLOR_ATTACHMENT0, GL_RGB16F, GL_RGB);
+    fbo_create_texture(&game_state->screen_buffer, GL_COLOR_ATTACHMENT0, TEXTURE_RGB, TEXTURE_16b);
     fbo_create_depth_texture(&game_state->screen_buffer);
 
     game_state->default_group = push_draw_group(&game_state->renderer, &game_state->default_shader.program, &game_state->camera);

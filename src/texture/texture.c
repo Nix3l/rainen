@@ -80,7 +80,7 @@ static GLint get_internal_format(texture_s* texture) {
     return 0;
 }
 
-texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth) {
+texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, texture_pixel_storage_e pixel_storage) {
     texture_s texture;
 
     glGenTextures(1, &texture.handle);
@@ -95,19 +95,23 @@ texture_s create_texture(i32 width, i32 height, texture_data_e data_type, textur
     texture.wrap_mode  = TEXTURE_NO_WRAP;
 
     glTexImage2D(
-            texture.handle,
+            GL_TEXTURE_2D,
             0,
             get_internal_format(&texture),
             width,
             height,
             0,
             texture.data_type,
-            GL_UNSIGNED_BYTE,
+            pixel_storage,
             NULL);
 
     update_texture_params(&texture);
 
     return texture;
+}
+
+texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth) {
+    return create_texture_storage_type(width, height, data_type, data_depth, TEXTURE_UNSIGNED_BYTE);
 }
 
 texture_s load_texture(char* filename, arena_s* arena) {
