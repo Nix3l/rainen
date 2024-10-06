@@ -49,7 +49,7 @@ typedef struct {
 
 texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, texture_pixel_storage_e pixel_storage);
 texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth);
-texture_s load_texture(char* filepath, arena_s* arena);
+texture_s load_texture(char* filename);
 void destroy_texture(texture_s* texture);
 
 void update_texture_params(texture_s* texture);

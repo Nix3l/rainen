@@ -39,7 +39,11 @@ mat4s camera_perspective_projection(camera_s* camera) {
 }
 
 mat4s camera_orthographic_projection(camera_s* camera) {
-    return glms_ortho(0.0f, camera->ortho_width, 0.0f, camera->ortho_height, camera->near_plane, camera->far_plane);
+    return glms_ortho(
+            -camera->ortho_width,  camera->ortho_width,
+            -camera->ortho_height, camera->ortho_height,
+             camera->near_plane,   camera->far_plane
+        );
 }
 
 mat4s camera_view(camera_s* camera) {

@@ -1,13 +1,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): meshes to match textures
+// TODO(nix3l): 
 // => LOW PRIORITY ------------------------
-// TODO(nix3l): pixel perfect rendering
 // TODO(nix3l): time profiling
 
 // FIXES ----------------------------------
-// TODO(nix3l): fix orthographic projection
+// TODO(nix3l): fix texture loading
 
 #include "game.h"
 #include "util/log.h"
@@ -158,8 +157,6 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
         .sens         = 7500.0f
     };
 
-    game_state->unit_square = primitive_unit_square();
-
     init_renderer(&game_state->renderer, &game_state->draw_groups_arena, &game_state->screen_buffer);
 
     game_state->screen_buffer = create_fbo(
@@ -195,16 +192,18 @@ static void terminate_game() {
 int main(void) {
     init_game_state(GIGABYTES(1), MEGABYTES(16));
 
+    texture_s texture = load_texture("res/mollusk.png");
+
     entity_s* entity = create_entity(&game_state->entity_handler);
     entity->position = V2F_ZERO();
     entity->sprite = (sprite_s) {
-        .texture = NULL,
+        .texture = &texture,
 
         .offset = V2F_ZERO(),
         .rotation = 0.0f,
         .scale = V2F_ONE(),
 
-        .color = V4F_ONE(),
+        .color = V4F_ZERO(),
     };
 
     while(!glfwWindowShouldClose(game_state->window.glfw_window)) {

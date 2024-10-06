@@ -7,6 +7,7 @@
 #include "texture/texture.h"
 #include "camera/camera.h"
 #include "framebuffer/fbo.h"
+#include "mesh/mesh.h"
 
 #define MAX_DRAW_GROUPS 32
 #define MAX_DRAW_CALLS  4096
@@ -28,6 +29,8 @@ typedef struct {
 
     fbo_s* framebuffer;
 
+    mesh_s* mesh;
+
     bool enable_depth_test;
     GLenum depth_mask, depth_func;
 
@@ -45,6 +48,7 @@ typedef struct {
     arena_s* groups;
 
     fbo_s* screen_buffer;
+    mesh_s unit_mesh;
 } renderer_s;
 
 void init_renderer(renderer_s* renderer, arena_s* arena, fbo_s* screen);
@@ -53,7 +57,7 @@ draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f positio
 draw_call_s* push_draw_call_transformed(draw_group_s* group, texture_s* texture, v2f position, f32 rotation, v2f scale, i32 layer, v4f color);
 draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* camera);
 
-void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera);
+void render_draw_call(draw_call_s* call, shader_s* shader, mesh_s* mesh, camera_s* camera);
 void render_draw_group(draw_group_s* group);
 void render_draw_groups(renderer_s* renderer);
 

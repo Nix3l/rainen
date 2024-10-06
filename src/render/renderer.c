@@ -3,11 +3,12 @@
 #include "util/log.h"
 
 void init_renderer(renderer_s* renderer, arena_s* arena, fbo_s* screen) {
-    game_state->renderer = (renderer_s) {
+    *renderer = (renderer_s) {
         .num_groups = 0,
         .groups = arena,
 
         .screen_buffer = screen,
+        .unit_mesh = primitive_unit_square(),
     };
 }
 
@@ -60,6 +61,8 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
     group->framebuffer = renderer->screen_buffer;
 
+    group->mesh = &renderer->unit_mesh;
+
     group->enable_depth_test = true;
     group->depth_mask = GL_TRUE;
     group->depth_func = GL_LESS;
@@ -67,7 +70,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
     group->enable_culling = false;
     group->cull_face = GL_BACK;
 
-    group->projection_type = PERSPECTIVE_PROJECTION;
+    group->projection_type = ORTHOGRAPHIC_PROJECTION;
 
     group->num_calls = 0;
     usize call_buffer_size = MAX_DRAW_CALLS * sizeof(draw_call_s);
@@ -76,7 +79,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
     return group;
 }
 
-void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera) {
+void render_draw_call(draw_call_s* call, shader_s* shader, mesh_s* mesh, camera_s* camera) {
     if(call->texture) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, call->texture->handle);
@@ -84,12 +87,12 @@ void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera) {
 
     shader->load_uniforms(call, NULL);
 
-    glBindVertexArray(game_state->unit_square.vao);
-    mesh_enable_attributes(&game_state->unit_square);
+    glBindVertexArray(mesh->vao);
+    mesh_enable_attributes(mesh);
 
-    glDrawElements(GL_TRIANGLES, game_state->unit_square.index_count, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, 0);
 
-    mesh_disable_attributes(&game_state->unit_square);
+    mesh_disable_attributes(mesh);
     glBindVertexArray(0);
 }
 
@@ -124,7 +127,7 @@ void render_draw_group(draw_group_s* group) {
     draw_call_s* calls = group->draw_calls.data;
     for(u32 i = 0; i < group->num_calls; i ++) {
         draw_call_s call = calls[i];
-        render_draw_call(&call, group->shader, group->camera);
+        render_draw_call(&call, group->shader, group->mesh, group->camera);
     }
 
     // reset state

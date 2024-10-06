@@ -57,7 +57,6 @@ typedef struct {
     camera_s camera;
     renderer_s renderer;
 
-    mesh_s unit_square;
     fbo_s screen_buffer;
 
     draw_group_s* default_group;

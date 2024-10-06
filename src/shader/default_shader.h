@@ -7,6 +7,7 @@ typedef struct {
     shader_s program;
 
     uniform_t u_layer;
+    uniform_t u_size;
     uniform_t u_projection_view;
     uniform_t u_transform;
     uniform_t u_tex;

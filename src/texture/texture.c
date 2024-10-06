@@ -114,10 +114,10 @@ texture_s create_texture(i32 width, i32 height, texture_data_e data_type, textur
     return create_texture_storage_type(width, height, data_type, data_depth, TEXTURE_UNSIGNED_BYTE);
 }
 
-texture_s load_texture(char* filename, arena_s* arena) {
+texture_s load_texture(char* filename) {
     texture_s texture;
     
-    char* filepath = platform_get_res_path(filename, arena);
+    char* filepath = filename;
 
     glGenTextures(1, &texture.handle);
     glBindTexture(GL_TEXTURE_2D, texture.handle);
