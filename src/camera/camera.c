@@ -9,6 +9,7 @@ void update_camera(camera_s* camera) {
             window_set_cursor_visibility(&game_state->window, !game_state->window.cursor_hidden);
     if(!game_state->window.cursor_hidden) return;
 
+    /*
     // move the camera
     v3f movement = V3F(
             is_key_down(GLFW_KEY_D) - is_key_down(GLFW_KEY_A),
@@ -31,6 +32,15 @@ void update_camera(camera_s* camera) {
     v2f mouse_move = get_mouse_move();
     camera->rotation.x += mouse_move.y * camera->sens * delta_time() / game_state->time_scale;
     camera->rotation.y += mouse_move.x * camera->sens * delta_time() / game_state->time_scale;
+    */
+
+    v3f movement = V3F(
+            is_key_down(GLFW_KEY_D) - is_key_down(GLFW_KEY_A),
+            is_key_down(GLFW_KEY_W) - is_key_down(GLFW_KEY_S),
+            0.0f
+        );
+
+    camera->position = glms_vec3_add(camera->position, glms_vec3_scale(movement, camera->speed * delta_time()));
 }
 
 mat4s camera_perspective_projection(camera_s* camera) {

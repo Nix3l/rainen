@@ -1,12 +1,18 @@
 #define STB_IMAGE_IMPLEMENTATION
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): 
+// TODO(nix3l): decide on size of units used in game
+// TODO(nix3l): decide the scene layout and serialisation method
 // => LOW PRIORITY ------------------------
 // TODO(nix3l): time profiling
+// TODO(nix3l): font rendering
+// TODO(nix3l): GUI system
+// TODO(nix3l): scene editor
 
 // FIXES ----------------------------------
 // TODO(nix3l): fix texture loading
+// => LOW PRIORITY ------------------------
+// TODO(nix3l): figure out whatever is happening with the uvs when the camera rotates
 
 #include "game.h"
 #include "util/log.h"
