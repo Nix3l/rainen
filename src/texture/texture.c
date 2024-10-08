@@ -3,6 +3,7 @@
 #include "platform/platform.h"
 
 static void load_image_stb(char* filepath, GLenum target, texture_s* texture) {
+    stbi_set_flip_vertically_on_load(true);
     i32 width, height, num_channels;
     // TODO(nix3l): make this use stbi_load_from_memory so we actually make use of the permenant data 
     unsigned char* data = stbi_load(filepath, &width, &height, &num_channels, 0);
@@ -51,6 +52,7 @@ static void load_image_stb(char* filepath, GLenum target, texture_s* texture) {
     texture->data_type = format;
 
     stbi_image_free(data);
+    stbi_set_flip_vertically_on_load(false);
 }
 
 static GLint get_internal_format(texture_s* texture) {

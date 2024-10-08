@@ -2,15 +2,15 @@
 
 // ENGINE FEATURES ------------------------
 // TODO(nix3l): decide on size of units used in game
-// TODO(nix3l): decide the scene layout and serialisation method
+// TODO(nix3l): font rendering
 // => LOW PRIORITY ------------------------
 // TODO(nix3l): time profiling
-// TODO(nix3l): font rendering
 // TODO(nix3l): GUI system
+// TODO(nix3l): decide the scene layout and serialisation method
 // TODO(nix3l): scene editor
 
 // FIXES ----------------------------------
-// TODO(nix3l): fix texture loading
+// TODO(nix3l): 
 // => LOW PRIORITY ------------------------
 // TODO(nix3l): figure out whatever is happening with the uvs when the camera rotates
 
