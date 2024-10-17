@@ -1,11 +1,12 @@
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_TRUETYPE_IMPLEMENTATION
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): decide on size of units used in game
 // TODO(nix3l): font rendering
 // => LOW PRIORITY ------------------------
 // TODO(nix3l): time profiling
 // TODO(nix3l): GUI system
+// TODO(nix3l): decide on size of units used in game
 // TODO(nix3l): decide the scene layout and serialisation method
 // TODO(nix3l): scene editor
 
@@ -77,6 +78,8 @@ static void show_settings_window() {
 
         igDragFloat3("position", game_state->camera.position.raw, 0.1f, -MAX_f32, MAX_f32, "%.1f", ImGuiSliderFlags_None);
         igDragFloat3("rotation", game_state->camera.rotation.raw, 0.1f, -MAX_f32, MAX_f32, "%.1f", ImGuiSliderFlags_None);
+
+        igDragFloat("zoom", &game_state->camera.zoom, 0.005f, 0.0f, MAX_f32, "%.3f", ImGuiSliderFlags_None);
         igPopID();
     }
   
@@ -159,8 +162,10 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
         .ortho_width  = 1600.0f,
         .ortho_height = 900.0f,
 
-        .speed        = 8.0f,
-        .sens         = 7500.0f
+        .zoom         = 1.0f,
+
+        .speed        = 128.0f,
+        .sens         = 7500.0f,
     };
 
     init_renderer(&game_state->renderer, &game_state->draw_groups_arena, &game_state->screen_buffer);
@@ -198,12 +203,16 @@ static void terminate_game() {
 int main(void) {
     init_game_state(GIGABYTES(1), MEGABYTES(16));
 
-    texture_s texture = load_texture("res/mollusk.png");
+    texture_s texture = load_texture("res/test.png");
+
+    font_s font;
+    init_font(&font, "res/font/fira-code.ttf", &game_state->frame_arena);
 
     entity_s* entity = create_entity(&game_state->entity_handler);
     entity->position = V2F_ZERO();
     entity->sprite = (sprite_s) {
-        .texture = &texture,
+        .texture = &font.atlas,
+        // .texture = &texture,
 
         .offset = V2F_ZERO(),
         .rotation = 0.0f,

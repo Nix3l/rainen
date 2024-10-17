@@ -58,10 +58,12 @@ static void load_image_stb(char* filepath, GLenum target, texture_s* texture) {
 static GLint get_internal_format(texture_s* texture) {
     switch (texture->data_type) {
         case TEXTURE_R:
+            if(texture->data_depth == TEXTURE_8b)  return GL_R8;
             if(texture->data_depth == TEXTURE_16b) return GL_R16F;
             if(texture->data_depth == TEXTURE_32b) return GL_R32F;
         break;
         case TEXTURE_RG:
+            if(texture->data_depth == TEXTURE_8b)  return GL_RG8;
             if(texture->data_depth == TEXTURE_16b) return GL_RG16F;
             if(texture->data_depth == TEXTURE_32b) return GL_RG32F;
         break;
@@ -74,16 +76,20 @@ static GLint get_internal_format(texture_s* texture) {
             if(texture->data_depth == TEXTURE_32b) return GL_RGBA32F;
         break;
         case TEXTURE_DEPTH:
-            if(texture->data_depth == TEXTURE_16b) { LOG_ERR("16 bit depth texture is not supported"); return 0; }
             if(texture->data_depth == TEXTURE_32b) return GL_DEPTH_COMPONENT32F;
         break;
     }
 
+    // TODO(nix3l): probably shouldnt panic here
+    PANIC("incorrect texture byte depth and data type combination");
     return 0;
 }
 
-texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, texture_pixel_storage_e pixel_storage) {
+texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, texture_pixel_storage_e pixel_storage, void* data) {
     texture_s texture;
+
+    texture.width = width;
+    texture.height = height;
 
     glGenTextures(1, &texture.handle);
     glBindTexture(GL_TEXTURE_2D, texture.handle);
@@ -105,15 +111,15 @@ texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data
             0,
             texture.data_type,
             pixel_storage,
-            NULL);
+            data);
 
     update_texture_params(&texture);
 
     return texture;
 }
 
-texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth) {
-    return create_texture_storage_type(width, height, data_type, data_depth, TEXTURE_UNSIGNED_BYTE);
+texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, void* data) {
+    return create_texture_storage_type(width, height, data_type, data_depth, TEXTURE_UNSIGNED_BYTE, data);
 }
 
 texture_s load_texture(char* filename) {

@@ -8,8 +8,10 @@
 
 #if ENABLE_ASSERT
 #   define ASSERT(_x) do { if(!(_x)) ASSERT_BREAK((_x)); } while(0)
+#   define PANIC(_x) do { fprintf(stderr, "[%s:%u]: %s\n", __FILE__, __LINE__, (_x)); exit(1); } while(0)
 #else
 #   define ASSERT(_x)
+#   define PANIC(_x)
 #endif
 
 #define ARRAY_SIZE(_arr) (sizeof((_arr))/(sizeof(*(_arr))))

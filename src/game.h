@@ -15,6 +15,7 @@
 #include "render/renderer.h"
 #include "shader/default_shader.h"
 #include "entity/entity.h"
+#include "font/font.h"
 
 #define ENGINE_VERSION_MAJOR 0
 #define ENGINE_VERSION_MINOR 0

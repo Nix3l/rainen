@@ -21,6 +21,8 @@ typedef struct {
     mat4s view;
     mat4s projection_view;
 
+    f32 zoom;
+
     // MOVEMENT
     f32 speed;
     f32 sens;

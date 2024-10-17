@@ -5,8 +5,9 @@
 #include "memory/memory.h"
 
 typedef enum {
-    TEXTURE_16b = 1,
-    TEXTURE_32b = 2,
+    TEXTURE_8b  = 1,
+    TEXTURE_16b = 2,
+    TEXTURE_32b = 3,
 } texture_depth_e;
 
 typedef enum {
@@ -47,8 +48,8 @@ typedef struct {
     texture_wrap_e wrap_mode;
 } texture_s;
 
-texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, texture_pixel_storage_e pixel_storage);
-texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth);
+texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, texture_pixel_storage_e pixel_storage, void* data);
+texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, void* data);
 texture_s load_texture(char* filename);
 void destroy_texture(texture_s* texture);
 

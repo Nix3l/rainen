@@ -117,9 +117,7 @@ void* platform_load_file(char* filepath, usize* buff_length, arena_s* arena) {
         return NULL;
     }
 
-    fseek(file, 0L, SEEK_END);
-    usize length = ftell(file);
-    rewind(file);
+    usize length = get_file_length(file);
 
     if(!length) {
         LOG_ERR("failed to read length of [%s]: err %d\n%s\n", filepath, errno, strerror(errno));

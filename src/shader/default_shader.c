@@ -1,5 +1,6 @@
 #include "default_shader.h"
 #include "game.h"
+#include "util/log.h"
 
 static void bind_attributes(void* shader) {
     shader_bind_attribute(shader, 0, "vs_position");
@@ -14,7 +15,7 @@ static void load_uniforms(void* _call, void* _data) {
     shader_load_int(uniforms->u_layer, call->layer);
 
     if(call->texture)
-        shader_load_vec2(uniforms->u_size, V2F(call->texture->width / 2.0f, call->texture->height / 2.0f));
+        shader_load_vec2(uniforms->u_size, V2F((f32)call->texture->width / 2.0f, (f32)call->texture->height / 2.0f));
 
     shader_load_mat4(uniforms->u_projection_view, game_state->camera.projection_view);
     shader_load_mat4(uniforms->u_transform, call->transformation);

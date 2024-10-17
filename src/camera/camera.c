@@ -50,8 +50,8 @@ mat4s camera_perspective_projection(camera_s* camera) {
 
 mat4s camera_orthographic_projection(camera_s* camera) {
     return glms_ortho(
-            -camera->ortho_width,  camera->ortho_width,
-            -camera->ortho_height, camera->ortho_height,
+            -camera->ortho_width * camera->zoom,  camera->ortho_width * camera->zoom,
+            -camera->ortho_height * camera->zoom, camera->ortho_height * camera->zoom,
              camera->near_plane,   camera->far_plane
         );
 }
