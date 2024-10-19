@@ -82,7 +82,7 @@ draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, ch
         stbtt_aligned_quad quad;
 
         stbtt_GetPackedQuad(font->packed_chars[size],
-                group->camera->ortho_width, group->camera->ortho_height,
+                font->atlas.width, font->atlas.height,
                 glyph - ' ', // dont question the ascii
                 &pos.x, &pos.y,
                 &quad,
@@ -91,8 +91,6 @@ draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, ch
         // stbtt assumes y-axis going down, so have to flip
         quad.y0 = -quad.y0;
         quad.y1 = -quad.y1;
-        quad.t0 = 1.0f - quad.t0;
-        quad.t1 = 1.0f - quad.t1;
 
         // first triangle
         vertices[curr_vertex++] = quad.x0; // bottom left

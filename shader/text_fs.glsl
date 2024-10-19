@@ -10,5 +10,4 @@ out vec4 out_color;
 
 void main(void) {
     out_color = vec4(texture(tex, fs_uvs).r) * color;
-    // out_color = vec4(1.0);
 }

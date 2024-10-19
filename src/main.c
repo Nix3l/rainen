@@ -235,7 +235,7 @@ int main(void) {
 
         render_entity(entity);
 
-        push_text_draw_call(game_state->text_group, &font, 15, "helloworld!", strlen("helloworld!"), V2F(-128.0f, 128.0f), &game_state->frame_arena);
+        push_text_draw_call(game_state->text_group, &font, 15, "hello world!", strlen("hello world!"), V2F(-128.0f, 128.0f), &game_state->frame_arena);
 
         render_draw_groups(&game_state->renderer);
 
