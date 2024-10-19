@@ -28,7 +28,7 @@ void destroy_fbo(fbo_s* fbo) {
     glDeleteFramebuffers(1, &fbo->handle);
 }
 
-void fbo_create_texture(fbo_s* fbo, GLenum attachment_type, texture_data_e data_type, texture_depth_e data_depth) {
+void fbo_create_texture(fbo_s* fbo, GLenum attachment_type, texture_data_t data_type, texture_depth_t data_depth) {
     texture_s* texture = NULL;
     
     // grab the first texture that has not been initialised

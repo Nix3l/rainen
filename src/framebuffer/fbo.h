@@ -21,7 +21,7 @@ typedef struct {
 fbo_s create_fbo(u32 width, u32 height, u32 num_textures, arena_s* arena);
 void destroy_fbo(fbo_s* fbo);
 
-void fbo_create_texture(fbo_s* fbo, GLenum attachment_type, texture_data_e data_type, texture_depth_e data_depth);
+void fbo_create_texture(fbo_s* fbo, GLenum attachment_type, texture_data_t data_type, texture_depth_t data_depth);
 void fbo_create_depth_texture(fbo_s* fbo);
 
 void fbo_clear(fbo_s* fbo, v3f col, GLbitfield clear_bit);

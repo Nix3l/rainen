@@ -41,7 +41,7 @@ mesh_s create_mesh(
         return (mesh_s) {};
     }
 
-    mesh.data = MESH_VERTICES;
+    mesh.data = MESH_VERTICES | MESH_INDICES;
     if(uvs_data) mesh.data |= MESH_UVS;
     if(normals_data) mesh.data |= MESH_NORMALS;
     if(colors_data) mesh.data |= MESH_COLORS;
@@ -57,9 +57,6 @@ mesh_s create_mesh(
 
     mesh.index_count = num_indices;
     mesh.vertex_count = num_vertices;
-
-    mesh.name = NULL;
-    mesh.full_path = NULL;
 
     glBindVertexArray(0);
 
@@ -92,9 +89,6 @@ mesh_s create_mesh_arrays(
 
     mesh.index_count = 0;
     mesh.vertex_count = num_vertices;
-
-    mesh.name = NULL;
-    mesh.full_path = NULL;
 
     glBindVertexArray(0);
 
@@ -232,10 +226,6 @@ mesh_s load_mesh_from_file(char* filename, arena_s* arena) {
     }
 
     mesh = importer_process_mesh(scene->mMeshes[0], arena);
-    mesh.full_path = filepath;
-    // NOTE(nix3l): assuming that the file name is in the arena already
-    // so not copying it for now
-    mesh.name = filename;
 
     arena_clear(&temp_mem);
     aiReleaseImport(scene);

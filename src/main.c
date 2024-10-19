@@ -1,4 +1,5 @@
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_RECT_PACK_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
 
 // ENGINE FEATURES ------------------------
@@ -150,6 +151,7 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
 
     // SHADERS
     init_default_shader(&game_state->default_shader);
+    init_text_shader(&game_state->text_shader);
 
     // RENDERER
     game_state->camera = (camera_s) {
@@ -180,6 +182,7 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
     fbo_create_depth_texture(&game_state->screen_buffer);
 
     game_state->default_group = push_draw_group(&game_state->renderer, &game_state->default_shader.program, &game_state->camera);
+    game_state->text_group = push_draw_group(&game_state->renderer, &game_state->text_shader.program, &game_state->camera);
 
     // ENTITES
     init_entity_handler(&game_state->entity_handler);
@@ -211,8 +214,8 @@ int main(void) {
     entity_s* entity = create_entity(&game_state->entity_handler);
     entity->position = V2F_ZERO();
     entity->sprite = (sprite_s) {
-        .texture = &font.atlas,
-        // .texture = &texture,
+        // .texture = &font.atlas,
+        .texture = &texture,
 
         .offset = V2F_ZERO(),
         .rotation = 0.0f,
@@ -231,6 +234,8 @@ int main(void) {
         fbo_clear(&game_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         render_entity(entity);
+
+        push_text_draw_call(game_state->text_group, &font, 15, "helloworld!", strlen("helloworld!"), V2F(-128.0f, 128.0f), &game_state->frame_arena);
 
         render_draw_groups(&game_state->renderer);
 

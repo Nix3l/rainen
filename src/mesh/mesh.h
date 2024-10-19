@@ -10,6 +10,7 @@ typedef enum {
     MESH_UVS = 0x02,
     MESH_NORMALS = 0x04,
     MESH_COLORS = 0x08,
+    MESH_INDICES = 0x10,
 } mesh_data_flags_t;
 
 enum {
@@ -19,12 +20,7 @@ enum {
     MESH_ATTRIBUTE_COLORS = 3,
 };
 
-
 typedef struct {
-    // metadata
-    char* name;
-    char* full_path;
-
     // data
     mesh_data_flags_t data;
 

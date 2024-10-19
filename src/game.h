@@ -14,6 +14,7 @@
 #include "camera/camera.h"
 #include "render/renderer.h"
 #include "shader/default_shader.h"
+#include "shader/text_shader.h"
 #include "entity/entity.h"
 #include "font/font.h"
 
@@ -53,6 +54,7 @@ typedef struct {
 
     // SHADERS
     default_shader_s default_shader;
+    text_shader_s text_shader;
 
     // RENDERER
     camera_s camera;
@@ -61,6 +63,7 @@ typedef struct {
     fbo_s screen_buffer;
 
     draw_group_s* default_group;
+    draw_group_s* text_group;
 
     // ENTITIES
     entity_handler_s entity_handler;

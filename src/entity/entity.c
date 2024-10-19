@@ -29,7 +29,8 @@ void destroy_entity(entity_handler_s* handler, u32 id) {
 
 // TODO(nix3l): redo this, probably remove the whole offset thing
 void render_entity(entity_s* entity) {
-    push_draw_call_transformed(game_state->default_group,
+    push_draw_call(game_state->default_group,
+            NULL,
             entity->sprite.texture,
             glms_vec2_add(entity->position, entity->sprite.offset),
             entity->sprite.rotation,

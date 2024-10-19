@@ -85,7 +85,7 @@ static GLint get_internal_format(texture_s* texture) {
     return 0;
 }
 
-texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, texture_pixel_storage_e pixel_storage, void* data) {
+texture_s create_texture_storage_type(i32 width, i32 height, texture_data_t data_type, texture_depth_t data_depth, texture_pixel_storage_t pixel_storage, void* data) {
     texture_s texture;
 
     texture.width = width;
@@ -118,7 +118,7 @@ texture_s create_texture_storage_type(i32 width, i32 height, texture_data_e data
     return texture;
 }
 
-texture_s create_texture(i32 width, i32 height, texture_data_e data_type, texture_depth_e data_depth, void* data) {
+texture_s create_texture(i32 width, i32 height, texture_data_t data_type, texture_depth_t data_depth, void* data) {
     return create_texture_storage_type(width, height, data_type, data_depth, TEXTURE_UNSIGNED_BYTE, data);
 }
 

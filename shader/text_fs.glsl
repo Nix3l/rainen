@@ -9,6 +9,6 @@ uniform sampler2D tex;
 out vec4 out_color;
 
 void main(void) {
-    out_color = vec4(texture(tex, fs_uvs).rrr, 1.0) + color;
-    // out_color = vec4(fs_uvs, 0.0, 1.0);
+    out_color = vec4(texture(tex, fs_uvs).r) * color;
+    // out_color = vec4(1.0);
 }

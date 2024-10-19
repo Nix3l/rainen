@@ -12,44 +12,6 @@ void init_renderer(renderer_s* renderer, arena_s* arena, fbo_s* screen) {
     };
 }
 
-draw_call_s* push_draw_call(draw_group_s* group, texture_s* texture, v2f position, i32 layer, v4f color) {
-    if(group->num_calls + 1 > MAX_DRAW_CALLS) {
-        LOG_ERR("reached max draw calls in group\n");
-        return NULL;
-    }
-
-    group->num_calls ++;
-    draw_call_s* call = arena_push(&group->draw_calls, sizeof(draw_call_s));
-
-    call->texture = texture;
-    call->position = position;
-    call->transformation = glms_translate(MAT4_IDENTITY, V3F(position.x, position.y, 0.0f));
-    call->layer = layer;
-    call->color = color;
-
-    return call;
-}
-
-draw_call_s* push_draw_call_transformed(draw_group_s* group, texture_s* texture, v2f position, f32 rotation, v2f scale, i32 layer, v4f color) {
-    if(group->num_calls + 1 > MAX_DRAW_CALLS) {
-        LOG_ERR("reached max draw calls in group\n");
-        return NULL;
-    }
-
-    group->num_calls ++;
-    draw_call_s* call = arena_push(&group->draw_calls, sizeof(draw_call_s));
-
-    call->texture = texture;
-    call->position = position;
-    call->transformation = glms_translate(MAT4_IDENTITY, V3F(position.x, position.y, 0.0f));
-    call->transformation = glms_rotate(call->transformation, rotation, V3F(0.0f, 0.0f, 1.0f));
-    call->transformation = glms_scale(call->transformation, V3F(scale.x, scale.y, 1.0f));
-    call->layer = layer;
-    call->color = color;
-
-    return call;
-}
-
 draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* camera) {
     ASSERT(renderer->num_groups + 1 < MAX_DRAW_GROUPS);
     renderer->num_groups ++;
@@ -61,7 +23,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
     group->framebuffer = renderer->screen_buffer;
 
-    group->mesh = &renderer->unit_mesh;
+    group->fallback_mesh = &renderer->unit_mesh;
 
     group->enable_depth_test = true;
     group->depth_mask = GL_TRUE;
@@ -79,7 +41,119 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
     return group;
 }
 
-void render_draw_call(draw_call_s* call, shader_s* shader, mesh_s* mesh, camera_s* camera) {
+draw_call_s* push_draw_call(draw_group_s* group, mesh_s* mesh, texture_s* texture, v2f position, f32 rotation, v2f scale, i32 layer, v4f color) {
+    if(group->num_calls + 1 > MAX_DRAW_CALLS) {
+        LOG_ERR("reached max draw calls in group\n");
+        return NULL;
+    }
+
+    group->num_calls ++;
+    draw_call_s* call = arena_push(&group->draw_calls, sizeof(draw_call_s));
+
+    call->mesh = mesh;
+    call->texture = texture;
+    call->position = position;
+    call->transformation = glms_translate(MAT4_IDENTITY, V3F(position.x, position.y, 0.0f));
+    call->transformation = glms_rotate(call->transformation, rotation, V3F(0.0f, 0.0f, 1.0f));
+    call->transformation = glms_scale(call->transformation, V3F(scale.x, scale.y, 1.0f));
+    call->layer = layer;
+    call->color = color;
+
+    return call;
+}
+
+// TODO(nix3l): this sucks
+draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, char* text, u32 text_length, v2f start, arena_s* arena) {
+    if(group->num_calls + 1 > MAX_DRAW_CALLS) {
+        LOG_ERR("reached max draw calls in group\n");
+        return NULL;
+    }
+
+    u32 vertex_count = text_length * 6; // 6 vertices per glyph (no indices, 2 triangles)
+    f32* vertices = arena_push(arena, sizeof(f32) * vertex_count * 3);
+    f32* uvs = arena_push(arena, sizeof(f32) * vertex_count * 2);
+
+    u32 curr_vertex = 0;
+    u32 curr_uvs = 0;
+
+    v2f pos = start;
+    for(u32 i = 0; i < text_length; i ++) {
+        char glyph = text[i];
+        stbtt_aligned_quad quad;
+
+        stbtt_GetPackedQuad(font->packed_chars[size],
+                group->camera->ortho_width, group->camera->ortho_height,
+                glyph - ' ', // dont question the ascii
+                &pos.x, &pos.y,
+                &quad,
+                0);
+
+        // stbtt assumes y-axis going down, so have to flip
+        quad.y0 = -quad.y0;
+        quad.y1 = -quad.y1;
+        quad.t0 = 1.0f - quad.t0;
+        quad.t1 = 1.0f - quad.t1;
+
+        // first triangle
+        vertices[curr_vertex++] = quad.x0; // bottom left
+        vertices[curr_vertex++] = quad.y1;
+        vertices[curr_vertex++] = 0.0f;
+        vertices[curr_vertex++] = quad.x1; // top right
+        vertices[curr_vertex++] = quad.y0;
+        vertices[curr_vertex++] = 0.0f;
+        vertices[curr_vertex++] = quad.x0; // top left
+        vertices[curr_vertex++] = quad.y0;
+        vertices[curr_vertex++] = 0.0f;
+
+        uvs[curr_uvs++] = quad.s0; // bottom left 
+        uvs[curr_uvs++] = quad.t1;
+        uvs[curr_uvs++] = quad.s1; // top right
+        uvs[curr_uvs++] = quad.t0;
+        uvs[curr_uvs++] = quad.s0; // top left
+        uvs[curr_uvs++] = quad.t0;
+
+        // second triangle
+        vertices[curr_vertex++] = quad.x0; // bottom left
+        vertices[curr_vertex++] = quad.y1;
+        vertices[curr_vertex++] = 0.0f;
+        vertices[curr_vertex++] = quad.x1; // bottom right
+        vertices[curr_vertex++] = quad.y1;
+        vertices[curr_vertex++] = 0.0f;
+        vertices[curr_vertex++] = quad.x1; // top right
+        vertices[curr_vertex++] = quad.y0;
+        vertices[curr_vertex++] = 0.0f;
+
+        uvs[curr_uvs++] = quad.s0; // bottom left 
+        uvs[curr_uvs++] = quad.t1;
+        uvs[curr_uvs++] = quad.s1; // bottom right
+        uvs[curr_uvs++] = quad.t1;
+        uvs[curr_uvs++] = quad.s1; // top right 
+        uvs[curr_uvs++] = quad.t0;
+    }
+
+    // TODO(nix3l): mark mesh for deletion after call
+    mesh_s result = create_mesh_arrays(vertices, uvs, NULL, NULL, vertex_count);
+    
+    arena_pop(arena, sizeof(f32) * vertex_count * 2); // uvs
+    arena_pop(arena, sizeof(f32) * vertex_count * 3); // vertices
+
+    mesh_s* mesh = arena_push(arena, sizeof(mesh_s));
+    memcpy(mesh, &result, sizeof(mesh_s));
+
+    group->num_calls ++;
+    draw_call_s* call = arena_push(&group->draw_calls, sizeof(draw_call_s));
+
+    call->mesh = mesh;
+    call->texture = &font->atlas;
+    call->position = start;
+    call->transformation = MAT4_IDENTITY;
+    call->layer = 0;
+    call->color = V4F_ONE();
+
+    return call;
+}
+
+void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera) {
     if(call->texture) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, call->texture->handle);
@@ -87,12 +161,15 @@ void render_draw_call(draw_call_s* call, shader_s* shader, mesh_s* mesh, camera_
 
     shader->load_uniforms(call, NULL);
 
-    glBindVertexArray(mesh->vao);
-    mesh_enable_attributes(mesh);
+    glBindVertexArray(call->mesh->vao);
+    mesh_enable_attributes(call->mesh);
 
-    glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, 0);
+    if(call->mesh->data & MESH_INDICES)
+        glDrawElements(GL_TRIANGLES, call->mesh->index_count, GL_UNSIGNED_INT, 0);
+    else
+        glDrawArrays(GL_TRIANGLES, 0, call->mesh->vertex_count);
 
-    mesh_disable_attributes(mesh);
+    mesh_disable_attributes(call->mesh);
     glBindVertexArray(0);
 }
 
@@ -127,7 +204,9 @@ void render_draw_group(draw_group_s* group) {
     draw_call_s* calls = group->draw_calls.data;
     for(u32 i = 0; i < group->num_calls; i ++) {
         draw_call_s call = calls[i];
-        render_draw_call(&call, group->shader, group->mesh, group->camera);
+        if(!call.mesh) call.mesh = group->fallback_mesh;
+
+        render_draw_call(&call, group->shader, group->camera);
     }
 
     // reset state
