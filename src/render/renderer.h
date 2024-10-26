@@ -13,14 +13,15 @@
 #define MAX_DRAW_GROUPS 32
 #define MAX_DRAW_CALLS  4096
 
+// TODO(nix3l): user data to pass to uniforms
 typedef struct {
-    mesh_s* mesh;
+    camera_s* camera;
 
+    mesh_s* mesh;
     texture_s* texture;
 
     v2f position;
     mat4s transformation;
-    // TODO mat4s projection_view;
 
     i32 layer;
 
@@ -61,7 +62,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 draw_call_s* push_draw_call(draw_group_s* group, mesh_s* mesh, texture_s* texture, v2f position, f32 rotation, v2f scale, i32 layer, v4f color);
 draw_call_s* push_text_draw_call(draw_group_s* text_group, font_s* font, i32 size, char* text, u32 text_length, v2f start, arena_s* arena);
 
-void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera);
+void render_draw_call(draw_call_s* call, shader_s* shader);
 void render_draw_group(draw_group_s* group);
 void render_draw_groups(renderer_s* renderer);
 

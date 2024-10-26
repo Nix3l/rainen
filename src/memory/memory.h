@@ -27,6 +27,9 @@ arena_s arena_create(usize capacity);
 // create an arena that expands as its contents do
 arena_s arena_create_expandable(usize capacity);
 
+// create a subarena with an immutable fixed size
+arena_s subarena_create(arena_s* arena, usize capacity);
+
 // create an arena with an immutable fixed size within a given memory chunk
 arena_s arena_create_in_block(void* data, usize capacity);
 // create an arena that expands as its contents do within a given memory chunk

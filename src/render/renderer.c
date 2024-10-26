@@ -1,6 +1,7 @@
 #include "renderer.h"
 #include "game.h"
 #include "util/log.h"
+#include "util/math.h"
 
 void init_renderer(renderer_s* renderer, arena_s* arena, fbo_s* screen) {
     *renderer = (renderer_s) {
@@ -50,19 +51,25 @@ draw_call_s* push_draw_call(draw_group_s* group, mesh_s* mesh, texture_s* textur
     group->num_calls ++;
     draw_call_s* call = arena_push(&group->draw_calls, sizeof(draw_call_s));
 
+    call->camera = group->camera;
     call->mesh = mesh;
     call->texture = texture;
     call->position = position;
-    call->transformation = glms_translate(MAT4_IDENTITY, V3F(position.x, position.y, 0.0f));
-    call->transformation = glms_rotate(call->transformation, rotation, V3F(0.0f, 0.0f, 1.0f));
-    call->transformation = glms_scale(call->transformation, V3F(scale.x, scale.y, 1.0f));
+    call->transformation = get_transformation_matrix(position, rotation, scale);
     call->layer = layer;
     call->color = color;
 
     return call;
 }
 
+// TODO(nix3l): have this be a separate thing somewhere
+//              that just returns a mesh, so we dont waste
+//              time and resources making and destroying the same mesh every frame
 // TODO(nix3l): this sucks
+// => handle line breaks and word wrap
+// => text aligning?
+// => width and height constraints
+// => italics, maybe bold (underline would be a pain and not worth it)
 draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, char* text, u32 text_length, v2f start, arena_s* arena) {
     if(group->num_calls + 1 > MAX_DRAW_CALLS) {
         LOG_ERR("reached max draw calls in group\n");
@@ -131,7 +138,7 @@ draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, ch
 
     // TODO(nix3l): mark mesh for deletion after call
     mesh_s result = create_mesh_arrays(vertices, uvs, NULL, NULL, vertex_count);
-    
+
     arena_pop(arena, sizeof(f32) * vertex_count * 2); // uvs
     arena_pop(arena, sizeof(f32) * vertex_count * 3); // vertices
 
@@ -141,6 +148,7 @@ draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, ch
     group->num_calls ++;
     draw_call_s* call = arena_push(&group->draw_calls, sizeof(draw_call_s));
 
+    call->camera = group->camera;
     call->mesh = mesh;
     call->texture = &font->atlas;
     call->position = start;
@@ -151,7 +159,7 @@ draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, ch
     return call;
 }
 
-void render_draw_call(draw_call_s* call, shader_s* shader, camera_s* camera) {
+void render_draw_call(draw_call_s* call, shader_s* shader) {
     if(call->texture) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, call->texture->handle);
@@ -202,9 +210,9 @@ void render_draw_group(draw_group_s* group) {
     draw_call_s* calls = group->draw_calls.data;
     for(u32 i = 0; i < group->num_calls; i ++) {
         draw_call_s call = calls[i];
-        if(!call.mesh) call.mesh = group->fallback_mesh;
+        if(!call.mesh && group->fallback_mesh) call.mesh = group->fallback_mesh;
 
-        render_draw_call(&call, group->shader, group->camera);
+        render_draw_call(&call, group->shader);
     }
 
     // reset state

@@ -11,7 +11,7 @@ static void load_uniforms(void* _call, void* _data) {
     draw_call_s* call = _call;
     text_shader_s* uniforms = &game_state->text_shader;
 
-    shader_load_mat4(uniforms->u_projection_view, game_state->camera.projection_view);
+    shader_load_mat4(uniforms->u_projection_view, call->camera->projection_view);
     shader_load_int(uniforms->u_tex, 0);
     shader_load_vec4(uniforms->u_color, call->color);
 }

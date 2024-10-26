@@ -1,12 +1,9 @@
 #include "./math.h"
 
-mat4s get_transformation_matrix(v3f position, v3f rotation, v3f scale) {
-    mat4s transformation = MAT4_IDENTITY;
-    transformation = glms_translate(transformation, position);
-    transformation = glms_rotate_x(transformation, RADIANS(rotation.x));
-    transformation = glms_rotate_y(transformation, RADIANS(rotation.y));
-    transformation = glms_rotate_z(transformation, RADIANS(rotation.z));
-    transformation = glms_scale(transformation, scale);
+mat4s get_transformation_matrix(v2f position, f32 rotation, v2f scale) {
+    mat4s transformation = glms_translate(MAT4_IDENTITY, V3F(position.x, position.y, 0.0f));
+    transformation = glms_rotate(transformation, rotation, V3F(0.0f, 0.0f, 1.0f));
+    transformation = glms_scale(transformation, V3F(scale.x, scale.y, 1.0f));
     return transformation;
 }
 

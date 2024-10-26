@@ -35,6 +35,7 @@ typedef struct {
     arena_s fbo_arena; // for storing data about fbo textures
     arena_s draw_groups_arena; // for storing draw groups for the renderer
     arena_s draw_calls_arena; // for storing draw calls for each group
+    arena_s assets_arena; // for storing the asset managers data
 
     // IO
     window_s window;

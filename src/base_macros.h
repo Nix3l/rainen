@@ -11,7 +11,7 @@
 #   define PANIC(_x) do { fprintf(stderr, "[%s:%u]: %s\n", __FILE__, __LINE__, (_x)); exit(1); } while(0)
 #else
 #   define ASSERT(_x)
-#   define PANIC(_x)
+#   define PANIC(_x) do { fprintf(stderr, "[%s:%u]: %s\n", __FILE__, __LINE__, (_x)); } while(0)
 #endif
 
 #define ARRAY_SIZE(_arr) (sizeof((_arr))/(sizeof(*(_arr))))

@@ -20,6 +20,16 @@ arena_s arena_create_expandable(usize capacity) {
     };
 }
 
+arena_s subarena_create(arena_s* arena, usize capacity) {
+    return (arena_s) {
+        .capacity = capacity,
+        .size = 0,
+        .data = arena_push(arena, capacity),
+        .expandable = false
+    };
+}
+
+
 arena_s arena_create_in_block(void* data, usize capacity) {
     ASSERT(data);
     return (arena_s) {

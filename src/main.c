@@ -3,20 +3,20 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): font rendering
+// TODO(nix3l): resource/asset handler
 // => LOW PRIORITY ------------------------
 // TODO(nix3l): time profiling
 // TODO(nix3l): GUI system
-// TODO(nix3l): decide on size of units used in game
 // TODO(nix3l): decide the scene layout and serialisation method
 // TODO(nix3l): scene editor
 
 // FIXES ----------------------------------
-// TODO(nix3l): 
+// TODO(nix3l):
 // => LOW PRIORITY ------------------------
-// TODO(nix3l): figure out whatever is happening with the uvs when the camera rotates
+// TODO(nix3l):
 
 #include "game.h"
+#include "asset/asset.h"
 #include "util/log.h"
 #include "util/math.h"
 
@@ -28,6 +28,8 @@
 
 game_memory_s* game_memory = NULL;
 game_state_s* game_state = NULL;
+
+asset_manager_s* asset_manager = NULL;
 
 static void show_debug_stats_window() {
     if(is_key_pressed(GLFW_KEY_F1)) game_state->show_debug_stats_window = !game_state->show_debug_stats_window;
@@ -51,7 +53,8 @@ static void show_debug_stats_window() {
             sizeof(game_state_s) + 
             game_state->fbo_arena.size +
             game_state->draw_groups_arena.size + 
-            game_state->draw_calls_arena.size,
+            game_state->draw_calls_arena.size + 
+            game_state->assets_arena.size,
             game_memory->permenant_storage_size);
     igIndent(12.0f);
     igText("of which state: %u\n", sizeof(game_state_s));
@@ -143,11 +146,19 @@ static void init_game_state(usize permenant_memory_to_allocate, usize transient_
     game_state->fbo_arena         = partition_permenant_memory(&memory, KILOBYTES(1), &remaining_memory);
     game_state->draw_groups_arena = partition_permenant_memory(&memory, MAX_DRAW_GROUPS * sizeof(draw_group_s), &remaining_memory);
     game_state->draw_calls_arena  = partition_permenant_memory(&memory, MAX_DRAW_CALLS * MAX_DRAW_GROUPS * sizeof(draw_call_s), &remaining_memory);
+    game_state->assets_arena      = partition_permenant_memory(&memory, 1024 * sizeof(asset_s), &remaining_memory);
     game_state->frame_arena       = partition_permenant_memory(&memory, remaining_memory, &remaining_memory);
 
     // IO
     create_window(1600, 900, "rainen");
     init_input();
+
+    // INITIALISE ASSETS
+    asset_manager = mem_alloc(sizeof(asset_manager_s));
+    ASSERT(asset_manager);
+    init_asset_manager(asset_manager,
+            &game_state->assets_arena, &game_state->frame_arena,
+            128, 128);
 
     // SHADERS
     init_default_shader(&game_state->default_shader);
@@ -209,12 +220,11 @@ int main(void) {
     texture_s texture = load_texture("res/test.png");
 
     font_s font;
-    init_font(&font, "res/font/fira-code.ttf", &game_state->frame_arena);
+    init_font(&font, "res/font/tamzen.ttf", &game_state->frame_arena);
 
     entity_s* entity = create_entity(&game_state->entity_handler);
-    entity->position = V2F_ZERO();
+    entity->position = V2F(-250.0f, 0.0f);
     entity->sprite = (sprite_s) {
-        // .texture = &font.atlas,
         .texture = &texture,
 
         .offset = V2F_ZERO(),
@@ -236,6 +246,7 @@ int main(void) {
         render_entity(entity);
 
         push_text_draw_call(game_state->text_group, &font, 15, "hello world!", strlen("hello world!"), V2F(-128.0f, 128.0f), &game_state->frame_arena);
+        push_text_draw_call(game_state->text_group, &font, 2, "small???", strlen("small???"), V2F_ZERO(), &game_state->frame_arena);
 
         render_draw_groups(&game_state->renderer);
 
@@ -246,12 +257,15 @@ int main(void) {
         show_settings_window();
         render_imgui();
 
-        arena_clear(&game_state->frame_arena);
-
         glfwSwapBuffers(game_state->window.glfw_window);
 
         update_input();
         glfwPollEvents();
+
+        // CLEANUP
+        cleanup_assets();
+
+        arena_clear(&game_state->frame_arena);
     }
 
     terminate_game();
