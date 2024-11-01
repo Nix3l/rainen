@@ -20,10 +20,10 @@ LIBRARIES := -Lthird-party \
 DEFINES := -DENABLE_ASSERT=1
 WARNINGS := -Wall -Wextra
 
-INCLUDE_DIRS := -Isrc -Ithird-party
+INCLUDE_DIRS := -Igame -Iengine -Ithird-party
 
-C_SOURCES 	= $(shell find src -iname *.c)
-C_HEADERS 	= $(shell find src -iname *.h)
+C_SOURCES 	= $(shell find engine -iname *.c) $(shell find game -iname *.c)
+C_HEADERS 	= $(shell find engine -iname *.h) $(shell find game -iname *.h)
 LIB_SOURCES = $(shell find third-party/src -iname *.c)
 LIB_HEADERS = $(shell find third-party -iname *.h)
 

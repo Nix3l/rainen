@@ -1,3 +1,5 @@
 gcc %c %h -std=c11 -Wall -Wextra -DMDEBUG=1
 -Isrc
+-Iengine
+-Igame
 -Ithird-party
