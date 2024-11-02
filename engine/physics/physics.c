@@ -5,41 +5,28 @@
 
 void init_physics_ctx(physics_ctx_s* ctx, arena_s* physics_objects_arena, u32 physics_objects_capacity) {
     ctx->physics_objects_arena = physics_objects_arena;
-    ctx->physics_objects_capacity = physics_objects_capacity;
-
-    ctx->physics_objects_count = 0;
-    ctx->first_free_physics_object = 0;
-    ctx->physics_objects = arena_push(physics_objects_arena, physics_objects_capacity * sizeof(rigidbody_s));
+    ctx->physics_objects = create_compact_list(physics_objects_arena, sizeof(rigidbody_s), physics_objects_capacity);
 
     ctx->gravity = V2F(0.0f, -9.81f);
 }
 
-rigidbody_s* physics_register_entity(physics_ctx_s* ctx, u32 handle) {
-    entity_s* entity = entity_data(handle);
-    if(entity->state == ENTITY_EMPTY) {
-        LOG_ERR("cant add rigidbody to an empty entity\n");
+rigidbody_s* physics_register_entity(physics_ctx_s* ctx, u32 entity_handle) {
+    entity_s* entity = entity_data(entity_handle);
+    if(!entity) {
+        LOG_ERR("cant add rigidbody to a non-existent entity\n");
         return NULL;
     }
 
-    rigidbody_s* rigidbody = &ctx->physics_objects[ctx->first_free_physics_object];
-    rigidbody->rb_handle = ctx->first_free_physics_object;
-    rigidbody->state = PHYSICS_RB_ACTIVE;
-
-    rigidbody->entity_handle = handle;
+    u32 slot_taken;
+    rigidbody_s* rigidbody = compact_list_push(&ctx->physics_objects, &slot_taken);
+    rigidbody->rb_handle = slot_taken;
+    rigidbody->entity_handle = entity_handle;
 
     rigidbody->mass = 1.0f;
     rigidbody->inv_mass = 1.0f / rigidbody->mass;
     rigidbody->velocity = V2F_ZERO();
     rigidbody->force = V2F_ZERO();
 
-    for(u32 i = ctx->first_free_physics_object + 1; i < ctx->physics_objects_capacity; i ++) {
-        if(ctx->physics_objects[i].state == PHYSICS_RB_EMPTY) {
-            ctx->first_free_physics_object = i;
-            break;
-        }
-    }
-
-    ctx->physics_objects_count ++;
     entity->rigidbody = rigidbody->rb_handle;
     entity->flags &= ENTITY_HAS_PHYSICS;
     return rigidbody;
@@ -48,18 +35,11 @@ rigidbody_s* physics_register_entity(physics_ctx_s* ctx, u32 handle) {
 void physics_remove_entity(physics_ctx_s* ctx, u32 handle) {
     entity_s* entity = entity_data(handle);
     entity->flags &= ~ENTITY_HAS_PHYSICS;
-
-    rigidbody_s* rigidbody = &ctx->physics_objects[entity->rigidbody];
-    rigidbody->state = PHYSICS_RB_EMPTY;
-
-    if(rigidbody->rb_handle < ctx->first_free_physics_object)
-        ctx->first_free_physics_object = rigidbody->rb_handle;
-
-    ctx->physics_objects_count --;
+    compact_list_remove(&ctx->physics_objects, handle);
 }
 
 rigidbody_s* get_rigidbody(physics_ctx_s* ctx, u32 handle) {
-    return &ctx->physics_objects[handle];
+    return compact_list_get(&ctx->physics_objects, handle);
 }
 
 void apply_force(rigidbody_s* rigidbody, v2f force) {
@@ -77,9 +57,9 @@ static void step_time(entity_s* entity, rigidbody_s* rb, f32 dt) {
 void integrate_physics(physics_ctx_s* ctx) {
     f32 delta_time = engine_state->delta_time;
 
-    for(u32 i = 0; i < ctx->physics_objects_capacity; i ++) {
+    for(u32 i = 0; i < ctx->physics_objects.capacity; i ++) {
         rigidbody_s* rigidbody = get_rigidbody(ctx, i);
-        if(rigidbody->state == PHYSICS_RB_EMPTY) continue;
+        if(!rigidbody) continue;
 
         entity_s* entity = entity_data(rigidbody->entity_handle);
         step_time(entity, rigidbody, delta_time);

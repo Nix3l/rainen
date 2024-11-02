@@ -12,10 +12,8 @@
 #define mem_free(_ptr) free((_ptr))
 
 typedef struct {
-    // amount of data reserved
-    usize capacity;
-    // amount of data committed, serves as the memory position
-    usize size;
+    usize capacity; // amount of data reserved
+    usize size; // amount of data committed, serves as the memory position
 
     void* data;
 
@@ -51,5 +49,31 @@ usize arena_remaining_capacity(arena_s* arena);
 void arena_clear(arena_s* arena);
 // frees and destroys the arena. arena can not be used afterwards
 void arena_free(arena_s* arena);
+
+typedef enum {
+    COMPACT_LIST_EMPTY = 0,
+    COMPACT_LIST_TAKEN,
+} compact_list_element_t;
+
+// TODO(nix3l): doesnt really handle filling up
+
+typedef struct {
+    arena_s* arena; // MUST be zero'd
+
+    u32 element_size; // size of each stored element
+    u32 capacity; // max amount of stored elements
+
+    u32 count; // amount of stored elements
+               // does NOT equal the index of the last element
+    u32 first_free_index; // index of first free element
+    void* contents; // data
+    compact_list_element_t* elements; // empty slot or taken slot
+} compact_list_s;
+
+compact_list_s create_compact_list(arena_s* arena, u32 element_size, u32 capacity);
+
+void* compact_list_push(compact_list_s* list, u32* index);
+void* compact_list_get(compact_list_s* list, u32 index);
+void compact_list_remove(compact_list_s* list, u32 index);
 
 #endif

@@ -18,13 +18,6 @@ typedef enum {
     ENTITY_HAS_PHYSICS = 0x01,
 } entity_flags_t;
 
-typedef enum {
-    ENTITY_EMPTY = 0,
-    ENTITY_ACTIVE,
-    ENTITY_DISABLED,
-} entity_state_t;
-
-
 // TODO(nix3l): entity tagging system to manage behaviour
 //              i.e. have an array of tags for each entity
 //              and give it the behaviour data handle
@@ -32,7 +25,6 @@ typedef enum {
 typedef struct {
     u32 handle; // index of entity in entities arena
     u32 flags;
-    u32 state;
 
     v2f position;
     sprite_s sprite;
@@ -42,12 +34,7 @@ typedef struct {
 
 typedef struct {
     arena_s* entities_arena;
-
-    u32 entities_capacity;
-
-    u32 entity_count;
-    u32 first_free_entity;
-    entity_s* entities;
+    compact_list_s entities;
 } entity_handler_s;
 
 void init_entity_handler(entity_handler_s* entity_handler, arena_s* entities_arena, u32 entities_capacity);

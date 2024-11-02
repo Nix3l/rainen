@@ -203,7 +203,7 @@ static void init_engine_state(usize permenant_memory_to_allocate, usize transien
     engine_state->text_group = push_draw_group(&engine_state->renderer, &engine_state->text_shader.program, &engine_state->camera);
 
     // ENTITES
-    init_entity_handler(&engine_state->entity_handler, &engine_state->entities_arena, 1024);
+    init_entity_handler(&engine_state->entity_handler, &engine_state->entities_arena, 12);
 
     // PHYSICS
     init_physics_ctx(&engine_state->physics_ctx, &engine_state->physics_objects_arena, 16);

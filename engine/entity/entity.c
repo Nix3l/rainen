@@ -4,42 +4,23 @@
 
 void init_entity_handler(entity_handler_s* handler, arena_s* entities_arena, u32 entities_capacity) {
     handler->entities_arena = entities_arena;
-    handler->entities_capacity = entities_capacity;
-
-    handler->entity_count = 0;
-    handler->first_free_entity = 0;
-    handler->entities = arena_push(handler->entities_arena, entities_capacity * sizeof(entity_s));
+    handler->entities = create_compact_list(entities_arena, sizeof(entity_s), entities_capacity);
 }
 
 entity_s* create_entity(entity_handler_s* handler) {
-    entity_s* entity = &handler->entities[handler->first_free_entity];
-    entity->state = ENTITY_ACTIVE;
+    u32 slot_taken;
+    entity_s* entity = compact_list_push(&handler->entities, &slot_taken);
+    entity->handle = slot_taken;
     entity->flags = ENTITY_NONE;
-
-    for(u32 i = handler->first_free_entity + 1; i < handler->entities_capacity; i ++) {
-        if(handler->entities[i].state == ENTITY_EMPTY) {
-            handler->first_free_entity = i;
-            break;
-        }
-    }
-
-    handler->entity_count ++;
-
     return entity;
 }
 
 void destroy_entity(entity_handler_s* handler, u32 handle) {
-    handler->entities[handle].state = ENTITY_EMPTY;
-    handler->entities[handle].flags = ENTITY_NONE;
-
-    if(handle < handler->first_free_entity)
-        handler->first_free_entity = handle;
-
-    handler->entity_count --;
+    compact_list_remove(&handler->entities, handle);
 }
 
 entity_s* entity_data(u32 handle) {
-    return &engine_state->entity_handler.entities[handle];
+    return compact_list_get(&engine_state->entity_handler.entities, handle);
 }
 
 // TODO(nix3l): redo this, probably remove the whole offset thing
