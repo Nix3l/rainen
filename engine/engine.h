@@ -16,6 +16,7 @@
 #include "shader/default_shader.h"
 #include "shader/text_shader.h"
 #include "entity/entity.h"
+#include "physics/physics.h"
 #include "font/font.h"
 
 // GOALS FOR V0.1 ---------
@@ -38,12 +39,13 @@ typedef struct {
 
 typedef struct {
     // ARENAS
-    arena_s frame_arena; // for any and all memory that needs to be allocated and used for one frame only
     arena_s fbo_arena; // for storing data about fbo textures
     arena_s draw_groups_arena; // for storing draw groups for the renderer
     arena_s draw_calls_arena; // for storing draw calls for each group
     arena_s assets_arena; // for storing the asset managers data
     arena_s entities_arena; // for storing the asset managers data
+    arena_s physics_objects_arena; // for storing the rigidbody data
+    arena_s frame_arena; // for any and all memory that needs to be allocated and used for one frame only
 
     // IO
     window_s window;
@@ -76,6 +78,9 @@ typedef struct {
 
     // ENTITIES
     entity_handler_s entity_handler;
+
+    // PHYSICS
+    physics_ctx_s physics_ctx;
 
     // IMGUI
     struct ImGuiContext* imgui_ctx;

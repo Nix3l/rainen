@@ -6,9 +6,9 @@
 //              THIS IS A *GAME*
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): change up entity manager
+// TODO(nix3l): basic physics
 // => LOW PRIORITY ------------------------
-// TODO(nix3l): fix up some old code and refactor some stuff
+// TODO(nix3l): add compact list data structure to utils
 // TODO(nix3l): decide the scene layout and serialisation method
 // TODO(nix3l): scene editor
 // TODO(nix3l): GUI system
@@ -146,12 +146,13 @@ static void init_engine_state(usize permenant_memory_to_allocate, usize transien
     void* memory = engine_memory->permenant_storage + sizeof(engine_state_s);
     usize remaining_memory = permenant_memory_to_allocate - sizeof(engine_state_s);
 
-    engine_state->fbo_arena         = partition_permenant_memory(&memory, KILOBYTES(1), &remaining_memory);
-    engine_state->draw_groups_arena = partition_permenant_memory(&memory, MAX_DRAW_GROUPS * sizeof(draw_group_s), &remaining_memory);
-    engine_state->draw_calls_arena  = partition_permenant_memory(&memory, MAX_DRAW_CALLS * MAX_DRAW_GROUPS * sizeof(draw_call_s), &remaining_memory);
-    engine_state->assets_arena      = partition_permenant_memory(&memory, 1024 * sizeof(asset_s), &remaining_memory);
-    engine_state->entities_arena    = partition_permenant_memory(&memory, 1024 * sizeof(entity_s), &remaining_memory);
-    engine_state->frame_arena       = partition_permenant_memory(&memory, remaining_memory, &remaining_memory);
+    engine_state->fbo_arena             = partition_permenant_memory(&memory, KILOBYTES(1), &remaining_memory);
+    engine_state->draw_groups_arena     = partition_permenant_memory(&memory, MAX_DRAW_GROUPS * sizeof(draw_group_s), &remaining_memory);
+    engine_state->draw_calls_arena      = partition_permenant_memory(&memory, MAX_DRAW_CALLS * MAX_DRAW_GROUPS * sizeof(draw_call_s), &remaining_memory);
+    engine_state->assets_arena          = partition_permenant_memory(&memory, 1024 * sizeof(asset_s), &remaining_memory);
+    engine_state->entities_arena        = partition_permenant_memory(&memory, 1024 * sizeof(entity_s), &remaining_memory);
+    engine_state->physics_objects_arena = partition_permenant_memory(&memory, 1024 * sizeof(rigidbody_s), &remaining_memory);
+    engine_state->frame_arena           = partition_permenant_memory(&memory, remaining_memory, &remaining_memory);
 
     // IO
     create_window(1600, 900, "rainen");
@@ -204,6 +205,9 @@ static void init_engine_state(usize permenant_memory_to_allocate, usize transien
     // ENTITES
     init_entity_handler(&engine_state->entity_handler, &engine_state->entities_arena, 1024);
 
+    // PHYSICS
+    init_physics_ctx(&engine_state->physics_ctx, &engine_state->physics_objects_arena, 16);
+
     // GUI
     init_imgui();
     engine_state->time_scale = 1.0f;
@@ -240,11 +244,16 @@ int main(void) {
         .color = V4F_ZERO(),
     };
 
+    rigidbody_s* rb = physics_register_entity(&engine_state->physics_ctx, entity->handle);
+
     while(!glfwWindowShouldClose(engine_state->window.glfw_window)) {
         // UPDATE
         update_frame_stats();
 
         update_camera(&engine_state->camera);
+        
+        apply_force(rb, engine_state->physics_ctx.gravity);
+        integrate_physics(&engine_state->physics_ctx);
 
         // RENDER
         fbo_clear(&engine_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

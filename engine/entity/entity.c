@@ -8,7 +8,7 @@ void init_entity_handler(entity_handler_s* handler, arena_s* entities_arena, u32
 
     handler->entity_count = 0;
     handler->first_free_entity = 0;
-    handler->entities = handler->entities_arena->data;
+    handler->entities = arena_push(handler->entities_arena, entities_capacity * sizeof(entity_s));
 }
 
 entity_s* create_entity(entity_handler_s* handler) {
@@ -34,7 +34,12 @@ void destroy_entity(entity_handler_s* handler, u32 handle) {
 
     if(handle < handler->first_free_entity)
         handler->first_free_entity = handle;
+
     handler->entity_count --;
+}
+
+entity_s* entity_data(u32 handle) {
+    return &engine_state->entity_handler.entities[handle];
 }
 
 // TODO(nix3l): redo this, probably remove the whole offset thing
