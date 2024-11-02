@@ -19,10 +19,18 @@
 #include "physics/physics.h"
 #include "font/font.h"
 
-// GOALS FOR V0.1 ---------
-// => change up entity manager
-// => clean up older code a bit
-// => basic physics
+// NOTE(nix3l): anything with a (*) should probably be
+//              improved/looked back onto later
+
+// V0.1 ---------
+// => basic rendering pipeline(*)
+// => basic rasterised font rendering(*)
+// => basic asset manager(*)
+// => entity manager(*)
+// => basic physics and collision detection(*)
+// => improve older code (fbo, texture, platform layer) 
+// => debug file loading(*)
+// => imgui support 
 // ------------------------
 
 #define ENGINE_VERSION_MAJOR 0
