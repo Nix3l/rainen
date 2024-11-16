@@ -18,7 +18,7 @@ static usize get_file_length(FILE* file) {
     return length;
 }
 
-char* platform_load_text_from_file(char* filename, usize* out_length, arena_s* arena) {
+char* DEBUGplatform_load_text_from_file(char* filename, usize* out_length, arena_s* arena) {
     FILE* file = fopen(filename, "rb");
     if(!file) {
         LOG_ERR("failed to open [%s]: err %d\n%s\n", filename, errno, strerror(errno));
@@ -58,7 +58,7 @@ char* platform_load_text_from_file(char* filename, usize* out_length, arena_s* a
     return output;
 }
 
-char** platform_load_lines_from_file(char* filepath, usize* out_num_lines, arena_s* arena) {
+char** DEBUGplatform_load_lines_from_file(char* filepath, usize* out_num_lines, arena_s* arena) {
     FILE* file = fopen(filepath, "rb");
     if(!file) {
         LOG_ERR("failed to open [%s]: err %d\n%s\n", filepath, errno, strerror(errno));
@@ -111,7 +111,7 @@ char** platform_load_lines_from_file(char* filepath, usize* out_num_lines, arena
     return output;
 }
 
-void* platform_load_file(char* filepath, usize* buff_length, arena_s* arena) {
+void* DEBUGplatform_load_file(char* filepath, usize* buff_length, arena_s* arena) {
     FILE* file = fopen(filepath, "rb");
     if(!file) {
         LOG_ERR("failed to open [%s]: err %d\n%s\n", filepath, errno, strerror(errno));
@@ -146,7 +146,7 @@ void* platform_load_file(char* filepath, usize* buff_length, arena_s* arena) {
     return output;
 }
 
-void platform_write_to_file(char* filepath, void* data, usize data_size, bool append) {
+void DEBUGplatform_write_to_file(char* filepath, void* data, usize data_size, bool append) {
     FILE* file = fopen(filepath, append ? "ab" : "wb");
     if(!file) {
         LOG_ERR("failed to open [%s]: err %d\n%s\n", filepath, errno, strerror(errno));
@@ -159,14 +159,14 @@ void platform_write_to_file(char* filepath, void* data, usize data_size, bool ap
     fclose(file);
 }
 
-char* platform_get_file_extension(char* filepath) {
+char* DEBUGplatform_get_file_extension(char* filepath) {
     // returns a pointer starting from the last '.' in the filepath
     return strrchr(filepath, '.');
 }
 
 // NOTE(nix3l): unsure whether using the std provided string functions is good or not
 // but it works for now
-char* platform_get_res_path(char* filename, arena_s* arena) {
+char* DEBUGplatform_get_res_path(char* filename, arena_s* arena) {
     usize length = strlen(RESOURCES_PATH) + strlen(FILE_PATH_DELIM) + strlen(filename) + 1;
     char* str = arena_push(arena, length);
     strcat(str, RESOURCES_PATH);

@@ -12,7 +12,7 @@
 // NOTE(nix3l): should probably improve this later, not very usable
 //              maybe add options for which font sizes to pack?
 void init_font(font_s* font, char* filename, arena_s* arena) {
-    void* font_data = platform_load_file(filename, NULL, arena);
+    void* font_data = DEBUGplatform_load_file(filename, NULL, arena);
 
     stbtt_fontinfo font_info;
     stbtt_InitFont(&font_info, font_data, stbtt_GetFontOffsetForIndex(font_data, 0));

@@ -5,10 +5,13 @@
 // NOTE(nix3l): YOU ARE NOT WORKING ON AN ENGINE
 //              THIS IS A *GAME*
 
+// NOTE(nix3l): ANY METHOD THAT IS NAMED <DEBUGfoo()>
+//              IS ***NOT*** READY FOR PRODUCTION
+//              DO NOT SHIP UNDER ANY CIRCUMSTANCES
+
 // ENGINE FEATURES ------------------------
 // TODO(nix3l): basic physics
 // => LOW PRIORITY ------------------------
-// TODO(nix3l): add compact list data structure to utils
 // TODO(nix3l): decide the scene layout and serialisation method
 // TODO(nix3l): scene editor
 // TODO(nix3l): GUI system
@@ -206,7 +209,7 @@ static void init_engine_state(usize permenant_memory_to_allocate, usize transien
     init_entity_handler(&engine_state->entity_handler, &engine_state->entities_arena, 12);
 
     // PHYSICS
-    init_physics_ctx(&engine_state->physics_ctx, &engine_state->physics_objects_arena, 16);
+    init_physics_ctx(&engine_state->physics_ctx, &engine_state->physics_objects_arena, 16, &engine_state->frame_arena);
 
     // GUI
     init_imgui();
@@ -232,9 +235,21 @@ int main(void) {
     font_s font;
     init_font(&font, "res/font/tamzen.ttf", &engine_state->frame_arena);
 
-    entity_s* entity = create_entity(&engine_state->entity_handler);
-    entity->position = V2F(-250.0f, 0.0f);
-    entity->sprite = (sprite_s) {
+    entity_s* ent1 = create_entity(&engine_state->entity_handler);
+    ent1->position = V2F(-250.0f, 800.0f);
+    ent1->sprite = (sprite_s) {
+        .texture = &texture,
+
+        .offset = V2F_ZERO(),
+        .rotation = 0.0f,
+        .scale = V2F(12.0f, 12.0f),
+
+        .color = V4F(0.05f, 0.5f, 0.2f, 1.0f),
+    };
+
+    entity_s* ent2 = create_entity(&engine_state->entity_handler);
+    ent2->position = V2F(-250.0f, 0.0f);
+    ent2->sprite = (sprite_s) {
         .texture = &texture,
 
         .offset = V2F_ZERO(),
@@ -244,7 +259,10 @@ int main(void) {
         .color = V4F_ZERO(),
     };
 
-    rigidbody_s* rb = physics_register_entity(&engine_state->physics_ctx, entity->handle);
+    rigidbody_s* rb1 = physics_register_entity(&engine_state->physics_ctx, ent1->handle);
+    rb1->box = sprite_bounding_box(&ent1->sprite);
+    rigidbody_s* rb2 = physics_register_entity(&engine_state->physics_ctx, ent2->handle);
+    rb2->box = sprite_bounding_box(&ent2->sprite);
 
     while(!glfwWindowShouldClose(engine_state->window.glfw_window)) {
         // UPDATE
@@ -252,13 +270,14 @@ int main(void) {
 
         update_camera(&engine_state->camera);
         
-        apply_force(rb, engine_state->physics_ctx.gravity);
-        integrate_physics(&engine_state->physics_ctx);
+        apply_force(rb1, V2F_SCALE(engine_state->physics_ctx.gravity, rb1->mass));
+        process_physics(&engine_state->physics_ctx);
 
         // RENDER
         fbo_clear(&engine_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        render_entity(entity);
+        render_entity(ent1);
+        render_entity(ent2);
 
         push_text_draw_call(engine_state->text_group, &font, 15, "hello world!", strlen("hello world!"), V2F(0.0f, 128.0f), &engine_state->frame_arena);
         push_text_draw_call(engine_state->text_group, &font, 2, "small???", strlen("small???"), V2F_ZERO(), &engine_state->frame_arena);

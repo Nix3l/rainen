@@ -38,11 +38,11 @@
 
 typedef struct {
     usize permenant_storage_size;
-    void* permenant_storage; // must be cleared to zero on startup
+    void* permenant_storage; // MUST be zero'd on startup
 
-    // TODO(nix3l): maybe keep this, maybe dont
+    // TODO(nix3l): make this the frame arena
     usize transient_storage_size;
-    void* transient_storage; // must be cleared to zero on startup
+    void* transient_storage; // MUST be zero'd on startup
 } engine_memory_s;
 
 typedef struct {

@@ -36,7 +36,7 @@ void* compact_list_get(compact_list_s* list, u32 index) {
 
 void compact_list_remove(compact_list_s* list, u32 index) {
     list->elements[index] = COMPACT_LIST_EMPTY;
-    
+
     if(list->first_free_index > index)
         list->first_free_index = index;
 

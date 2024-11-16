@@ -35,6 +35,8 @@ typedef ivec4s   v4i;
 #define MAX_f32 (FLT_MAX)
 #define MAX_f64 (DBL_MAX)
 
+#define EPSILON_f32 (1.0e-8f)
+
 #define PI   (3.14159265358)
 #define PI_2 (1.570796327)
 #define PI_4 (0.7853981634)

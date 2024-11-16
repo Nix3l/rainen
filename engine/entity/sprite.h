@@ -3,6 +3,7 @@
 
 #include "base.h"
 #include "texture/texture.h"
+#include "physics/physics.h"
 
 typedef struct {
     texture_s* texture;
@@ -16,6 +17,7 @@ typedef struct {
     v4f color;
 } sprite_s;
 
+aabb_s sprite_bounding_box(sprite_s* sprite);
 void render_sprite(sprite_s* sprite);
 
 #endif

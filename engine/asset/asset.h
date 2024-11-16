@@ -49,6 +49,8 @@ typedef struct {
 
 // NOTE(nix3l): the idea behind dirty assets is that
 //              this wrapper only exists for one frame ever
+// NOTE(nix3l): can probably change this out for the new """linked list"""
+//              implementation in memory.h but eh im going to keep this for now
 typedef struct {
     asset_s* contents;
 

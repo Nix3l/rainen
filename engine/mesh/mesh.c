@@ -203,7 +203,7 @@ static mesh_s importer_process_mesh(const struct aiMesh* ai_mesh, arena_s* arena
 mesh_s load_mesh_from_file(char* filename, arena_s* arena) {
     mesh_s mesh;
 
-    char* filepath = platform_get_res_path(filename, arena);
+    char* filepath = DEBUGplatform_get_res_path(filename, arena);
     const u32 import_flags =
         aiProcess_JoinIdenticalVertices |
         aiProcess_Triangulate |
@@ -219,9 +219,9 @@ mesh_s load_mesh_from_file(char* filename, arena_s* arena) {
     arena_s temp_mem = arena_create_in_block(engine_memory->transient_storage, engine_memory->transient_storage_size);
 
     usize file_length;
-    void* file_data = platform_load_file(filepath, &file_length, &temp_mem);
+    void* file_data = DEBUGplatform_load_file(filepath, &file_length, &temp_mem);
 
-    const struct aiScene* scene = aiImportFileFromMemory(file_data, file_length, import_flags, platform_get_file_extension(filepath));
+    const struct aiScene* scene = aiImportFileFromMemory(file_data, file_length, import_flags, DEBUGplatform_get_file_extension(filepath));
     if(!scene) {
         LOG_ERR("couldnt import mesh from file [%s]\n", filepath);
         return (mesh_s) {};
