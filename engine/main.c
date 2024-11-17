@@ -10,8 +10,9 @@
 //              DO NOT SHIP UNDER ANY CIRCUMSTANCES
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): basic physics
+// TODO(nix3l): debug rendering
 // => LOW PRIORITY ------------------------
+// TODO(nix3l): basic collision resolution 
 // TODO(nix3l): decide the scene layout and serialisation method
 // TODO(nix3l): scene editor
 // TODO(nix3l): GUI system
@@ -240,7 +241,7 @@ int main(void) {
     ent1->sprite = (sprite_s) {
         .texture = &texture,
 
-        .offset = V2F_ZERO(),
+        .offset = V2F_ZERO,
         .rotation = 0.0f,
         .scale = V2F(12.0f, 12.0f),
 
@@ -252,11 +253,11 @@ int main(void) {
     ent2->sprite = (sprite_s) {
         .texture = &texture,
 
-        .offset = V2F_ZERO(),
+        .offset = V2F_ZERO,
         .rotation = 0.0f,
         .scale = V2F(6.0f, 6.0f),
 
-        .color = V4F_ZERO(),
+        .color = V4F_ZERO,
     };
 
     rigidbody_s* rb1 = physics_register_entity(&engine_state->physics_ctx, ent1->handle);
@@ -280,7 +281,7 @@ int main(void) {
         render_entity(ent2);
 
         push_text_draw_call(engine_state->text_group, &font, 15, "hello world!", strlen("hello world!"), V2F(0.0f, 128.0f), &engine_state->frame_arena);
-        push_text_draw_call(engine_state->text_group, &font, 2, "small???", strlen("small???"), V2F_ZERO(), &engine_state->frame_arena);
+        push_text_draw_call(engine_state->text_group, &font, 2, "small???", strlen("small???"), V2F_ZERO, &engine_state->frame_arena);
 
         render_draw_groups(&engine_state->renderer);
 

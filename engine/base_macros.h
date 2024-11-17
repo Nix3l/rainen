@@ -48,25 +48,25 @@
 #define V3F(_x, _y, _z) (v3f) { .x = (_x), .y = (_y), .z = (_z) }
 #define V4F(_x, _y, _z, _w) (v4f) { .x = (_x), .y = (_y), .z = (_z), .w = (_w) }
 
-#define V2F_ZERO() V2F(0.0f, 0.0f)
-#define V3F_ZERO() V3F(0.0f, 0.0f, 0.0f)
-#define V4F_ZERO() V4F(0.0f, 0.0f, 0.0f, 0.0f)
+#define V2F_ZERO V2F(0.0f, 0.0f)
+#define V3F_ZERO V3F(0.0f, 0.0f, 0.0f)
+#define V4F_ZERO V4F(0.0f, 0.0f, 0.0f, 0.0f)
 
-#define V2F_ONE() V2F(1.0f, 1.0f)
-#define V3F_ONE() V3F(1.0f, 1.0f, 1.0f)
-#define V4F_ONE() V4F(1.0f, 1.0f, 1.0f, 1.0f)
+#define V2F_ONE V2F(1.0f, 1.0f)
+#define V3F_ONE V3F(1.0f, 1.0f, 1.0f)
+#define V4F_ONE V4F(1.0f, 1.0f, 1.0f, 1.0f)
 
 #define V2I(_x, _y) (v2i) { .x = (_x), .y = (_y) }
 #define V3I(_x, _y, _z) (v3i) { .x = (_x), .y = (_y), .z = (_z) }
 #define V4I(_x, _y, _z, _w) (v4i) { .x = (_x), .y = (_y), .z = (_z), .w = (_w) }
 
-#define V2I_ZERO() V2I(0, 0)
-#define V3I_ZERO() V3I(0, 0, 0)
-#define V4I_ZERO() V4I(0, 0, 0, 0)
+#define V2I_ZERO V2I(0, 0)
+#define V3I_ZERO V3I(0, 0, 0)
+#define V4I_ZERO V4I(0, 0, 0, 0)
 
-#define V2I_ONE() V2I(1, 1)
-#define V3I_ONE() V3I(1, 1, 1)
-#define V4I_ONE() V4I(1, 1, 1, 1)
+#define V2I_ONE V2I(1, 1)
+#define V3I_ONE V3I(1, 1, 1)
+#define V4I_ONE V4I(1, 1, 1, 1)
 
 #define V3F_RGB(_r, _g, _b) V3F((_r) / 255.0f, (_g) / 255.0f, (_b) / 255.0f)
 #define V4F_RGBA(_r, _g, _b, _a) V3F((_r) / 255.0f, (_g) / 255.0f, (_b) / 255.0f, (_a) / 255.0f)
@@ -99,17 +99,17 @@
 #define V3F_NORM(_x) (glms_vec3_normalize(_x))
 #define V4F_NORM(_x) (glms_vec4_normalize(_x))
 
-#define V2F_UNITX() (V2F(1.0f, 0.0f))
-#define V2F_UNITY() (V2F(0.0f, 1.0f))
+#define V2F_UNITX (V2F(1.0f, 0.0f))
+#define V2F_UNITY (V2F(0.0f, 1.0f))
 
-#define V3F_UNITX() (V3F(1.0f, 0.0f, 0.0f))
-#define V3F_UNITY() (V3F(0.0f, 1.0f, 0.0f))
-#define V3F_UNITZ() (V3F(0.0f, 0.0f, 1.0f))
+#define V3F_UNITX (V3F(1.0f, 0.0f, 0.0f))
+#define V3F_UNITY (V3F(0.0f, 1.0f, 0.0f))
+#define V3F_UNITZ (V3F(0.0f, 0.0f, 1.0f))
 
-#define V4F_UNITX() (V4F(1.0f, 0.0f, 0.0f, 0.0f))
-#define V4F_UNITY() (V4F(0.0f, 1.0f, 0.0f, 0.0f))
-#define V4F_UNITZ() (V4F(0.0f, 0.0f, 1.0f, 0.0f))
-#define V4F_UNITW() (V4F(0.0f, 0.0f, 0.0f, 1.0f))
+#define V4F_UNITX (V4F(1.0f, 0.0f, 0.0f, 0.0f))
+#define V4F_UNITY (V4F(0.0f, 1.0f, 0.0f, 0.0f))
+#define V4F_UNITZ (V4F(0.0f, 0.0f, 1.0f, 0.0f))
+#define V4F_UNITW (V4F(0.0f, 0.0f, 0.0f, 1.0f))
 
 #define MAT3_IDENTITY (glms_mat3_identity())
 #define MAT4_IDENTITY (glms_mat4_identity())

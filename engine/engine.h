@@ -22,7 +22,7 @@
 // NOTE(nix3l): anything with a (*) should probably be
 //              improved/looked back onto later
 
-// V0.1 ---------
+// V0.1 -------------------
 // => basic rendering pipeline(*)
 // => basic rasterised font rendering(*)
 // => basic asset manager(*)

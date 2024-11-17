@@ -156,7 +156,7 @@ draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, ch
     call->position = start;
     call->transformation = MAT4_IDENTITY;
     call->layer = 0;
-    call->color = V4F_ONE();
+    call->color = V4F_ONE;
 
     return call;
 }

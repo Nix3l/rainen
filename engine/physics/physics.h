@@ -5,16 +5,13 @@
 #include "memory/memory.h"
 
 // NOTE(nix3l): really good resources
-// => https://phys-sim-book.github.io/preface.html
+// => 
 // TODO
 
 typedef struct {
     v2f centre; // position
-
     v2f min;
     v2f max;
-    v2f points[4]; // top left, top right, bottom left, bottom right
-    v2f half_extents;
 } aabb_s;
 
 typedef struct {
@@ -36,6 +33,7 @@ typedef struct {
     bool intersection;
 } contact_s;
 
+// TODO(nix3l): switch these out to use handles
 typedef struct {
     rigidbody_s* rb1;
     rigidbody_s* rb2;
@@ -54,7 +52,11 @@ typedef struct {
 // COLLISIONS
 aabb_s aabb_create(f32 width, f32 height);
 aabb_s aabb_translate(aabb_s box, v2f translation);
-bool aabb_abbb_collision_check(aabb_s box1, aabb_s box2);
+// keeps the centre of the first box and sweeps the second box on top
+aabb_s aabb_minkowski_sum(aabb_s box1, aabb_s box2);
+aabb_s aabb_minkowski_diff(aabb_s box1, aabb_s box2);
+bool aabb_point_intersection_check(aabb_s box, v2f point);
+bool aabb_abbb_intersection_check(aabb_s box1, aabb_s box2);
 contact_s aabb_aabb_penetration_info(aabb_s box1, aabb_s box2);
 
 // PHYSICS

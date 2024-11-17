@@ -4,49 +4,13 @@
 #include "util/log.h"
 
 // COLLISIONS
-// NOTE(nix3l): https://gamedev.stackexchange.com/questions/129446/how-can-i-calculate-the-penetration-depth-between-two-colliding-3d-aabbs
-// separating axis theorem
-static bool test_axis_penetration(v2f axis, f32 min1, f32 max1, f32 min2, f32 max2, contact_s* contact_info) {
-    f32 axis_length_2 = V2F_DOT(axis, axis);
-    if(axis_length_2 < EPSILON_f32)
-        return false;
-
-    f32 d0 = max2 - min1; // left side
-    f32 d1 = max1 - min2; // right side
-
-    // if intervals dont overlap, no intersection
-    if(d0 <= 0.0f || d1 <= 0.0f)
-        return false;
-
-    // find out which side the overlap is on
-    f32 overlap = d0 < d1 ? d0 : -d1;
-
-    v2f separating_axis = V2F_SCALE(axis, overlap / axis_length_2); 
-    f32 separating_length_2 = V2F_DOT(separating_axis, separating_axis);
-
-    // use this vector if less than the current minimum translation vector
-    if(separating_length_2 < contact_info->dist) {
-        contact_info->axis = separating_axis;
-        contact_info->dist = separating_length_2;
-    }
-
-    return true;
-}
-
 aabb_s aabb_create(f32 width, f32 height) {
     f32 hw = width / 2.0f;
-    f32 hh = width / 2.0f;
+    f32 hh = height / 2.0f;
     return (aabb_s) {
-        .centre =   V2F_ZERO(),
-
+        .centre =   V2F_ZERO,
         .min    =   V2F(-hw, -hh),
         .max    =   V2F( hw,  hh),
-        .points = { V2F(-hw,  hh),
-                    V2F( hw,  hh),
-                    V2F(-hw, -hh),
-                    V2F( hw, -hh), },
-
-        .half_extents = V2F(hw, hh),
     };
 }
 
@@ -55,41 +19,71 @@ aabb_s aabb_translate(aabb_s box, v2f translation) {
         .centre = V2F_ADD(box.centre, translation),
         .min    = V2F_ADD(box.min, translation),
         .max    = V2F_ADD(box.max, translation),
-        .points = { V2F_ADD(box.points[0], translation),
-                    V2F_ADD(box.points[1], translation),
-                    V2F_ADD(box.points[2], translation),
-                    V2F_ADD(box.points[3], translation), },
-        .half_extents = box.half_extents,
     };
 }
 
-contact_s aabb_aabb_penetration_info(aabb_s box1, aabb_s box2) {
-    contact_s contact = {
-        .axis = V2F_ZERO(),
-        .dist = 0.0f,
-        .intersection = false,
+aabb_s aabb_minkowski_sum(aabb_s box1, aabb_s box2) {
+    return (aabb_s) {
+        .centre = box1.centre,
+        .min    = V2F_ADD(box1.min, box2.min),
+        .max    = V2F_ADD(box1.max, box2.max),
     };
-
-    // separating axis theorem my beloved
-    if(!test_axis_penetration(V2F_UNITX(), box1.min.x, box1.max.x, box2.min.x, box2.max.x, &contact))
-        return contact;
-    if(!test_axis_penetration(V2F_UNITY(), box1.min.y, box1.max.y, box2.min.y, box2.max.y, &contact))
-        return contact;
-
-    contact.intersection = true;
-
-    contact.axis = V2F_NORM(contact.axis);
-    contact.dist = sqrtf(contact.dist) * 1.001f;
-
-    return contact;
 }
 
-bool aabb_abbb_collision_check(aabb_s box1, aabb_s box2) {
+aabb_s aabb_minkowski_diff(aabb_s box1, aabb_s box2) {
+    return (aabb_s) {
+        .centre = V2F_SUB(box1.centre, box2.centre),
+        .min    = V2F_SUB(box1.min, box2.min),
+        .max    = V2F_SUB(box1.max, box2.max),
+    };
+}
+
+bool aabb_point_intersection_check(aabb_s box, v2f point) {
+    return point.x >= box.min.x && point.x <= box.max.x &&
+           point.y >= box.min.y && point.y <= box.max.y;
+}
+
+bool aabb_abbb_intersection_check(aabb_s box1, aabb_s box2) {
     // it makes sense in my head ok
     return ((box1.min.x > box2.min.x && box1.min.x < box2.max.x) ||
            (box1.max.x < box2.max.x && box1.max.x > box2.min.x)) &&
            ((box1.min.y > box2.min.y && box1.min.y < box2.max.y) ||
            (box1.max.y < box2.max.y && box1.max.y > box2.min.y));
+}
+
+contact_s aabb_aabb_penetration_info(aabb_s box1, aabb_s box2) {
+    aabb_s minkowski = aabb_minkowski_diff(box1, box2);
+    contact_s contact = {
+        .axis = V2F_ZERO,
+        .dist = 0.0f,
+        // .intersection = false,
+        .intersection = true,
+    };
+
+    if(!aabb_point_intersection_check(minkowski, V2F_ZERO))
+        return contact;
+    else
+        contact.intersection = true;
+
+    contact.dist = fabsf(minkowski.min.x);
+    contact.axis = V2F(-1.0f, 0.0f);
+
+    if(fabsf(minkowski.max.x) < contact.dist) {
+        contact.dist = fabsf(minkowski.max.y);
+        contact.axis = V2F(1.0f, 0.0f);
+    }
+
+    if(fabsf(minkowski.min.y) < contact.dist) {
+        contact.dist = fabsf(minkowski.min.y);
+        contact.axis = V2F(0.0f, -1.0f);
+    }
+
+    if(fabsf(minkowski.max.y) < contact.dist) {
+        contact.dist = fabsf(minkowski.max.y);
+        contact.axis = V2F(0.0f, 1.0f);
+    }
+
+    return contact;
 }
 
 // PHYSICS
@@ -116,8 +110,8 @@ rigidbody_s* physics_register_entity(physics_ctx_s* ctx, u32 entity_handle) {
 
     rigidbody->mass = 1.0f;
     rigidbody->inv_mass = 1.0f / rigidbody->mass;
-    rigidbody->velocity = V2F_ZERO();
-    rigidbody->force = V2F_ZERO();
+    rigidbody->velocity = V2F_ZERO;
+    rigidbody->force = V2F_ZERO;
 
     entity->rigidbody = rigidbody->rb_handle;
     entity->flags &= ENTITY_HAS_PHYSICS;
@@ -145,7 +139,9 @@ static void euler_integrate(entity_s* entity, rigidbody_s* rb, f32 dt) {
     // conditionally stable. i.e. (if dt is not too big, system is stable)
     rb->velocity = V2F_ADD(rb->velocity, V2F_SCALE(rb->force, dt * rb->inv_mass));
     entity->position = V2F_ADD(entity->position, V2F_SCALE(rb->velocity, dt));
-    rb->force = V2F_ZERO();
+    rb->force = V2F_ZERO;
+    // move the aabb to the new entity position
+    rb->box = aabb_translate(rb->box, V2F_SUB(entity->position, rb->box.centre));
 }
 
 static void integrate_objects(physics_ctx_s* ctx) {
@@ -160,7 +156,7 @@ static void integrate_objects(physics_ctx_s* ctx) {
     }
 }
 
-// TODO(nix3l): broad and narrow phase
+// TODO(nix3l): have this be the broad phase
 static void DEBUGdetect_collisions(physics_ctx_s* ctx) {
     // TODO(nix3l): this is very horrible. just screams exponential growth
     //              also creates duplicate collisions
@@ -175,8 +171,7 @@ static void DEBUGdetect_collisions(physics_ctx_s* ctx) {
             entity_s* ent1 = entity_data(rb1->entity_handle);
             entity_s* ent2 = entity_data(rb2->entity_handle);
 
-            if(aabb_abbb_collision_check(aabb_translate(rb1->box, ent1->position), aabb_translate(rb2->box, ent2->position))) {
-                LOG("COLLISION!!!\n");
+            if(aabb_abbb_intersection_check(rb1->box, rb2->box)) {
                 collision_s* collision = arena_push(ctx->collisions_arena, sizeof(collision_s));
                 collision->rb1 = rb1;
                 collision->rb2 = rb2;
@@ -186,8 +181,27 @@ static void DEBUGdetect_collisions(physics_ctx_s* ctx) {
     }
 }
 
+// TODO(nix3l): should include both the narrow phase AND collision resolution
 static void resolve_collisions(physics_ctx_s* ctx) {
-    // TODO(nix3l)
+    if(ctx->collisions_list.count == 0) return;
+    linked_list_element_s* iterator = ctx->collisions_list.first;
+
+    for(u32 i = 0; i < ctx->collisions_list.count; i ++) {
+        if(!iterator) continue;
+
+        collision_s* collision = iterator->contents;
+        if(!collision) continue;
+
+        contact_s contact = aabb_aabb_penetration_info(collision->rb1->box, collision->rb2->box);
+        if(contact.intersection) {
+            // TODO(nix3l): resolve collision
+            // LOG("a: [%.2f, %.2f], d: %.2f, %c\n", contact.axis.x, contact.axis.y, contact.dist, contact.intersection ? 'Y' : 'N');
+        } else {
+            // LOG("idk\n");
+        }
+
+        iterator = iterator->next;
+    }
 }
 
 static void flush_collisions(physics_ctx_s* ctx) {

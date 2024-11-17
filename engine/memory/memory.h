@@ -92,8 +92,7 @@ void compact_list_remove(compact_list_s* list, u32 index);
 
 typedef struct {
     void* contents;
-
-    struct linked_list_element_s* next;
+    void* next;
 } linked_list_element_s;
 
 typedef struct {

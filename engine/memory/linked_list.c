@@ -18,7 +18,7 @@ void linked_list_push(linked_list_s* list, void* data) {
         list->first = slot;
         list->last = slot;
     } else {
-        list->last->next = (struct linked_list_element_s*) slot;
+        list->last->next = slot;
         list->last = slot;
     }
 
