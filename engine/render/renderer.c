@@ -11,7 +11,6 @@ void init_renderer(renderer_s* renderer, arena_s* arena, fbo_s* screen) {
         .groups = arena,
 
         .screen_buffer = screen,
-        .unit_mesh = primitive_unit_square(),
     };
 }
 
@@ -26,7 +25,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
     group->framebuffer = renderer->screen_buffer;
 
-    group->fallback_mesh = &renderer->unit_mesh;
+    group->fallback_mesh = &engine_state->primitive_square;
 
     group->enable_depth_test = true;
     group->depth_mask = GL_TRUE;
@@ -161,7 +160,7 @@ draw_call_s* push_text_draw_call(draw_group_s* group, font_s* font, i32 size, ch
     return call;
 }
 
-void render_draw_call(draw_call_s* call, shader_s* shader) {
+static void render_draw_call(draw_call_s* call, shader_s* shader) {
     if(call->texture) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, call->texture->handle);
@@ -173,9 +172,9 @@ void render_draw_call(draw_call_s* call, shader_s* shader) {
     mesh_enable_attributes(call->mesh);
 
     if(call->mesh->data & MESH_INDICES)
-        glDrawElements(GL_TRIANGLES, call->mesh->index_count, GL_UNSIGNED_INT, 0);
+        glDrawElements(call->mesh->primitive, call->mesh->index_count, GL_UNSIGNED_INT, 0);
     else
-        glDrawArrays(GL_TRIANGLES, 0, call->mesh->vertex_count);
+        glDrawArrays(call->mesh->primitive, 0, call->mesh->vertex_count);
 
     mesh_disable_attributes(call->mesh);
     glBindVertexArray(0);

@@ -14,6 +14,12 @@ typedef enum {
 } mesh_data_flags_t;
 
 typedef enum {
+    MESH_TRIANGLES = GL_TRIANGLES,
+    MESH_LINES = GL_LINES,
+    MESH_POINTS = GL_POINTS,
+} mesh_primitive_t;
+
+typedef enum {
     MESH_ATTRIBUTE_VERTICES = 0,
     MESH_ATTRIBUTE_UVS = 1,
     MESH_ATTRIBUTE_NORMALS = 2,
@@ -23,6 +29,7 @@ typedef enum {
 typedef struct {
     // data
     mesh_data_flags_t data;
+    mesh_primitive_t primitive;
 
     u32 index_count; // only for indices
     u32 vertex_count; // same for all vertex data
@@ -56,8 +63,14 @@ void destroy_mesh(mesh_s* mesh);
 mesh_s load_mesh_from_file(char* filepath, arena_s* arena);
 
 // PRIMITIVES
+mesh_s primitive_unit_square();
+mesh_s primitive_line();
+mesh_s primitive_point();
+
+// NOTE(nix3l): from old projects. dont really need but dont really have to throw away
+#if 0
 mesh_s primitive_plane_mesh(v3f bottom_left, v2i num_vertices, v2f world_size, arena_s* arena);
 mesh_s primitive_cube_mesh();
-mesh_s primitive_unit_square();
+#endif
 
 #endif

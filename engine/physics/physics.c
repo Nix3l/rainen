@@ -8,9 +8,9 @@ aabb_s aabb_create(f32 width, f32 height) {
     f32 hw = width / 2.0f;
     f32 hh = height / 2.0f;
     return (aabb_s) {
-        .centre =   V2F_ZERO,
-        .min    =   V2F(-hw, -hh),
-        .max    =   V2F( hw,  hh),
+        .centre = V2F_ZERO,
+        .min    = V2F(-hw, -hh),
+        .max    = V2F( hw,  hh),
     };
 }
 
@@ -22,20 +22,28 @@ aabb_s aabb_translate(aabb_s box, v2f translation) {
     };
 }
 
-aabb_s aabb_minkowski_sum(aabb_s box1, aabb_s box2) {
+aabb_s aabb_fix(aabb_s box) {
     return (aabb_s) {
-        .centre = box1.centre,
-        .min    = V2F_ADD(box1.min, box2.min),
-        .max    = V2F_ADD(box1.max, box2.max),
+        box.centre,
+        V2F(MIN(box.min.x, box.max.x), MIN(box.min.y, box.max.y)),
+        V2F(MAX(box.min.x, box.max.x), MAX(box.min.y, box.max.y)),
     };
 }
 
+aabb_s aabb_minkowski_sum(aabb_s box1, aabb_s box2) {
+    return aabb_fix((aabb_s) {
+        .centre = box1.centre,
+        .min    = V2F_ADD(box1.min, box2.min),
+        .max    = V2F_ADD(box1.max, box2.max),
+    });
+}
+
 aabb_s aabb_minkowski_diff(aabb_s box1, aabb_s box2) {
-    return (aabb_s) {
+    return aabb_fix((aabb_s) {
         .centre = V2F_SUB(box1.centre, box2.centre),
         .min    = V2F_SUB(box1.min, box2.min),
         .max    = V2F_SUB(box1.max, box2.max),
-    };
+    });
 }
 
 bool aabb_point_intersection_check(aabb_s box, v2f point) {
@@ -56,9 +64,10 @@ contact_s aabb_aabb_penetration_info(aabb_s box1, aabb_s box2) {
     contact_s contact = {
         .axis = V2F_ZERO,
         .dist = 0.0f,
-        // .intersection = false,
-        .intersection = true,
+        .intersection = false,
     };
+
+    LOG("min [%.2f, %.2f], max [%.2f, %.2f]\n", minkowski.min.x, minkowski.min.y, minkowski.max.x, minkowski.max.y);
 
     if(!aabb_point_intersection_check(minkowski, V2F_ZERO))
         return contact;
@@ -195,7 +204,7 @@ static void resolve_collisions(physics_ctx_s* ctx) {
         contact_s contact = aabb_aabb_penetration_info(collision->rb1->box, collision->rb2->box);
         if(contact.intersection) {
             // TODO(nix3l): resolve collision
-            // LOG("a: [%.2f, %.2f], d: %.2f, %c\n", contact.axis.x, contact.axis.y, contact.dist, contact.intersection ? 'Y' : 'N');
+            LOG("a: [%.2f, %.2f], d: %.2f, %c\n", contact.axis.x, contact.axis.y, contact.dist, contact.intersection ? 'Y' : 'N');
         } else {
             // LOG("idk\n");
         }

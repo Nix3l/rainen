@@ -48,6 +48,8 @@ mesh_s create_mesh(
     if(normals_data) mesh.data |= MESH_NORMALS;
     if(colors_data) mesh.data |= MESH_COLORS;
 
+    mesh.primitive = MESH_TRIANGLES;
+
     glGenVertexArrays(1, &mesh.vao);
     glBindVertexArray(mesh.vao);
 
@@ -79,6 +81,8 @@ mesh_s create_mesh_arrays(
     if(uvs_data) mesh.data |= MESH_UVS;
     if(normals_data) mesh.data |= MESH_NORMALS;
     if(colors_data) mesh.data |= MESH_COLORS;
+
+    mesh.primitive = MESH_TRIANGLES;
 
     glGenVertexArrays(1, &mesh.vao);
     glBindVertexArray(mesh.vao);
@@ -382,4 +386,25 @@ mesh_s primitive_unit_square() {
     };
 
     return create_mesh(vertices, uvs, NULL, NULL, indices, 6, 12);
+}
+
+mesh_s primitive_line() {
+    f32 vertices[] = {
+        0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+    };
+
+    mesh_s mesh = create_mesh_arrays(vertices, NULL, NULL, NULL, 2);
+    mesh.primitive = MESH_LINES;
+    return mesh;
+}
+
+mesh_s primitive_point() {
+    f32 vertices[] = {
+        0.0f, 0.0f, 0.0f,
+    };
+
+    mesh_s mesh = create_mesh_arrays(vertices, NULL, NULL, NULL, 1);
+    mesh.primitive = MESH_POINTS;
+    return mesh;
 }

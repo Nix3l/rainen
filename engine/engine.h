@@ -13,8 +13,10 @@
 #include "shader/shader.h"
 #include "camera/camera.h"
 #include "render/renderer.h"
+#include "render/debug_renderer.h"
 #include "shader/default_shader.h"
 #include "shader/text_shader.h"
+#include "shader/debug_shader.h"
 #include "entity/entity.h"
 #include "physics/physics.h"
 #include "font/font.h"
@@ -74,6 +76,12 @@ typedef struct {
     // SHADERS
     default_shader_s default_shader;
     text_shader_s text_shader;
+    debug_shader_s debug_shader;
+
+    // PRIMITIVES
+    mesh_s primitive_square;
+    mesh_s primitive_line;
+    mesh_s primitive_point;
 
     // RENDERER
     camera_s camera;
@@ -82,6 +90,7 @@ typedef struct {
     fbo_s screen_buffer;
 
     draw_group_s* default_group;
+    draw_group_s* debug_group;
     draw_group_s* text_group;
 
     // ENTITIES

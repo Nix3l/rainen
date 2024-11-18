@@ -174,6 +174,12 @@ static void init_engine_state(usize permenant_memory_to_allocate, usize transien
     // SHADERS
     init_default_shader(&engine_state->default_shader);
     init_text_shader(&engine_state->text_shader);
+    init_debug_shader(&engine_state->debug_shader);
+
+    // PRIMITIVES
+    engine_state->primitive_square = primitive_unit_square();
+    engine_state->primitive_line   = primitive_line();
+    engine_state->primitive_point  = primitive_point();
 
     // RENDERER
     engine_state->camera = (camera_s) {
@@ -205,6 +211,7 @@ static void init_engine_state(usize permenant_memory_to_allocate, usize transien
 
     engine_state->default_group = push_draw_group(&engine_state->renderer, &engine_state->default_shader.program, &engine_state->camera);
     engine_state->text_group = push_draw_group(&engine_state->renderer, &engine_state->text_shader.program, &engine_state->camera);
+    engine_state->debug_group = push_draw_group(&engine_state->renderer, &engine_state->debug_shader.program, &engine_state->camera);
 
     // ENTITES
     init_entity_handler(&engine_state->entity_handler, &engine_state->entities_arena, 12);

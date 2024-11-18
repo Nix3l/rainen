@@ -51,7 +51,12 @@ typedef struct {
 
 // COLLISIONS
 aabb_s aabb_create(f32 width, f32 height);
+// move the centre point and min/max points of a box
 aabb_s aabb_translate(aabb_s box, v2f translation);
+// returns the half width and half height of a box
+v2f aabb_extents(aabb_s box);
+// makes sure the min and max are in the correct order
+aabb_s aabb_fix(aabb_s box);
 // keeps the centre of the first box and sweeps the second box on top
 aabb_s aabb_minkowski_sum(aabb_s box1, aabb_s box2);
 aabb_s aabb_minkowski_diff(aabb_s box1, aabb_s box2);

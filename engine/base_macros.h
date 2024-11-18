@@ -99,6 +99,10 @@
 #define V3F_NORM(_x) (glms_vec3_normalize(_x))
 #define V4F_NORM(_x) (glms_vec4_normalize(_x))
 
+#define V2F_EXPAND(_x) _x.x, _x.y
+#define V3F_EXPAND(_x) _x.x, _x.y, _x.z
+#define V4F_EXPAND(_x) _x.x, _x.y, _x.z, _x.w
+
 #define V2F_UNITX (V2F(1.0f, 0.0f))
 #define V2F_UNITY (V2F(0.0f, 1.0f))
 
