@@ -28,23 +28,27 @@ typedef struct {
     v4f color;
 } draw_call_s;
 
-// TODO(nix3l): extend to include primitive
+typedef enum {
+    DRAW_GROUP_NONE = 0x0,
+    DRAW_GROUP_DEPTH_TEST = 0x01,
+    DRAW_GROUP_CULL = 0x02,
+} draw_group_tags_t;
+
 typedef struct {
     shader_s* shader;
     camera_s* camera;
-
     fbo_s* framebuffer;
 
     mesh_s* fallback_mesh;
 
-    bool enable_depth_test;
+    // TAGS
+    draw_group_tags_t tags;
     GLenum depth_mask, depth_func;
-
-    bool enable_culling;
     GLenum cull_face;
 
     projection_e projection_type;
 
+    // CALLS
     u32 num_calls;
     arena_s draw_calls;
 } draw_group_s;

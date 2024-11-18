@@ -27,11 +27,11 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
     group->fallback_mesh = &engine_state->primitive_square;
 
-    group->enable_depth_test = true;
+    group->tags = DRAW_GROUP_DEPTH_TEST;
+
     group->depth_mask = GL_TRUE;
     group->depth_func = GL_LESS;
 
-    group->enable_culling = false;
     group->cull_face = GL_BACK;
 
     group->projection_type = ORTHOGRAPHIC_PROJECTION;
@@ -193,13 +193,13 @@ void render_draw_group(draw_group_s* group) {
     glBindFramebuffer(GL_FRAMEBUFFER, group->framebuffer->handle);    
     glDrawBuffers(group->framebuffer->num_textures, group->framebuffer->attachments);
 
-    if(group->enable_depth_test) {
+    if(group->tags & DRAW_GROUP_DEPTH_TEST) {
         glEnable(GL_DEPTH_TEST);
         glDepthMask(group->depth_mask);
         glDepthFunc(group->depth_func);
     }
 
-    if(group->enable_culling) {
+    if(group->tags & DRAW_GROUP_CULL) {
         glEnable(GL_CULL_FACE);
         glCullFace(group->cull_face);
     }
@@ -219,10 +219,10 @@ void render_draw_group(draw_group_s* group) {
     // reset state
     shader_stop();
 
-    if(group->enable_depth_test)
+    if(group->tags & DRAW_GROUP_DEPTH_TEST)
         glDisable(GL_DEPTH_TEST);
 
-    if(group->enable_culling)
+    if(group->tags & DRAW_GROUP_CULL)
         glDisable(GL_CULL_FACE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

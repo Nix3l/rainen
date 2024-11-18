@@ -10,7 +10,7 @@
 //              DO NOT SHIP UNDER ANY CIRCUMSTANCES
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): debug rendering
+// TODO(nix3l): imrpove debug renderer
 // => LOW PRIORITY ------------------------
 // TODO(nix3l): basic collision resolution 
 // TODO(nix3l): decide the scene layout and serialisation method
