@@ -31,6 +31,7 @@ void render_entity(entity_s* entity) {
             V2F_ADD(entity->position, entity->sprite.offset),
             entity->sprite.rotation,
             entity->sprite.scale,
+            0.0f,
             entity->sprite.layer,
             entity->sprite.color);
 }

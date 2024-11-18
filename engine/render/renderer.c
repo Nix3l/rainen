@@ -43,7 +43,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
     return group;
 }
 
-draw_call_s* push_draw_call(draw_group_s* group, mesh_s* mesh, texture_s* texture, v2f position, f32 rotation, v2f scale, i32 layer, v4f color) {
+draw_call_s* push_draw_call(draw_group_s* group, mesh_s* mesh, texture_s* texture, v2f position, f32 rotation, v2f scale, f32 stroke_size, i32 layer, v4f color) {
     if(group->num_calls + 1 > MAX_DRAW_CALLS) {
         LOG_ERR("reached max draw calls in group\n");
         return NULL;
@@ -57,6 +57,8 @@ draw_call_s* push_draw_call(draw_group_s* group, mesh_s* mesh, texture_s* textur
     call->texture = texture;
     call->position = position;
     call->transformation = get_transformation_matrix(position, rotation, scale);
+    // for now just hard code this
+    call->stroke_size = stroke_size;
     call->layer = layer;
     call->color = color;
 
@@ -167,6 +169,9 @@ static void render_draw_call(draw_call_s* call, shader_s* shader) {
     }
 
     shader->load_uniforms(call, NULL);
+
+    if(call->mesh->primitive == MESH_POINTS) glPointSize(call->stroke_size);
+    else if(call->mesh->primitive == MESH_LINES) glLineWidth(call->stroke_size);
 
     glBindVertexArray(call->mesh->vao);
     mesh_enable_attributes(call->mesh);

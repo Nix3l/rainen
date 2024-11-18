@@ -13,6 +13,7 @@ void render_sprite(sprite_s* sprite) {
             sprite->offset,
             sprite->rotation,
             sprite->scale,
+            0.0f,
             sprite->layer,
             sprite->color);
 }
