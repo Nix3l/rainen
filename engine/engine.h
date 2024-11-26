@@ -55,6 +55,7 @@ typedef struct {
     arena_s assets_arena; // for storing the asset managers data
     arena_s entities_arena; // for storing the asset managers data
     arena_s physics_objects_arena; // for storing the rigidbody data
+    arena_s static_objects_arena; // for storing the static collider data
     arena_s frame_arena; // for any and all memory that needs to be allocated and used for one frame only
 
     // IO

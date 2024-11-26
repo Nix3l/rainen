@@ -13,7 +13,6 @@
 #define COL_PURPLE V3F_RGB(211.0f, 134.0f, 155.0f)
 
 void render_debug_rect(v2f position, v2f size, v3f col);
-// TODO(nix3l): line thickness
 void render_debug_line(v2f start, v2f end, f32 stroke, v3f col);
 void render_debug_point(v2f position, f32 size, v3f col);
 // TODO(nix3l): void render_debug_circle(v2f position, f32 radius, v3f col);

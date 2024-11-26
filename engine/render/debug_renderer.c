@@ -10,7 +10,7 @@ void render_debug_rect(v2f position, v2f size, v3f col) {
         0.0f,
         V2F(size.x / 2.0f, size.y / 2.0f),
         0.0f,
-        0,
+        1,
         V4F(col.x, col.y, col.z, 1.0f)
     );
 }
@@ -29,7 +29,7 @@ void render_debug_line(v2f start, v2f end, f32 stroke, v3f col) {
         angle,
         V2F(hypotenuse, 1.0f),
         stroke,
-        0,
+        1,
         V4F(col.x, col.y, col.z, 1.0f)
     );
 }
@@ -43,7 +43,7 @@ void render_debug_point(v2f position, f32 size, v3f col) {
         0.0f,
         V2F_ONE,
         size,
-        0,
+        1,
         V4F(col.x, col.y, col.z, 1.0f)
     );
 }

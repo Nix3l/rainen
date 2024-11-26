@@ -24,6 +24,8 @@
 #define INT_FROM_PTR(_ptr) (unsigned long long)((char*)_ptr-(char*)0)
 #define PTR_FROM_INT(_int) (void*)((char*)0 + (_int))
 
+#define DISTINCT_TYPE(_type) struct { _type val; }
+
 // very interesting, gives the abstract representation of a member of a struct so to speak
 #define MEMBER(_T, _m) (((_T*)0)->_m)
 // NOTE(nix3l): might be useful for serialisation later on probably

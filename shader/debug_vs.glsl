@@ -6,5 +6,5 @@ uniform mat4 projection_view;
 uniform mat4 transformation;
 
 void main(void) {
-    gl_Position = projection_view * transformation * vec4(vs_position, 1.0);
+    gl_Position = projection_view * transformation * vec4(vs_position.xy, 1.0, 1.0);
 }

@@ -10,9 +10,8 @@
 //              DO NOT SHIP UNDER ANY CIRCUMSTANCES
 
 // ENGINE FEATURES ------------------------
-// TODO(nix3l): imrpove debug renderer
-// => LOW PRIORITY ------------------------
 // TODO(nix3l): basic collision resolution 
+// => LOW PRIORITY ------------------------
 // TODO(nix3l): decide the scene layout and serialisation method
 // TODO(nix3l): scene editor
 // TODO(nix3l): GUI system
@@ -156,6 +155,7 @@ static void init_engine_state(usize permenant_memory_to_allocate, usize transien
     engine_state->assets_arena          = partition_permenant_memory(&memory, 1024 * sizeof(asset_s), &remaining_memory);
     engine_state->entities_arena        = partition_permenant_memory(&memory, 1024 * sizeof(entity_s), &remaining_memory);
     engine_state->physics_objects_arena = partition_permenant_memory(&memory, 1024 * sizeof(rigidbody_s), &remaining_memory);
+    engine_state->static_objects_arena  = partition_permenant_memory(&memory, 1024 * sizeof(static_collider_s), &remaining_memory);
     engine_state->frame_arena           = partition_permenant_memory(&memory, remaining_memory, &remaining_memory);
 
     // IO
@@ -217,7 +217,7 @@ static void init_engine_state(usize permenant_memory_to_allocate, usize transien
     init_entity_handler(&engine_state->entity_handler, &engine_state->entities_arena, 12);
 
     // PHYSICS
-    init_physics_ctx(&engine_state->physics_ctx, &engine_state->physics_objects_arena, 16, &engine_state->frame_arena);
+    init_physics_ctx(&engine_state->physics_ctx, &engine_state->physics_objects_arena, 16, &engine_state->static_objects_arena, 16);
 
     // GUI
     init_imgui();
@@ -243,52 +243,40 @@ int main(void) {
     font_s font;
     init_font(&font, "res/font/tamzen.ttf", &engine_state->frame_arena);
 
-    entity_s* ent1 = create_entity(&engine_state->entity_handler);
-    ent1->position = V2F(-250.0f, 800.0f);
-    ent1->sprite = (sprite_s) {
-        .texture = &texture,
-
-        .offset = V2F_ZERO,
-        .rotation = 0.0f,
-        .scale = V2F(12.0f, 12.0f),
-
-        .color = V4F(0.05f, 0.5f, 0.2f, 1.0f),
-    };
-
-    entity_s* ent2 = create_entity(&engine_state->entity_handler);
-    ent2->position = V2F(-250.0f, 0.0f);
-    ent2->sprite = (sprite_s) {
-        .texture = &texture,
+    entity_s* ent = create_entity(&engine_state->entity_handler);
+    ent->position = V2F(0.0f, 800.0f);
+    ent->sprite = (sprite_s) {
+        .texture = NULL,
 
         .offset = V2F_ZERO,
         .rotation = 0.0f,
         .scale = V2F(6.0f, 6.0f),
 
-        .color = V4F_ZERO,
+        .color = V4F(0.05f, 0.5f, 0.2f, 1.0f),
     };
 
-    rigidbody_s* rb1 = physics_register_entity(&engine_state->physics_ctx, ent1->handle);
-    rb1->box = sprite_bounding_box(&ent1->sprite);
-    rigidbody_s* rb2 = physics_register_entity(&engine_state->physics_ctx, ent2->handle);
-    rb2->box = sprite_bounding_box(&ent2->sprite);
+    rigidbody_s* rb = physics_register_entity(&engine_state->physics_ctx, ent->handle);
+    // rb->box = sprite_bounding_box(&ent->sprite);
+    rb->box = aabb_create(100.0f, 100.0f);
+    rb->velocity = V2F(0.0f, -100.0f);
+
+    aabb_s static_collider = aabb_create(100.0f, 100.0f);
+    physics_register_static_collider(&engine_state->physics_ctx, static_collider);
 
     while(!glfwWindowShouldClose(engine_state->window.glfw_window)) {
         // UPDATE
         update_frame_stats();
 
         update_camera(&engine_state->camera);
-        
-        apply_force(rb1, V2F_SCALE(engine_state->physics_ctx.gravity, rb1->mass));
+
+        // ent->position = V2F(get_mouse_pos().x, 1600.0f - get_mouse_pos().y);
         process_physics(&engine_state->physics_ctx);
 
         // RENDER
         fbo_clear(&engine_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        render_entity(ent1);
-        render_entity(ent2);
-
-        push_text_draw_call(engine_state->text_group, &font, 15, "hello world!", strlen("hello world!"), V2F(0.0f, 128.0f), &engine_state->frame_arena);
-        push_text_draw_call(engine_state->text_group, &font, 2, "small???", strlen("small???"), V2F_ZERO, &engine_state->frame_arena);
+        render_debug_rect(ent->position, aabb_size(rb->box), COL_RED);
+        render_debug_rect(static_collider.centre, aabb_size(static_collider), COL_BLUE);
 
         render_draw_groups(&engine_state->renderer);
 
