@@ -4,7 +4,7 @@
 #include "util/log.h"
 
 // COLLISIONS
-aabb_s aabb_create(f32 width, f32 height) {
+aabb_s aabb_create_dimensions(f32 width, f32 height) {
     f32 hw = width / 2.0f;
     f32 hh = height / 2.0f;
     return (aabb_s) {
@@ -126,14 +126,15 @@ ray_hit_s ray_hit_aabb(v2f origin, v2f magnitude, aabb_s box) {
     f32 first_exit =  MAX_f32;
 
     for(u32 i = 0; i < 2; i ++) {
-        if(magnitude.raw[i] == 0.0f) continue;
-        else if(origin.raw[i] <= box.min.raw[i] || origin.raw[i] >= box.max.raw[i]) return hit;
+        if(magnitude.raw[i] != 0.0f) {
+            f32 t1 = (box.min.raw[i] - origin.raw[i]) / magnitude.raw[i];
+            f32 t2 = (box.max.raw[i] - origin.raw[i]) / magnitude.raw[i];
 
-        f32 t1 = (box.min.raw[i] - origin.raw[i]) / magnitude.raw[i];
-        f32 t2 = (box.max.raw[i] - origin.raw[i]) / magnitude.raw[i];
-
-        last_entry = MAX(last_entry, MIN(t1, t2));
-        first_exit = MIN(first_exit, MAX(t1, t2));
+            last_entry = MAX(last_entry, MIN(t1, t2));
+            first_exit = MIN(first_exit, MAX(t1, t2));
+        } else if(origin.raw[i] <= box.min.raw[i] || origin.raw[i] >= box.max.raw[i]) {
+            return hit;
+        }
     }
 
     if(first_exit > last_entry && first_exit > 0.0f && last_entry < 1.0f) {
@@ -217,35 +218,42 @@ void apply_force(rigidbody_s* rigidbody, v2f force) {
 // NOTE(nix3l): this should probably be switched out for a different one
 //              if the framerate goes too low
 static void euler_integrate(rigidbody_s* rb, f32 dt) {
-    // symplectic euler integration
+    // symplectic (semi-implicit) euler integration
     // conditionally stable. i.e. (if dt is not too big, system is stable)
     rb->velocity = V2F_ADD(rb->velocity, V2F_SCALE(rb->force, dt * rb->inv_mass));
     rb->box = aabb_translate(rb->box, V2F_SCALE(rb->velocity, dt));
     rb->force = V2F_ZERO;
 }
 
-static void static_stationary_check(rigidbody_s* rb, static_collider_s* collider) {
-    contact_s contact = aabb_aabb_penetration_info(rb->box, collider->box);
-    rb->box = aabb_translate(rb->box, V2F_SCALE(contact.penetration, -1.001f));
-    // assuming the static collider has infinite mass,
-    // the rigidbody should just bounce clean off
-    // NOTE(nix3l): maybe add stuff like friction and bounciness materials later
-    rb->velocity = V2F_SCALE(rb->velocity, -1.0f);
+static void resolve_static_collisions(physics_ctx_s* ctx, rigidbody_s* rb) {
+    ray_hit_s closest_intersection = { .intersection = false, .t = MAX_f32, };
+    for(u32 j = 0; j < ctx->static_objects.count; j ++) {
+        static_collider_s* collider = compact_list_get(&ctx->static_objects, j);
+        if(!collider) continue;
+
+        render_debug_rect(collider->box.centre, aabb_size(collider->box), COL_RED);
+
+        contact_s contact = aabb_aabb_penetration_info(rb->box, collider->box);
+        /*
+        if(contact.intersection)
+            rb->box = aabb_translate(rb->box, V2F_SCALE(contact.penetration, -1.0f));
+        */
+
+        aabb_s minkowski_sum = aabb_minkowski_sum(collider->box, rb->box);
+        ray_hit_s hit = ray_hit_aabb(rb->box.centre, rb->velocity, minkowski_sum);
+        render_debug_point(hit.point, 12.0f, COL_WHITE);
+        LOG("collision [%d], t [%.2f], p [%.2f, %.2f]\n", hit.intersection ? 1 : 0, hit.t, V2F_EXPAND(hit.point));
+        if(hit.intersection && hit.t < closest_intersection.t)
+            closest_intersection = hit;
+    }
+
+    /*
+    if(closest_intersection.intersection)
+        rb->box = aabb_centre(rb->box, closest_intersection.point);
+    */
 }
 
-static void static_sweep_check(rigidbody_s* rb, static_collider_s* collider) {
-    aabb_s minkowski_sum = aabb_minkowski_sum(collider->box, rb->box);
-    ray_hit_s hit = ray_hit_aabb(rb->box.centre, rb->velocity, minkowski_sum);
-    if(!hit.intersection) return;
-
-    // TODO(nix3l): fix
-
-    // hit is on the edge of the minkowski sum box
-    // so can just move the rb to that point on the edge
-    // to resolve collision
-    rb->box = aabb_centre(rb->box, hit.point);
-}
-
+// TODO(nix3l): velocity resolution
 void process_physics(physics_ctx_s* ctx) {
     f32 delta_time = engine_state->delta_time;
     for(u32 i = 0; i < ctx->physics_objects.count; i ++) {
@@ -256,16 +264,13 @@ void process_physics(physics_ctx_s* ctx) {
         // start off at the entities position (in case of me doing stupid stuff)
         rb->box = aabb_centre(rb->box, ent->position);
 
+        apply_force(rb, V2F_SCALE(V2F_UNITY, -9.81f * rb->mass));
+
         // integrate
         euler_integrate(rb, delta_time);
 
         // check for collisions with static objects
-        for(u32 j = 0; j < ctx->static_objects.count; j ++) {
-            static_collider_s* collider = compact_list_get(&ctx->static_objects, j);
-            if(!collider) continue;
-            static_stationary_check(rb, collider);
-            static_sweep_check(rb, collider);
-        }
+        resolve_static_collisions(ctx, rb);
 
         // check for collisions with physics objects
         // TODO

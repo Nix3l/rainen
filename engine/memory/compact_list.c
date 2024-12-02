@@ -15,6 +15,8 @@ compact_list_s create_compact_list(arena_s* arena, u32 element_size, u32 capacit
 }
 
 void* compact_list_push(compact_list_s* list, u32* index) {
+    if(list->count == list->capacity) return NULL;
+
     list->elements[list->first_free_index] = COMPACT_LIST_TAKEN;
     void* data = list->contents + list->element_size * list->first_free_index;
     if(index) *index = list->first_free_index;
@@ -35,6 +37,8 @@ void* compact_list_get(compact_list_s* list, u32 index) {
 }
 
 void compact_list_remove(compact_list_s* list, u32 index) {
+    if(index > list->capacity) return;
+
     list->elements[index] = COMPACT_LIST_EMPTY;
 
     if(list->first_free_index > index)

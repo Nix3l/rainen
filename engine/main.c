@@ -256,11 +256,11 @@ int main(void) {
     };
 
     rigidbody_s* rb = physics_register_entity(&engine_state->physics_ctx, ent->handle);
+    rb->mass = 10.0f;
     // rb->box = sprite_bounding_box(&ent->sprite);
-    rb->box = aabb_create(100.0f, 100.0f);
-    rb->velocity = V2F(0.0f, -100.0f);
+    rb->box = aabb_create_dimensions(100.0f, 100.0f);
 
-    aabb_s static_collider = aabb_create(100.0f, 100.0f);
+    aabb_s static_collider = aabb_create_dimensions(100.0f, 100.0f);
     physics_register_static_collider(&engine_state->physics_ctx, static_collider);
 
     while(!glfwWindowShouldClose(engine_state->window.glfw_window)) {
@@ -269,14 +269,24 @@ int main(void) {
 
         update_camera(&engine_state->camera);
 
-        // ent->position = V2F(get_mouse_pos().x, 1600.0f - get_mouse_pos().y);
+        v2f pos = get_mouse_pos();
+        pos.y = 900.0f - pos.y;
+
+        pos.x += engine_state->camera.position.x;
+        pos.y += engine_state->camera.position.y;
+
         process_physics(&engine_state->physics_ctx);
 
         // RENDER
         fbo_clear(&engine_state->screen_buffer, V3F_RGB(0.0f, 0.0f, 0.0f), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        render_debug_rect(ent->position, aabb_size(rb->box), COL_RED);
-        render_debug_rect(static_collider.centre, aabb_size(static_collider), COL_BLUE);
+        for(u32 i = 0; i < engine_state->entity_handler.entities.count; i ++) {
+            entity_s* entity = compact_list_get(&engine_state->entity_handler.entities, i);
+            if(!entity) continue;
+            rigidbody_s* rb = get_rigidbody(&engine_state->physics_ctx, entity->rigidbody);
+            if(!rb) continue;
+            render_debug_rect(rb->box.centre, aabb_size(rb->box), COL_BLUE);
+        }
 
         render_draw_groups(&engine_state->renderer);
 

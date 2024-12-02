@@ -56,8 +56,6 @@ typedef enum {
     COMPACT_LIST_TAKEN,
 } compact_list_element_t;
 
-// TODO(nix3l): doesnt really handle filling up
-
 typedef struct {
     arena_s* arena; // MUST be zero'd
 

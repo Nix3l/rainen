@@ -16,6 +16,7 @@ typedef struct {
 
 typedef struct {
     u32 handle;
+
     aabb_s box;
 } static_collider_s;
 
@@ -40,8 +41,8 @@ typedef struct {
 
 typedef struct {
     bool intersection;
-    f32 t; // [0-1] percentage along the ray at which the intersection occurred
 
+    f32 t; // [0-1] percentage along the ray at which the intersection occurred
     v2f point;
     v2f normal;
 } ray_hit_s;
@@ -55,7 +56,7 @@ typedef struct {
 } physics_ctx_s;
 
 // COLLISIONS
-aabb_s aabb_create(f32 width, f32 height);
+aabb_s aabb_create_dimensions(f32 width, f32 height);
 // set the centre point and adjust min/max points accordingly
 aabb_s aabb_centre(aabb_s box, v2f centre);
 // move the centre point and min/max points
