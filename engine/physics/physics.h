@@ -24,6 +24,7 @@ typedef struct {
     u32 rb_handle;
     u32 entity_handle;
 
+    bool has_collision;
     aabb_s box;
 
     f32 mass;

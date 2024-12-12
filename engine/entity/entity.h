@@ -15,7 +15,10 @@
 
 typedef enum {
     ENTITY_NONE = 0x00,
-    ENTITY_HAS_PHYSICS = 0x01,
+    ENTITY_STATIC = 0x01,
+    ENTITY_DRAWABLE = 0x02,
+    ENTITY_HAS_PHYSICS = 0x04,
+    ENTITY_COLLISION = 0x08,
 } entity_flags_t;
 
 // TODO(nix3l): entity tagging system to manage behaviour
@@ -44,6 +47,12 @@ void destroy_entity(entity_handler_s* handler, u32 handle);
 
 entity_s* entity_data(u32 handle);
 
+// TODO(nix3l): ------------
+void update_entity(entity_s* entity);
+void update_entities(entity_handler_s* entity_handler);
+// -------------------------
+
 void render_entity(entity_s* entity);
+void render_entities(entity_handler_s* entity_handler);
 
 #endif

@@ -20,6 +20,7 @@ void* compact_list_push(compact_list_s* list, u32* index) {
     list->elements[list->first_free_index] = COMPACT_LIST_TAKEN;
     void* data = list->contents + list->element_size * list->first_free_index;
     if(index) *index = list->first_free_index;
+    if(list->first_free_index > list->last_used_index) list->last_used_index = list->first_free_index;
 
     for(u32 i = list->first_free_index + 1; i < list->capacity; i ++) {
         if(list->elements[i] == COMPACT_LIST_EMPTY) {
@@ -36,6 +37,7 @@ void* compact_list_get(compact_list_s* list, u32 index) {
     return list->elements[index] == COMPACT_LIST_EMPTY ? NULL : list->contents + list->element_size * index;
 }
 
+// TODO(nix3l): fix trying to remove an already free element
 void compact_list_remove(compact_list_s* list, u32 index) {
     if(index > list->capacity) return;
 
@@ -43,6 +45,15 @@ void compact_list_remove(compact_list_s* list, u32 index) {
 
     if(list->first_free_index > index)
         list->first_free_index = index;
+
+    if(index == list->last_used_index) {
+        for(u32 i = index; i >= 0; i --) {
+            if(list->elements[i] == COMPACT_LIST_TAKEN) {
+                list->last_used_index = i;
+                break;
+            }
+        }
+    }
 
     list->count --;
 }

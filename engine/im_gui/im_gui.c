@@ -3,10 +3,10 @@
 #include "engine.h"
 
 void init_imgui() {
-    engine_state->imgui_ctx = igCreateContext(NULL);
-    engine_state->imgui_io = igGetIO();
+    engine->imgui_ctx = igCreateContext(NULL);
+    engine->imgui_io = igGetIO();
 
-    ImGui_ImplGlfw_InitForOpenGL(engine_state->window.glfw_window, true);
+    ImGui_ImplGlfw_InitForOpenGL(engine->window.glfw_window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
 
     igStyleColorsDark(NULL);
@@ -15,7 +15,7 @@ void init_imgui() {
 void shutdown_imgui() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
-    igDestroyContext(engine_state->imgui_ctx);
+    igDestroyContext(engine->imgui_ctx);
 }
 
 void update_imgui() {

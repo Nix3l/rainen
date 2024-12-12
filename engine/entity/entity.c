@@ -20,13 +20,25 @@ void destroy_entity(entity_handler_s* handler, u32 handle) {
 }
 
 entity_s* entity_data(u32 handle) {
-    return compact_list_get(&engine_state->entity_handler.entities, handle);
+    return compact_list_get(&engine->entity_handler.entities, handle);
 }
 
-// TODO(nix3l): redo this, probably remove the whole offset thing
+void update_entity(entity_s* entity) {
+    // TODO(nix3l)
+}
+
+void update_entities(entity_handler_s* handler) {
+    for(u32 i = 0; i < handler->entities.last_used_index; i ++) {
+        entity_s* entity = entity_data(i);
+        if(!entity) continue;
+        update_entity(entity);
+    }
+}
+
+// TODO(nix3l): maybe remove the offset
 void render_entity(entity_s* entity) {
-    push_draw_call(engine_state->default_group,
-            NULL,
+    push_draw_call(engine->default_group,
+            &engine->primitive_square,
             entity->sprite.texture,
             V2F_ADD(entity->position, entity->sprite.offset),
             entity->sprite.rotation,
@@ -34,4 +46,14 @@ void render_entity(entity_s* entity) {
             0.0f,
             entity->sprite.layer,
             entity->sprite.color);
+}
+
+void render_entities(entity_handler_s* handler) {
+    for(u32 i = 0; i < handler->entities.last_used_index; i ++) {
+        entity_s* entity = entity_data(i);
+        if(!entity) continue;
+
+        if(entity->flags & ENTITY_DRAWABLE)
+            render_entity(entity);
+    }
 }

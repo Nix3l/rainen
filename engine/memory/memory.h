@@ -65,7 +65,6 @@ typedef struct {
     u32 count; // amount of stored elements
                // does NOT equal the index of the last element
     u32 first_free_index; // index of first free element
-    // TODO(nix3l)
     u32 last_used_index; // index of first free element
 
     void* contents; // data

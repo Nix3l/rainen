@@ -25,7 +25,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
     group->framebuffer = renderer->screen_buffer;
 
-    group->fallback_mesh = &engine_state->primitive_square;
+    group->fallback_mesh = &engine->primitive_square;
 
     group->tags = DRAW_GROUP_DEPTH_TEST;
 
@@ -38,7 +38,7 @@ draw_group_s* push_draw_group(renderer_s* renderer, shader_s* shader, camera_s* 
 
     group->num_calls = 0;
     usize call_buffer_size = MAX_DRAW_CALLS * sizeof(draw_call_s);
-    group->draw_calls = arena_create_in_block(arena_push(&engine_state->draw_calls_arena, call_buffer_size), call_buffer_size);
+    group->draw_calls = arena_create_in_block(arena_push(&engine->draw_calls_arena, call_buffer_size), call_buffer_size);
 
     return group;
 }
@@ -209,7 +209,7 @@ void render_draw_group(draw_group_s* group) {
         glCullFace(group->cull_face);
     }
 
-    glViewport(0, 0, engine_state->window.width, engine_state->window.height);
+    glViewport(0, 0, engine->window.width, engine->window.height);
 
     shader_start(group->shader);
 

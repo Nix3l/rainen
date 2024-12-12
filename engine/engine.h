@@ -21,18 +21,16 @@
 #include "physics/physics.h"
 #include "font/font.h"
 
-// NOTE(nix3l): anything with a (*) should probably be
-//              improved/looked back onto later
-
 // V0.1 -------------------
 // => basic rendering pipeline(*)
 // => basic rasterised font rendering(*)
 // => basic asset manager(*)
 // => entity manager(*)
-// => basic physics and collision detection(*)
-// => improve older code (fbo, texture, platform layer) 
+// => basic physics and collision detection
+// => improve older code (fbo, texture, platform layer)(*)
+// => dev serialisation
 // => debug file loading(*)
-// => imgui support 
+// => imgui support(*)
 // ------------------------
 
 #define ENGINE_VERSION_MAJOR 0
@@ -110,11 +108,11 @@ typedef struct {
 } engine_state_s;
 
 extern engine_memory_s* engine_memory;
-extern engine_state_s* engine_state;
+extern engine_state_s* engine;
 
 // not a big fan of having this macro in this header but i do not care honestly
 // much more important things to take care of than proper code placement
 // especially when its this insignificant
-#define delta_time() (engine_state->delta_time)
+#define delta_time() (engine->delta_time)
 
 #endif

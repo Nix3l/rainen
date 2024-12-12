@@ -15,20 +15,20 @@ void create_window(u32 width, u32 height, char* title) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    engine_state->window.width = width;
-    engine_state->window.height = height;
-    engine_state->window.title = title;
+    engine->window.width = width;
+    engine->window.height = height;
+    engine->window.title = title;
 
-    engine_state->window.cursor_hidden = false;
+    engine->window.cursor_hidden = false;
 
-    engine_state->window.glfw_window = glfwCreateWindow(width, height, title, NULL, NULL);
-    if(!engine_state->window.glfw_window) {
+    engine->window.glfw_window = glfwCreateWindow(width, height, title, NULL, NULL);
+    if(!engine->window.glfw_window) {
         glfwTerminate();
         LOG_ERR("could not create window!\n");
         ASSERT_BREAK(!window->window);
     }
 
-    glfwMakeContextCurrent(engine_state->window.glfw_window);
+    glfwMakeContextCurrent(engine->window.glfw_window);
 
     // load all the opengl functions from the drivers with glad
     ASSERT(gladLoadGLLoader((GLADloadproc)glfwGetProcAddress));
@@ -42,6 +42,6 @@ void window_set_cursor_visibility(window_s* window, bool visibility) {
 }
 
 void destroy_window() {
-    glfwDestroyWindow(engine_state->window.glfw_window);
+    glfwDestroyWindow(engine->window.glfw_window);
     glfwTerminate();
 }

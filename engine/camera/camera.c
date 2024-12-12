@@ -6,8 +6,8 @@
 void update_camera(camera_s* camera) {
     // only move the camera when cursor is hidden
     if(is_key_pressed(GLFW_KEY_ESCAPE))
-            window_set_cursor_visibility(&engine_state->window, !engine_state->window.cursor_hidden);
-    if(!engine_state->window.cursor_hidden) return;
+            window_set_cursor_visibility(&engine->window, !engine->window.cursor_hidden);
+    if(!engine->window.cursor_hidden) return;
 
     /*
     // move the camera
@@ -18,7 +18,7 @@ void update_camera(camera_s* camera) {
             is_key_down(GLFW_KEY_S) - is_key_down(GLFW_KEY_W)
         );
 
-    movement = glms_vec3_scale(movement, camera->speed * delta_time() / engine_state->time_scale);
+    movement = glms_vec3_scale(movement, camera->speed * delta_time() / engine->time_scale);
 
     v3f forward = yaw_pitch_to_direction(RADIANS(camera->rotation.y), RADIANS(camera->rotation.x));
     v3f right = yaw_to_right(RADIANS(camera->rotation.y));
@@ -30,8 +30,8 @@ void update_camera(camera_s* camera) {
 
     // rotate the camera
     v2f mouse_move = get_mouse_move();
-    camera->rotation.x += mouse_move.y * camera->sens * delta_time() / engine_state->time_scale;
-    camera->rotation.y += mouse_move.x * camera->sens * delta_time() / engine_state->time_scale;
+    camera->rotation.x += mouse_move.y * camera->sens * delta_time() / engine->time_scale;
+    camera->rotation.y += mouse_move.x * camera->sens * delta_time() / engine->time_scale;
     */
 
     v3f movement = V3F(
@@ -44,7 +44,7 @@ void update_camera(camera_s* camera) {
 }
 
 mat4s camera_perspective_projection(camera_s* camera) {
-    f32 aspect_ratio = (f32) engine_state->window.width / (f32) engine_state->window.height;
+    f32 aspect_ratio = (f32) engine->window.width / (f32) engine->window.height;
     return glms_perspective(camera->fov, aspect_ratio, camera->near_plane, camera->far_plane);
 }
 

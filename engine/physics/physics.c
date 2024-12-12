@@ -233,18 +233,21 @@ static void resolve_static_collisions(physics_ctx_s* ctx, rigidbody_s* rb) {
 
         render_debug_rect(collider->box.centre, aabb_size(collider->box), COL_RED);
 
+        // STATIONARY COLLISION
         contact_s contact = aabb_aabb_penetration_info(rb->box, collider->box);
-        /*
         if(contact.intersection)
             rb->box = aabb_translate(rb->box, V2F_SCALE(contact.penetration, -1.0f));
-        */
+            
 
+        // SWEEP COLLISION
+        /*
         aabb_s minkowski_sum = aabb_minkowski_sum(collider->box, rb->box);
         ray_hit_s hit = ray_hit_aabb(rb->box.centre, rb->velocity, minkowski_sum);
         render_debug_point(hit.point, 12.0f, COL_WHITE);
         LOG("collision [%d], t [%.2f], p [%.2f, %.2f]\n", hit.intersection ? 1 : 0, hit.t, V2F_EXPAND(hit.point));
         if(hit.intersection && hit.t < closest_intersection.t)
             closest_intersection = hit;
+        */
     }
 
     /*
@@ -254,8 +257,9 @@ static void resolve_static_collisions(physics_ctx_s* ctx, rigidbody_s* rb) {
 }
 
 // TODO(nix3l): velocity resolution
+// TODO(nix3l): skip rigidbody collision if doesnt have
 void process_physics(physics_ctx_s* ctx) {
-    f32 delta_time = engine_state->delta_time;
+    f32 delta_time = engine->delta_time;
     for(u32 i = 0; i < ctx->physics_objects.count; i ++) {
         rigidbody_s* rb = compact_list_get(&ctx->physics_objects, i);
         if(!rb) continue;
@@ -272,10 +276,10 @@ void process_physics(physics_ctx_s* ctx) {
         // check for collisions with static objects
         resolve_static_collisions(ctx, rb);
 
-        // check for collisions with physics objects
-        // TODO
+        // TODO(nix3l): check for collisions with physics objects
 
         // update entity to hold the rigidbody's position
         ent->position = rb->box.centre;
+        render_debug_rect(ent->position, aabb_size(rb->box), COL_GREEN);
     }
 }

@@ -80,8 +80,8 @@ shader_s load_and_create_shader(
         void (*load_uniforms) (void*, void*),
         arena_s* arena) {
     usize vertex_length, fragment_length;
-    char* vertex_src = DEBUGplatform_load_text_from_file(vertex_path, &vertex_length, arena);
-    char* fragment_src = DEBUGplatform_load_text_from_file(fragment_path, &fragment_length, arena);
+    char* vertex_src = DEVplatform_load_text_from_file(vertex_path, &vertex_length, arena);
+    char* fragment_src = DEVplatform_load_text_from_file(fragment_path, &fragment_length, arena);
 
     shader_s shader = create_shader(name, vertex_src, fragment_src, bind_attributes, load_uniforms);
     shader.vertex_full_path = vertex_path;
@@ -122,7 +122,7 @@ compute_shader_s create_compute_shader(char* src, v3i work_groups) {
 
 compute_shader_s load_and_create_compute_shader(char* src_path, v3i work_groups, arena_s* arena) {
     usize src_length;
-    char* src = DEBUGplatform_load_text_from_file(src_path, &src_length, arena);
+    char* src = DEVplatform_load_text_from_file(src_path, &src_length, arena);
 
     compute_shader_s shader = create_compute_shader(src, work_groups);
 

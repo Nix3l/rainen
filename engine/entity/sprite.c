@@ -7,7 +7,7 @@ aabb_s sprite_bounding_box(sprite_s* sprite) {
 }
 
 void render_sprite(sprite_s* sprite) {
-    push_draw_call(engine_state->default_group,
+    push_draw_call(engine->default_group,
             NULL,
             sprite->texture,
             sprite->offset,

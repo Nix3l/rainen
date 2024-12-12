@@ -11,7 +11,7 @@ static void bind_attributes(shader_s* shader) {
 static void load_uniforms(void* _call, void* _data) {
     draw_call_s* call = _call;
 
-    default_shader_s* uniforms = &engine_state->default_shader;
+    default_shader_s* uniforms = &engine->default_shader;
 
     shader_load_int(uniforms->u_layer, call->layer);
 
@@ -31,7 +31,7 @@ void init_default_shader(default_shader_s* shader) {
             "shader/fs.glsl",
             bind_attributes,
             load_uniforms,
-            &engine_state->frame_arena
+            &engine->frame_arena
         );
     
     shader_s* program = &shader->program;

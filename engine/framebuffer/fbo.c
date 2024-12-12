@@ -94,7 +94,7 @@ void fbo_copy_texture_to_screen(fbo_s* fbo, GLenum src_att) {
     glReadBuffer(src_att);
 
     glBlitFramebuffer(0, 0, fbo->width, fbo->height, 
-                      0, 0, engine_state->window.width, engine_state->window.height,
+                      0, 0, engine->window.width, engine->window.height,
                       GL_COLOR_BUFFER_BIT,
                       GL_LINEAR);
     

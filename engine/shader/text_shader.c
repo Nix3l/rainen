@@ -10,7 +10,7 @@ static void bind_attributes(shader_s* shader) {
 
 static void load_uniforms(void* _call, void* _data) {
     draw_call_s* call = _call;
-    text_shader_s* uniforms = &engine_state->text_shader;
+    text_shader_s* uniforms = &engine->text_shader;
 
     shader_load_mat4(uniforms->u_projection_view, call->camera->projection_view);
     shader_load_int(uniforms->u_tex, 0);
@@ -24,7 +24,7 @@ void init_text_shader(text_shader_s* shader) {
             "shader/text_fs.glsl",
             bind_attributes,
             load_uniforms,
-            &engine_state->frame_arena
+            &engine->frame_arena
         );
     
     shader_s* program = &shader->program;
