@@ -1,6 +1,6 @@
 #include "asset.h"
 
-#include "util/log.h"
+#include "util/util.h"
 
 #include "mesh/mesh.h"
 #include "texture/texture.h"

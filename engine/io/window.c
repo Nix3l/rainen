@@ -1,7 +1,7 @@
 #include "window.h"
 
 #include "engine.h"
-#include "util/log.h"
+#include "util/util.h"
 
 static void glfw_error_callback(int error, const char* text) {
     LOG_ERR("GLFW ERROR [%d]: `%s`\n", error, text);

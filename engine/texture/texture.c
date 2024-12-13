@@ -1,5 +1,5 @@
 #include "texture.h"
-#include "util/log.h"
+#include "util/util.h"
 #include "platform/platform.h"
 
 static void load_image_stb(char* filepath, GLenum target, texture_s* texture) {

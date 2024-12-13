@@ -2,7 +2,7 @@
 
 #include "engine.h"
 
-#include "util/log.h"
+#include "util/util.h"
 #include "platform/platform.h"
 
 #include <assimp/cimport.h>

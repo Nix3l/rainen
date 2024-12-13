@@ -1,7 +1,7 @@
 #include "text_shader.h"
 
 #include "engine.h"
-#include "util/log.h"
+#include "util/util.h"
 
 static void bind_attributes(shader_s* shader) {
     shader_bind_attribute(shader, MESH_ATTRIBUTE_VERTICES, "vs_position");

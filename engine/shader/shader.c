@@ -1,6 +1,6 @@
 #include "shader.h"
 
-#include "util/log.h"
+#include "util/util.h"
 #include "platform/platform.h"
 
 static GLuint compile_shader(char* src_code, GLuint shader_type) {

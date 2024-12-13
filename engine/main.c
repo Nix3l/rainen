@@ -12,6 +12,7 @@
 // ENGINE FEATURES ------------------------
 // TODO(nix3l): 
 // => LOW PRIORITY ------------------------
+// TODO(nix3l): change the memory management up
 // TODO(nix3l): basic collision resolution 
 // TODO(nix3l): decide the scene layout and dev serialisation method
 // TODO(nix3l): scene editor
@@ -24,8 +25,7 @@
 
 #include "engine.h"
 #include "asset/asset.h"
-#include "util/log.h"
-#include "util/math.h"
+#include "util/util.h"
 
 // TODO(nix3l): this is a slightly older version of cimgui
 // since i completely forget how i compiled the backends the first time around lol

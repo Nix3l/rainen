@@ -2,6 +2,7 @@
 #define SERIALISATION_H
 
 #include "base.h"
+#include "memory/memory.h"
 
 /*
  * => SCENE FILE FORMAT:
@@ -19,7 +20,7 @@
  *  -> }
  */
 
-void DEVsave_game_state(char* filename);
-void DEVload_game_state(char* filename);
+void DEVsave_game_state(char* filename, arena_s* arena);
+void DEVload_game_state(char* filename, arena_s* arena);
 
 #endif

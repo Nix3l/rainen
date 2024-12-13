@@ -2,7 +2,6 @@
 #define RENDERER_H
 
 #include "base.h"
-#include "util/vector.h"
 #include "shader/shader.h"
 #include "texture/texture.h"
 #include "camera/camera.h"

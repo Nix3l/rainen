@@ -2,8 +2,7 @@
 
 #include "engine.h"
 
-#include "util/log.h"
-#include "util/math.h"
+#include "util/util.h"
 
 void init_renderer(renderer_s* renderer, arena_s* arena, fbo_s* screen) {
     *renderer = (renderer_s) {

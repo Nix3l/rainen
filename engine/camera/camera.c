@@ -1,7 +1,7 @@
 #include "camera.h"
 
 #include "engine.h"
-#include "util/math.h"
+#include "util/util.h"
 
 void update_camera(camera_s* camera) {
     // only move the camera when cursor is hidden

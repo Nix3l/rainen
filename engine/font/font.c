@@ -1,6 +1,6 @@
 #include "font.h"
 
-#include "util/log.h"
+#include "util/util.h"
 #include "platform/platform.h"
 
 // TODO(nix3l): get glyph information from font

@@ -1,7 +1,7 @@
 #include "fbo.h"
 
 #include "engine.h"
-#include "util/log.h"
+#include "util/util.h"
 #include "memory/memory.h"
 
 fbo_s create_fbo(u32 width, u32 height, u32 num_textures, arena_s* arena) {

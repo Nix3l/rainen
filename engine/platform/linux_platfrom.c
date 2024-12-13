@@ -2,7 +2,7 @@
 
 #include <errno.h>
 
-#include "util/log.h"
+#include "util/util.h"
 
 #if OS_LINUX
 
