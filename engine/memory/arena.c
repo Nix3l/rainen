@@ -1,6 +1,6 @@
 #include "memory.h"
 
-#define ARENA_GROWTH_FACTOR (1.5f)
+#define ARENA_SHRINK_FACTOR (1.5f)
 
 arena_s arena_create(usize capacity) {
     return (arena_s) {
@@ -16,7 +16,7 @@ arena_s arena_create_expandable(usize capacity) {
         .capacity = capacity,
         .size = 0,
         .data = mem_alloc(sizeof(u8) * capacity),
-        .expandable = true 
+        .expandable = true
     };
 }
 
@@ -46,25 +46,23 @@ arena_s arena_create_expandable_in_block(void* data, usize capacity) {
         .capacity = capacity,
         .size = 0,
         .data = data,
-        .expandable = true 
+        .expandable = true
     };
 }
 
-
-// NOTE(nix3l): growing and shrinking uses the same logic as vectors, check vectors.c for more info
-static void grow_arena(arena_s* arena) {
-    arena->capacity *= ARENA_GROWTH_FACTOR;
+static void grow_arena(arena_s* arena, usize grow_cap) {
+    arena->capacity += grow_cap;
     arena->data = mem_realloc(arena->data, arena->capacity);
 }
 
 static void shrink_arena(arena_s* arena) {
-    arena->capacity /= ARENA_GROWTH_FACTOR;
+    arena->capacity /= ARENA_SHRINK_FACTOR;
     arena->data = mem_realloc(arena->data, arena->capacity);
 }
 
 void* arena_push(arena_s* arena, usize size) {
     if(arena->capacity < arena->size + size) {
-        if(arena->expandable) grow_arena(arena);
+        if(arena->expandable) grow_arena(arena, size);
         else ASSERT_BREAK(arena->capacity > arena->size + size);
     }
 
@@ -77,9 +75,9 @@ void* arena_push(arena_s* arena, usize size) {
 void arena_pop(arena_s* arena, usize bytes) {
     ASSERT(arena->size >= bytes);
 
-    if(arena->expandable && arena->size - bytes < arena->capacity * ARENA_GROWTH_FACTOR)
+    if(arena->expandable && arena->size - bytes < arena->capacity / ARENA_SHRINK_FACTOR)
         shrink_arena(arena);
-    
+
     arena->size -= bytes;
 }
 

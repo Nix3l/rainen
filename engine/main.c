@@ -33,6 +33,8 @@
 
 #include "platform/platform.h"
 
+#include "serialisation/serialisation.h"
+
 engine_memory_s* engine_memory = NULL;
 engine_state_s* engine = NULL;
 
@@ -263,6 +265,8 @@ int main(void) {
 
     aabb_s static_collider = aabb_create_dimensions(100.0f, 100.0f);
     physics_register_static_collider(&engine->physics_ctx, static_collider);
+
+    DEVsave_game_state("", NULL);
 
     while(!glfwWindowShouldClose(engine->window.glfw_window)) {
         // UPDATE

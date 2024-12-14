@@ -47,7 +47,7 @@ void compact_list_remove(compact_list_s* list, u32 index) {
         list->first_free_index = index;
 
     if(index == list->last_used_index) {
-        for(u32 i = index; i >= 0; i --) {
+        for(i32 i = index; i >= 0; i --) {
             if(list->elements[i] == COMPACT_LIST_TAKEN) {
                 list->last_used_index = i;
                 break;
