@@ -13,6 +13,8 @@
 mat4s get_transformation_matrix(v2f position, f32 rotation, v2f scale);
 
 // STRINGS
+#define STRLIT_LEN(_lit) (sizeof(_lit) - 1)
+
 // NOTE(nix3l): have to implement this because gcc and the c standard are awesome yay
 // returns the length of the string, not including the null terminator
 // never goes past max_len characters in the string (str + max_len in memory)

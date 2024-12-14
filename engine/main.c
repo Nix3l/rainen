@@ -266,7 +266,7 @@ int main(void) {
     aabb_s static_collider = aabb_create_dimensions(100.0f, 100.0f);
     physics_register_static_collider(&engine->physics_ctx, static_collider);
 
-    DEVsave_game_state("", NULL);
+    DEVsave_game_state("save/test.rsc", NULL);
 
     while(!glfwWindowShouldClose(engine->window.glfw_window)) {
         // UPDATE
