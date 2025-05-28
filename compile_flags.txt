@@ -1,0 +1,10 @@
+-std=c11
+-Wall
+-Wextra
+-lasan
+-lcglm
+-lm
+-lassimp
+-lglfw
+-Isrc
+-Ilib
