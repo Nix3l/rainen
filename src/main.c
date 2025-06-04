@@ -2,6 +2,8 @@
 
 #include "io/io.h"
 #include "gfx/gfx.h"
+#include "memory/memory.h"
+#include "platform/platform.h"
 #include "util/util.h"
 
 int main(void) {
