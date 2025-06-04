@@ -13,14 +13,14 @@ INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 CCFLAGS := -std=c11 -Wall -Wextra
-CCLIBS := -lglfw -lassimp -lcglm -lm
+LDFLAGS := -lglfw -lassimp -lcglm -lm
 
-DEBUG_FLAGS :=
+DEBUG_FLAGS := -g
 
 all: run clean
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
-	$(CC) $(CCLIBS) $(OBJS) -o $@
+	$(CC) $(LDFLAGS) $(OBJS) -o $@
 
 $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)

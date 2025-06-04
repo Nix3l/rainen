@@ -10,7 +10,7 @@
 #endif
 
 #define ASSERT(_x) do { if(!(_x)) ASSERT_BREAK((_x)); } while(0)
-#define PANIC(_x) do { fprintf(stderr, "[%s:%u]: %s\n", __FILE__, __LINE__, (_x)); exit(1); } while(0)
+#define PANIC(...) do { fprintf(stderr, "[%s:%u]: !!! PANIC !!!\n => ", __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); exit(1); } while(0)
 
 #define ARRAY_SIZE(_arr) (sizeof((_arr))/(sizeof(*(_arr))))
 
@@ -87,9 +87,9 @@
 #define v3f_norm(_x) (glms_vec3_normalize(_x))
 #define v4f_norm(_x) (glms_vec4_normalize(_x))
 
-#define v2f_expand(_x) _x.x, _x.y
-#define v3f_expand(_x) _x.x, _x.y, _x.z
-#define v4f_expand(_x) _x.x, _x.y, _x.z, _x.w
+#define v2f_expand(_x) (_x).x, (_x).y
+#define v3f_expand(_x) (_x).x, (_x).y, (_x).z
+#define v4f_expand(_x) (_x).x, (_x).y, (_x).z, (_x).w
 
 #define v2f_UNITX (v2f_new(1.0f, 0.0f))
 #define v2f_UNITY (v2f_new(0.0f, 1.0f))

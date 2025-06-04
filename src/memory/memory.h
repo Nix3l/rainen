@@ -19,11 +19,13 @@ typedef enum expand_type_t {
 // a block of memory with a size
 typedef struct range_t {
     usize size; // in bytes
-    void* data;
+    void* ptr;
 } range_t;
 
+#define RANGE_EMPTY ((range_t) { .size = 0, .data = NULL })
+
 range_t range_new(void* data, usize bytes);
-range_t range_alloc(usize size);
+range_t range_alloc(usize bytes);
 
 // frees the range
 void range_destroy(range_t* range);
@@ -38,7 +40,7 @@ typedef struct vector_t {
 } vector_t;
 
 vector_t vector_new(void* data, u32 capacity, u32 element_size);
-vector_t vector_alloc(u32 capacity, u32 element_size);
+vector_t vector_alloc_new(u32 capacity, u32 element_size);
 
 void* vector_push(vector_t* vector);
 // add the element to the end of the vector
@@ -66,8 +68,8 @@ typedef struct arena_t {
     void* data;
 } arena_t;
 
-// TODO(nix3l): split into arena_new and arena_new_alloc
-arena_t arena_new(usize capacity, expand_type_t expand_type);
+arena_t arena_new(range_t block, expand_type_t expand_type);
+arena_t arena_alloc_new(usize capacity, expand_type_t expand_type);
 
 // only works on non-immutable arenas
 void arena_resize(arena_t* arena, usize new_capacity);
@@ -84,6 +86,11 @@ usize arena_remaining(arena_t* arena);
 
 range_t arena_range(arena_t* arena, usize start, usize size);
 range_t arena_range_full(arena_t* arena);
+// allocates a range in an arena
+range_t arena_push_range(arena_t* arena, u32 bytes);
+
+// allocates an immutable vector in the arena
+vector_t arena_push_vector(arena_t* arena, u32 num_elements, u32 element_size);
 
 // resets the arena head to zero
 void arena_clear(arena_t* arena);
@@ -91,6 +98,7 @@ void arena_clear(arena_t* arena);
 void arena_destroy(arena_t* arena);
 
 // POOLS
+// TODO(nix3l): make this one u32
 typedef struct handle_t {
     u32 index;
     u8 gen; // generation
@@ -98,14 +106,14 @@ typedef struct handle_t {
 
 bool handle_equals(handle_t h1, handle_t h2);
 
-typedef struct pool_element_t {
+typedef struct mempool_element_t {
     handle_t handle;
     bool in_use;
-} pool_element_t;
+} mempool_element_t;
 
 // i still feel like the name "compact list" is more fitting
 // but i guess people call this a pool so who cares
-typedef struct pool_t {
+typedef struct mempool_t {
     u32 element_size;
 
     u32 num_in_use;
@@ -120,31 +128,30 @@ typedef struct pool_t {
     expand_type_t type;
 
     void* data;
-    pool_element_t* elements;
-} pool_t;
+    mempool_element_t* elements;
+} mempool_t;
 
-pool_t pool_new(u32 capacity, u32 element_size, expand_type_t expand_type);
-pool_t pool_new_unexpandable(u32 capacity, u32 element_size);
+mempool_t mempool_alloc_new(u32 capacity, u32 element_size, expand_type_t expand_type);
 
-void pool_resize(pool_t* pool, usize new_capacity);
-void pool_prepare(pool_t* pool, u32 num_new_elements);
+void mempool_resize(mempool_t* pool, u32 new_capacity);
+void mempool_prepare(mempool_t* pool, u32 num_new_elements);
 
 // returns the memory slot at the first free element in the pool
-void* pool_push(pool_t* pool);
+void* mempool_push(mempool_t* pool, handle_t* out_handle);
 // forcefully pushes to element at the index
 // removes any data that was there before pushing
 // will not expand the arena even if it is auto-expandable
-void* pool_push_at_index(pool_t* pool, u32 index);
+void* mempool_push_at_index(mempool_t* pool, u32 index, handle_t* out_handle);
 
-void* pool_get(pool_t* pool, handle_t handle);
-void* pool_at_index(pool_t* pool, u32 index);
+void* mempool_get(mempool_t* pool, handle_t handle);
+void* mempool_at_index(mempool_t* pool, u32 index);
 
-void pool_free(pool_t* pool, handle_t handle);
-void pool_free_at_index(pool_t* pool, u32 index);
+void mempool_free(mempool_t* pool, handle_t handle);
+void mempool_free_at_index(mempool_t* pool, u32 index);
 
 // resets all the elements to 0 (including generations)
-void pool_clear(pool_t* pool);
-void pool_destroy(pool_t* pool);
+void mempool_clear(mempool_t* pool);
+void mempool_destroy(mempool_t* pool);
 
 // TODO(nix3l): linked lists
 

@@ -5,24 +5,24 @@
 range_t range_new(void* data, usize size) {
     return (range_t) {
         .size = size,
-        .data = data,
+        .ptr = data,
     };
 }
 
 range_t range_alloc(usize size) {
-    void* data = mem_alloc(size);
+    void* data = mem_calloc(size);
     if(!data) PANIC("couldnt allocate range\n");
 
     return (range_t) {
         .size = size,
-        .data = data,
+        .ptr = data,
     };
 }
 
 void range_destroy(range_t* range) {
     range->size = 0;
-    free(range->data);
-    range->data = NULL;
+    free(range->ptr);
+    range->ptr = NULL;
 }
 
 vector_t vector_new(void* data, u32 capacity, u32 element_size) {
@@ -34,8 +34,8 @@ vector_t vector_new(void* data, u32 capacity, u32 element_size) {
     };
 }
 
-vector_t vector_alloc(u32 capacity, u32 element_size) {
-    void* data = mem_alloc(capacity * element_size);
+vector_t vector_alloc_new(u32 capacity, u32 element_size) {
+    void* data = mem_calloc(capacity * element_size);
     if(!data) PANIC("couldnt allocate range\n");
 
     return (vector_t) {
@@ -98,8 +98,17 @@ void vector_destroy(vector_t* vector) {
 }
 
 // ARENAS
-arena_t arena_new(usize capacity, expand_type_t expand_type) {
-    void* data = mem_alloc(capacity);
+arena_t arena_new(range_t block, expand_type_t expand_type) {
+    return (arena_t) {
+        .size = 0,
+        .capacity = block.size,
+        .data = block.ptr,
+        .type = expand_type,
+    };
+}
+
+arena_t arena_alloc_new(usize capacity, expand_type_t expand_type) {
+    void* data = mem_calloc(capacity);
     if(!data) PANIC("couldnt allocate memory for arena\n");
 
     return (arena_t) {
@@ -173,15 +182,33 @@ usize arena_remaining(arena_t* arena) {
 range_t arena_range(arena_t* arena, usize start, usize size) {
     return (range_t) {
         .size = size,
-        .data = arena->data + start,
+        .ptr = arena->data + start,
     };
 }
 
 range_t arena_range_full(arena_t* arena) {
     return (range_t) {
         .size = arena->size,
-        .data = arena->data,
+        .ptr = arena->data,
     };
+}
+
+range_t arena_push_range(arena_t* arena, u32 bytes) {
+    void* data = arena_push(arena, bytes);
+    if(!data) PANIC("could not push range in arena\n");
+
+    return (range_t) {
+        .ptr = data,
+        .size = bytes 
+    };
+}
+
+vector_t arena_push_vector(arena_t* arena, u32 num_elements, u32 element_size) {
+    u32 bytes = num_elements * element_size;
+    void* data = arena_push(arena, bytes);
+    if(!data) PANIC("couldnt push enough memory for vector in arena\n");
+
+    return vector_new(data, num_elements, element_size);
 }
 
 void arena_clear(arena_t* arena) {
@@ -200,20 +227,20 @@ bool handle_equals(handle_t h1, handle_t h2) {
     return h1.index == h2.index && h1.gen == h2.gen;
 }
 
-pool_t pool_new(u32 capacity, u32 element_size, expand_type_t type) {
-    void* data = mem_alloc(capacity * element_size);
-    pool_element_t* elements = mem_alloc(capacity * sizeof(pool_element_t));
+mempool_t mempool_alloc_new(u32 capacity, u32 element_size, expand_type_t type) {
+    void* data = mem_calloc(capacity * element_size);
+    mempool_element_t* elements = mem_calloc(capacity * sizeof(mempool_element_t));
 
     if(!data || !elements) PANIC("couldnt allocate memory for pool\n");
 
     for(u32 i = 0; i < capacity; i ++) {
-        elements[i] = (pool_element_t) {
+        elements[i] = (mempool_element_t) {
             .handle = (handle_t) { .index = i, .gen = 0 },
             .in_use = false,
         };
     }
 
-    return (pool_t) {
+    return (mempool_t) {
         .element_size = element_size,
 
         .num_in_use = 0,
@@ -229,18 +256,18 @@ pool_t pool_new(u32 capacity, u32 element_size, expand_type_t type) {
     };
 }
 
-void pool_resize(pool_t* pool, usize new_capacity) {
+void mempool_resize(mempool_t* pool, u32 new_capacity) {
     if(pool->type == EXPAND_TYPE_IMMUTABLE) return;
     if(pool->capacity == new_capacity) return;
 
     void* data = mem_realloc(pool->data, new_capacity * pool->element_size);
-    pool_element_t* elements = mem_realloc(pool->elements, new_capacity * sizeof(pool_element_t));
+    mempool_element_t* elements = mem_realloc(pool->elements, new_capacity * sizeof(mempool_element_t));
 
     if(!data || !elements) PANIC("couldnt prepare memory for pool\n");
 
     if(new_capacity > pool->capacity) {
         for(u32 i = pool->capacity + 1; i < new_capacity; i ++) {
-            elements[i] = (pool_element_t) {
+            elements[i] = (mempool_element_t) {
                 .handle = (handle_t) { .index = i, .gen = 0 },
                 .in_use = false,
             };
@@ -252,23 +279,23 @@ void pool_resize(pool_t* pool, usize new_capacity) {
     pool->elements = elements;
 }
 
-void pool_prepare(pool_t* pool, u32 num_new_elements) {
-    pool_resize(pool, pool->capacity + num_new_elements);
+void mempool_prepare(mempool_t* pool, u32 num_new_elements) {
+    mempool_resize(pool, pool->capacity + num_new_elements);
 }
 
-void* pool_push(pool_t* pool) {
+void* mempool_push(mempool_t* pool, handle_t* out_handle) {
     if(pool->num_in_use == pool->capacity) {
         // if the first free element is used,
         // then the pool is at capacity, and should be expanded if necessary
         if(pool->type != EXPAND_TYPE_AUTOEXPAND) return NULL;
 
         // TODO(nix3l): figure out a good number for this.
-        pool_prepare(pool, 32);
+        mempool_prepare(pool, 32);
 
         pool->first_free_element ++;
     }
 
-    pool_element_t elem = pool->elements[pool->first_free_element];
+    mempool_element_t elem = pool->elements[pool->first_free_element];
     elem.in_use = true;
     elem.handle.gen ++;
     pool->elements[elem.handle.index] = elem;
@@ -284,13 +311,15 @@ void* pool_push(pool_t* pool) {
     if(elem.handle.index > pool->last_used_element) pool->last_used_element = elem.handle.index;
     pool->num_in_use ++;
 
+    if(out_handle) *out_handle = elem.handle;
+
     return pool->data + elem.handle.index * pool->element_size;
 }
 
-void* pool_push_at_index(pool_t* pool, u32 index) {
+void* mempool_push_at_index(mempool_t* pool, u32 index, handle_t* out_handle) {
     if(index > pool->capacity) return NULL;
     
-    pool_element_t elem = pool->elements[pool->first_free_element];
+    mempool_element_t elem = pool->elements[pool->first_free_element];
     elem.in_use = true;
     elem.handle.gen ++;
     pool->elements[elem.handle.index] = elem;
@@ -304,13 +333,14 @@ void* pool_push_at_index(pool_t* pool, u32 index) {
 
     if(index < pool->first_used_element) pool->first_used_element = index;
     if(index > pool->last_used_element) pool->last_used_element = index;
-
     pool->num_in_use ++;
+
+    if(out_handle) *out_handle = elem.handle;
 
     return pool->data + elem.handle.index * pool->element_size;
 }
 
-void* pool_get(pool_t* pool, handle_t handle) {
+void* mempool_get(mempool_t* pool, handle_t handle) {
     if(handle.index > pool->capacity) return NULL;
 
     // bit of an optimisation
@@ -319,7 +349,7 @@ void* pool_get(pool_t* pool, handle_t handle) {
         return NULL;
 
     for(u32 i = pool->first_used_element; i <= pool->last_used_element; i ++) {
-        pool_element_t curr_elem = pool->elements[i];
+        mempool_element_t curr_elem = pool->elements[i];
         if(!curr_elem.in_use) continue;
 
         if(handle_equals(handle, curr_elem.handle))
@@ -329,15 +359,15 @@ void* pool_get(pool_t* pool, handle_t handle) {
     return NULL;
 }
 
-void* pool_at_index(pool_t* pool, u32 index) {
+void* mempool_at_index(mempool_t* pool, u32 index) {
     if(index > pool->num_in_use) return NULL;
     else return pool->data + index * pool->element_size;
 }
 
-void pool_free(pool_t* pool, handle_t handle) {
+void mempool_free(mempool_t* pool, handle_t handle) {
     if(handle.index > pool->capacity) return;
 
-    pool_element_t elem = pool->elements[handle.index];
+    mempool_element_t elem = pool->elements[handle.index];
     elem.in_use = false;
     elem.handle.gen ++;
     pool->elements[elem.handle.index] = elem;
@@ -376,7 +406,7 @@ void pool_free(pool_t* pool, handle_t handle) {
         }
     }
 
-    // // TODO(nix3l): finish
+    // TODO(nix3l): finish
     /*
     if(pool->type == EXPAND_TYPE_AUTOEXPAND && pool->last_used_element < pool->capacity - 32) {
         
@@ -384,16 +414,16 @@ void pool_free(pool_t* pool, handle_t handle) {
     */
 }
 
-void pool_free_at_index(pool_t* pool, u32 index) {
-    pool_free(pool, (handle_t) { .index = index });
+void mempool_free_at_index(mempool_t* pool, u32 index) {
+    mempool_free(pool, (handle_t) { .index = index });
 }
 
-void pool_clear(pool_t* pool) {
+void mempool_clear(mempool_t* pool) {
     for(u32 i = 0; i < pool->capacity; i ++) {
-        pool_element_t elem = pool->elements[i];
+        mempool_element_t elem = pool->elements[i];
         elem.in_use = false;
         elem.handle.gen = 0;
-        pool->elements[elem.handle.index] = elem;
+        pool->elements[i] = elem;
     }
 
     pool->first_free_element = 0;
@@ -401,7 +431,7 @@ void pool_clear(pool_t* pool) {
     pool->num_in_use = 0;
 }
 
-void pool_destroy(pool_t* pool) {
+void mempool_destroy(mempool_t* pool) {
     pool->num_in_use = 0;
     pool->element_size = 0;
     pool->capacity = 0;

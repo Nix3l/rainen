@@ -1,6 +1,5 @@
 #include "io.h"
-#include "GLFW/glfw3.h"
-#include "base_macros.h"
+
 #include "memory/memory.h"
 #include "util/util.h"
 
@@ -29,8 +28,9 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
     io_ctx.keys_released[key] = action == GLFW_RELEASE;
 }
 
+// TODO(nix3l): fix this, no GLFW_REPEAT for mouse callbacks
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mode) {
-    io_ctx.mouse_buttons[button] = (action == GLFW_PRESS || action == GLFW_REPEAT) && action != GLFW_RELEASE;
+    io_ctx.mouse_buttons[button] = (action == GLFW_PRESS) && action != GLFW_RELEASE;
     io_ctx.mouse_buttons_pressed[button] = action == GLFW_PRESS && action != GLFW_RELEASE;
     io_ctx.mouse_buttons_held[button] = action == GLFW_REPEAT && action != GLFW_RELEASE;
     io_ctx.mouse_buttons_released[button] = action == GLFW_RELEASE;
@@ -59,7 +59,7 @@ void monitors_detect() {
     GLFWmonitor** glfw_monitors = glfwGetMonitors(&num_monitors);
     GLFWmonitor* primary_glfw_monitor = glfwGetPrimaryMonitor();
 
-    io_ctx.monitors = vector_alloc(num_monitors, sizeof(monitor_t));
+    io_ctx.monitors = vector_alloc_new(num_monitors, sizeof(monitor_t));
     for(i32 i = 0; i < num_monitors; i ++) {
         monitor_t* monitor = vector_push(&io_ctx.monitors);
         GLFWmonitor* glfw_monitor = glfw_monitors[i];

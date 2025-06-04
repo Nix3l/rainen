@@ -4,6 +4,8 @@
 #include "base.h"
 #include "memory/memory.h"
 
+// TODO: redo this to make it api agnostic 
+
 void io_init();
 void io_terminate();
 
