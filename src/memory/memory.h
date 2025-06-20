@@ -22,7 +22,7 @@ typedef struct range_t {
     void* ptr;
 } range_t;
 
-#define RANGE_EMPTY ((range_t) { .size = 0, .data = NULL })
+#define RANGE_EMPTY ((range_t) { .size = 0, .ptr = NULL })
 
 range_t range_new(void* data, usize bytes);
 range_t range_alloc(usize bytes);

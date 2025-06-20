@@ -13,20 +13,20 @@ static u32 file_size(FILE* file) {
     return size;
 }
 
-DEVONLY char* platform_load_file(arena_t* arena, const char* filename, u32* out_size) {
+DEVONLY range_t platform_load_file(arena_t* arena, const char* filename) {
     FILE* file = fopen(filename, "rb");
     if(!file) {
         LOG_ERR("couldnt open file [%s] for read\n", filename);
-        return NULL;
+        return RANGE_EMPTY;
     }
 
     u64 size = file_size(file);
-    if(arena->type == EXPAND_TYPE_IMMUTABLE && ! arena_fits(arena, size + 1)) {
+    if(arena->type == EXPAND_TYPE_IMMUTABLE && !arena_fits(arena, size + 1)) {
         LOG_ERR("cant fit entire file into arena\n");
         fclose(file);
-        return NULL;
+        return RANGE_EMPTY;
     } else {
-        arena_prepare(arena, size);
+        arena_prepare(arena, size + 1);
     }
 
     char* output = arena_push(arena, size + 1);
@@ -34,13 +34,16 @@ DEVONLY char* platform_load_file(arena_t* arena, const char* filename, u32* out_
 
     // even if the whole file wasnt read,
     // at least return the stuff we were able to read
-    if(read_length != size) LOG_ERR("read error occured on file [%s]\n", filename);
+    // but leave a warning
+    if(read_length != size) LOG_WARN("read error occured on file [%s]\n", filename);
 
     output[read_length + 1] = '\0';
-    if(out_size) *out_size = size;
-
     fclose(file);
-    return output;
+
+    return (range_t) {
+        .size = read_length + 1,
+        .ptr = output,
+    };
 }
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef _BASE_MACROS_H
 #define _BASE_MACROS_H
 
-// use this to tag functions that should only be used in the development stage
+// use this to tag functions that should **only** be used in the development stage
 #define DEVONLY
 
 #include <stdio.h>
@@ -28,9 +28,6 @@
 #define CLAMP(_x, _min, _max) ((_x)<(_min)?(_min):((_x)>(_max)?(_max):(_x)))
 #define CLAMP_MAX(_x, _max) MIN(_x, _max)
 #define CLAMP_MIN(_x, _min) MAX(_x, _min)
-
-#include <string.h>
-#define MEM_ZERO(_ptr, _num) memset((_ptr), 0, (_num))
 
 #define v2f_new(_x, _y) (v2f) { .x = (_x), .y = (_y) }
 #define v3f_new(_x, _y, _z) (v3f) { .x = (_x), .y = (_y), .z = (_z) }
