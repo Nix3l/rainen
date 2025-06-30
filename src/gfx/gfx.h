@@ -23,10 +23,15 @@
 #define GFX_SUPPORT_GL (0)
 #endif
 
+// TODO(nix3l):
+//  => better gfx resource handling (alloc,init,deinit,destroy)
+
 enum {
     // compile time constants/limits
     GFX_MAX_MESHES = 4096,
     GFX_MAX_VERTEX_ATTRIBS = 8,
+    GFX_MAX_TEXTURES = 256, // TODO(nix3l): change this
+    GFX_MAX_SAMPLERS = 32,
     GFX_MAX_SHADERS = 8,
     GFX_MAX_UNIFORMS = 64,
 };
@@ -45,7 +50,10 @@ typedef struct gfx_backend_info_t {
     const char name[8];
     const char name_pretty[16];
     bool supported;
-    u32 mesh_id_size;
+    u32 mesh_internal_size;
+    u32 texture_internal_size;
+    u32 sampler_internal_size;
+    u32 shader_internal_size;
 } gfx_backend_info_t;
 
 // backend specific stuff goes here
@@ -54,6 +62,14 @@ typedef struct gl_mesh_info_t {
     u32 vbos[GFX_MAX_VERTEX_ATTRIBS];
     u32 index_vbo;
 } gl_mesh_info_t;
+
+typedef struct gl_texture_info_t {
+    u32 id;
+} gl_texture_info_t;
+
+typedef struct gl_sampler_info_t {
+    u32 id;
+} gl_sampler_info_t;
 
 typedef struct gl_shader_info_t {
     u32 program;
@@ -68,6 +84,8 @@ typedef struct gfx_ctx_t {
     // instead of storing the identifier/id given by the api,
     // i store it in this pool and retrieve it whenever necessary
     mempool_t* mesh_pool;
+    mempool_t* texture_pool;
+    mempool_t* sampler_pool;
     mempool_t* shader_pool;
 } gfx_ctx_t;
 
@@ -155,6 +173,133 @@ mesh_t mesh_new(mesh_info_t info);
 // removes the mesh's gfx info from the pool
 void mesh_destroy(mesh_t* mesh);
 
+// TEXTURE
+// NOTE(nix3l): be careful when updating this, might break some internal translation functions
+typedef enum texture_format_t {
+    TEXTURE_FORMAT_UNDEFINED = 0,
+
+    // one channel
+    TEXTURE_FORMAT_R8,
+    TEXTURE_FORMAT_R8I,
+    TEXTURE_FORMAT_R8UI,
+
+    TEXTURE_FORMAT_R16,
+    TEXTURE_FORMAT_R16F,
+    TEXTURE_FORMAT_R16I,
+    TEXTURE_FORMAT_R16UI,
+
+    TEXTURE_FORMAT_R32F,
+    TEXTURE_FORMAT_R32I,
+    TEXTURE_FORMAT_R32UI,
+
+    // 2 channels
+    TEXTURE_FORMAT_RG8,
+    TEXTURE_FORMAT_RG8I,
+    TEXTURE_FORMAT_RG8UI,
+
+    TEXTURE_FORMAT_RG16,
+    TEXTURE_FORMAT_RG16F,
+    TEXTURE_FORMAT_RG16I,
+    TEXTURE_FORMAT_RG16UI,
+
+    TEXTURE_FORMAT_RG32F,
+    TEXTURE_FORMAT_RG32I,
+    TEXTURE_FORMAT_RG32UI,
+
+    // 3 channels
+    TEXTURE_FORMAT_RGB8,
+    TEXTURE_FORMAT_RGB8I,
+    TEXTURE_FORMAT_RGB8UI,
+
+    TEXTURE_FORMAT_RGB16F,
+    TEXTURE_FORMAT_RGB16I,
+    TEXTURE_FORMAT_RGB16UI,
+
+    TEXTURE_FORMAT_RGB32F,
+    TEXTURE_FORMAT_RGB32I,
+    TEXTURE_FORMAT_RGB32UI,
+
+    // 4 channels
+    TEXTURE_FORMAT_RGBA8,
+    TEXTURE_FORMAT_RGBA8I,
+    TEXTURE_FORMAT_RGBA8UI,
+
+    TEXTURE_FORMAT_RGBA16F,
+    TEXTURE_FORMAT_RGBA16I,
+    TEXTURE_FORMAT_RGBA16UI,
+
+    TEXTURE_FORMAT_RGBA32F,
+    TEXTURE_FORMAT_RGBA32I,
+    TEXTURE_FORMAT_RGBA32UI,
+
+    // depth/stencil
+    TEXTURE_FORMAT_DEPTH,
+    TEXTURE_FORMAT_DEPTH_STENCIL,
+} texture_format_t;
+
+typedef enum texture_type_t {
+    TEXTURE_TYPE_UNDEFINED = 0, // will be assumed 2D
+    TEXTURE_TYPE_2D,
+} texture_type_t;
+
+typedef enum texture_filter_t {
+    TEXTURE_FILTER_UNDEFINED = 0,
+    TEXTURE_FILTER_NEAREST,
+    TEXTURE_FILTER_LINEAR,
+} texture_filter_t;
+
+typedef enum texture_wrap_t {
+    TEXTURE_WRAP_UNDEFINED = 0,
+    TEXTURE_WRAP_REPEAT,
+    TEXTURE_WRAP_MIRRORED_REPEAT,
+    TEXTURE_WRAP_CLAMP_TO_EDGE,
+} texture_wrap_t;
+
+typedef struct texture_t {
+    handle_t gfx_handle;
+    texture_type_t type;
+    texture_format_t format;
+    u32 width;
+    u32 height;
+    u32 mipmaps;
+} texture_t;
+
+typedef struct texture_info_t {
+    texture_type_t type;
+    texture_format_t format;
+    u32 width;
+    u32 height;
+    u32 mipmaps;
+    range_t data;
+} texture_info_t;
+
+texture_t texture_new(texture_info_t info);
+void texture_destroy(texture_t* texture);
+
+// SAMPLERS
+typedef struct sampler_t {
+    handle_t gfx_handle;
+    texture_filter_t min_filter;
+    texture_filter_t mag_filter;
+    texture_wrap_t u_wrap;
+    texture_wrap_t v_wrap;
+} sampler_t;
+
+typedef struct sampler_info_t {
+    texture_filter_t filter;
+    texture_filter_t min_filter;
+    texture_filter_t mag_filter;
+    texture_wrap_t wrap;
+    texture_wrap_t u_wrap;
+    texture_wrap_t v_wrap;
+} sampler_info_t;
+
+// if filter is defined, min_filter and mag_filter are ignored
+// if wrap is defined, u_wrap and v_wrap are ignored
+sampler_t sampler_new(sampler_info_t info);
+
+void sampler_destroy(sampler_t* sampler);
+
 // SHADER
 typedef struct shader_vertex_attribute_t {
     const char* name;
@@ -218,11 +363,8 @@ typedef struct shader_info_t {
     uniform_t uniforms[GFX_MAX_UNIFORMS];
 } shader_info_t;
 
-// creates a new shader on the gpu
 shader_t shader_new(shader_info_t info);
 
-// deletes the resources from gpu memory and makes the shader unusable
-// removes the shader's gfx info from the pool
 void shader_destroy(shader_t* shader);
 
 // updates the shader's uniforms with the given data

@@ -18,8 +18,6 @@ int main(void) {
         input_start_frame(&io_ctx);
 
         // do ALL the things
-        LOG("%.2f, %.2f\n", v2f_expand(input_mouse_move()));
-        LOG("%d\n", input_mouse_down(GLFW_MOUSE_BUTTON_LEFT) ? 1 : 0);
 
         glfwSwapBuffers(game_window->glfw_window);
         input_end_frame(&io_ctx);

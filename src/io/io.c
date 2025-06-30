@@ -1,5 +1,6 @@
 #include "io.h"
 
+#include "base_macros.h"
 #include "memory/memory.h"
 #include "util/util.h"
 
@@ -14,10 +15,12 @@ static void error_callback(int code, const char* description) {
 // WINDOW CALLBACKS
 static void window_focus_callback(GLFWwindow* window, i32 focused) {
     game_window->focused = focused;
+    UNUSED(window);
 }
 
 static void window_minimize_callback(GLFWwindow* window, i32 minimized) {
     game_window->minimized = minimized;
+    UNUSED(window);
 }
 
 // INPUT CALLBACKS
@@ -26,6 +29,10 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
     io_ctx.keys_pressed[key] = action == GLFW_PRESS && (action != GLFW_RELEASE || action == GLFW_REPEAT);
     io_ctx.keys_held[key] = action == GLFW_REPEAT && action != GLFW_RELEASE;
     io_ctx.keys_released[key] = action == GLFW_RELEASE;
+
+    UNUSED(window);
+    UNUSED(scancode);
+    UNUSED(mode);
 }
 
 // TODO(nix3l): fix this, no GLFW_REPEAT for mouse callbacks
@@ -34,11 +41,15 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
     io_ctx.mouse_buttons_pressed[button] = action == GLFW_PRESS && action != GLFW_RELEASE;
     io_ctx.mouse_buttons_held[button] = action == GLFW_REPEAT && action != GLFW_RELEASE;
     io_ctx.mouse_buttons_released[button] = action == GLFW_RELEASE;
+
+    UNUSED(window);
+    UNUSED(mode);
 }
 
 static void mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {
     io_ctx.mouse_pos.x = (float) xpos;
     io_ctx.mouse_pos.y = (float) ypos;
+    UNUSED(window);
 }
 
 // GLFW (initialisation/termination)

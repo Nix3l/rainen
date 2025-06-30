@@ -9,8 +9,14 @@
 #   define ASSERT_BREAK(_x) do { fprintf(stderr, "assertion `%s` failed [%s:%u]\n", #_x, __FILE__, __LINE__); /**(int*)0=0*/exit(1); } while(0) // crash (ouch)
 #endif
 
+// use this to remove compiler warnings for unused parameters
+// only use when the parameter can not be removed
+#define UNUSED(_x) do { (void) (_x); } while(0)
+
 #define ASSERT(_x) do { if(!(_x)) ASSERT_BREAK((_x)); } while(0)
 #define PANIC(...) do { fprintf(stderr, "[%s:%u]: !!! PANIC !!!\n => ", __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); exit(1); } while(0)
+
+#define UNREACHABLE do { fprintf(stderr, "ERR (%s:[%s]:%u) unreachable branch\n", __FILE__, __PRETTY_FUNCTION__, __LINE__); exit(1); } while(0);
 
 #define ARRAY_SIZE(_arr) (sizeof((_arr))/(sizeof(*(_arr))))
 
