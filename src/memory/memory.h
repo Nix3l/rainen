@@ -9,6 +9,8 @@
 #define mem_realloc(_buffer, _bytes) realloc((_buffer), (_bytes))
 #define mem_free(_ptr) free((_ptr))
 
+void mem_clear(void* ptr, usize size);
+
 typedef enum expand_type_t {
     EXPAND_TYPE_IMMUTABLE = 0,
     EXPAND_TYPE_EXPANDABLE,
@@ -98,13 +100,18 @@ void arena_clear(arena_t* arena);
 void arena_destroy(arena_t* arena);
 
 // POOLS
-// TODO(nix3l): make this one u32
-typedef struct handle_t {
-    u32 index;
-    u8 gen; // generation
-} handle_t;
+typedef u32 handle_t;
 
-bool handle_equals(handle_t h1, handle_t h2);
+handle_t handle_new(u32 index, u32 generation);
+
+u32 handle_index(handle_t handle);
+u32 handle_gen(handle_t handle);
+
+handle_t handle_set_index(handle_t handle, u32 index);
+handle_t handle_set_gen(handle_t handle, u32 gen);
+
+handle_t handle_inc_index(handle_t handle);
+handle_t handle_inc_gen(handle_t handle);
 
 typedef struct mempool_element_t {
     handle_t handle;
@@ -138,10 +145,10 @@ void mempool_prepare(mempool_t* pool, u32 num_new_elements);
 
 // returns the memory slot at the first free element in the pool
 void* mempool_push(mempool_t* pool, handle_t* out_handle);
-// forcefully pushes to element at the index
+// forcefully sets element at index
 // removes any data that was there before pushing
 // will not expand the arena even if it is auto-expandable
-void* mempool_push_at_index(mempool_t* pool, u32 index, handle_t* out_handle);
+void* mempool_set(mempool_t* pool, u32 index, handle_t* out_handle);
 
 void* mempool_get(mempool_t* pool, handle_t handle);
 void* mempool_at_index(mempool_t* pool, u32 index);
