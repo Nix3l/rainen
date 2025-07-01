@@ -113,14 +113,20 @@ handle_t handle_set_gen(handle_t handle, u32 gen);
 handle_t handle_inc_index(handle_t handle);
 handle_t handle_inc_gen(handle_t handle);
 
-typedef struct mempool_element_t {
+typedef enum pool_element_state_t {
+    POOL_ELEMENT_FREE = 0,
+    POOL_ELEMENT_ALLOC,
+    POOL_ELEMENT_INIT,
+} pool_element_state_t;
+
+typedef struct pool_element_t {
     handle_t handle;
-    bool in_use;
-} mempool_element_t;
+    pool_element_state_t state;
+} pool_element_t;
 
 // i still feel like the name "compact list" is more fitting
 // but i guess people call this a pool so who cares
-typedef struct mempool_t {
+typedef struct pool_t {
     u32 element_size;
 
     u32 num_in_use;
@@ -129,36 +135,35 @@ typedef struct mempool_t {
     u32 first_used_element;
 
     // NOTE(nix3l): make sure to use <= in loop conditions,
-    // as this points to the a used element
+    // as this points to a used element
     u32 last_used_element;
-
     expand_type_t type;
 
     void* data;
-    mempool_element_t* elements;
-} mempool_t;
+    pool_element_t* elements;
+} pool_t;
 
-mempool_t mempool_alloc_new(u32 capacity, u32 element_size, expand_type_t expand_type);
+pool_t pool_alloc(u32 capacity, u32 element_size, expand_type_t expand_type);
 
-void mempool_resize(mempool_t* pool, u32 new_capacity);
-void mempool_prepare(mempool_t* pool, u32 num_new_elements);
+void pool_resize(pool_t* pool, u32 new_capacity);
+void pool_prepare(pool_t* pool, u32 num_new_elements);
 
 // returns the memory slot at the first free element in the pool
-void* mempool_push(mempool_t* pool, handle_t* out_handle);
+void* pool_push(pool_t* pool, handle_t* out_handle);
 // forcefully sets element at index
 // removes any data that was there before pushing
 // will not expand the arena even if it is auto-expandable
-void* mempool_set(mempool_t* pool, u32 index, handle_t* out_handle);
+void* pool_set(pool_t* pool, u32 index, handle_t* out_handle);
 
-void* mempool_get(mempool_t* pool, handle_t handle);
-void* mempool_at_index(mempool_t* pool, u32 index);
+void* pool_get(pool_t* pool, handle_t handle);
+void* pool_at_index(pool_t* pool, u32 index);
 
-void mempool_free(mempool_t* pool, handle_t handle);
-void mempool_free_at_index(mempool_t* pool, u32 index);
+void pool_free(pool_t* pool, handle_t handle);
+void pool_free_at_index(pool_t* pool, u32 index);
 
 // resets all the elements to 0 (including generations)
-void mempool_clear(mempool_t* pool);
-void mempool_destroy(mempool_t* pool);
+void pool_clear(pool_t* pool);
+void pool_destroy(pool_t* pool);
 
 // TODO(nix3l): linked lists
 

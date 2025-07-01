@@ -83,10 +83,10 @@ typedef struct gfx_ctx_t {
     // in order to keep this as api agnostic as i can,
     // instead of storing the identifier/id given by the api,
     // i store it in this pool and retrieve it whenever necessary
-    mempool_t* mesh_pool;
-    mempool_t* texture_pool;
-    mempool_t* sampler_pool;
-    mempool_t* shader_pool;
+    pool_t* mesh_pool;
+    pool_t* texture_pool;
+    pool_t* sampler_pool;
+    pool_t* shader_pool;
 } gfx_ctx_t;
 
 extern gfx_ctx_t gfx_ctx;
@@ -243,7 +243,7 @@ typedef enum texture_type_t {
 } texture_type_t;
 
 typedef enum texture_filter_t {
-    TEXTURE_FILTER_UNDEFINED = 0,
+    TEXTURE_FILTER_UNDEFINED = 0, // will be assumed nearest
     TEXTURE_FILTER_NEAREST,
     TEXTURE_FILTER_LINEAR,
 } texture_filter_t;

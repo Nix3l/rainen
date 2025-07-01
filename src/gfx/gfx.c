@@ -1,68 +1,58 @@
 #include "gfx.h"
-#include "base.h"
-#include "base_macros.h"
 #include "memory/memory.h"
 #include "util/util.h"
 
 gfx_ctx_t gfx_ctx;
 
-typedef void (*mesh_init_func) (mesh_t*, mesh_info_t);
-typedef void (*mesh_destroy_func) (mesh_t*);
-typedef void (*texture_init_func) (texture_t*, texture_info_t);
-typedef void (*texture_destroy_func) (texture_t*);
-typedef void (*sampler_init_func) (sampler_t*, sampler_info_t);
-typedef void (*sampler_destroy_func) (sampler_t*);
-typedef void (*shader_init_func) (shader_t*, shader_info_t);
-typedef void (*shader_destroy_func) (shader_t*);
-typedef void (*shader_update_uniforms_func) (shader_t*, range_t);
+// BACKEND_FUNC_XMACRO(function name, parameters)
+// will get expanded into all the necessary function definitions
+#define BACKEND_FUNCS_LIST \
+    BACKEND_FUNC_XMACRO(mesh_init, mesh_t* mesh, mesh_info_t info) \
+    BACKEND_FUNC_XMACRO(mesh_destroy, mesh_t* mesh) \
+    BACKEND_FUNC_XMACRO(texture_init, texture_t* texture, texture_info_t info) \
+    BACKEND_FUNC_XMACRO(texture_destroy, texture_t* texture) \
+    BACKEND_FUNC_XMACRO(sampler_init, sampler_t* sampler, sampler_info_t info) \
+    BACKEND_FUNC_XMACRO(sampler_destroy, sampler_t* sampler) \
+    BACKEND_FUNC_XMACRO(shader_init, shader_t* shader, shader_info_t info) \
+    BACKEND_FUNC_XMACRO(shader_destroy, shader_t* shader) \
+    BACKEND_FUNC_XMACRO(shader_update_uniforms, shader_t* shader, range_t uniforms) \
 
+#define BACKEND_FUNC_XMACRO(_name, ...) typedef void (*_name ## _func) (__VA_ARGS__);
+BACKEND_FUNCS_LIST;
+#undef BACKEND_FUNC_XMACRO
+
+#define BACKEND_FUNC_XMACRO(_name, ...) _name ## _func _name;
 typedef struct backend_jumptable_t {
-    mesh_init_func              mesh_init;
-    mesh_destroy_func           mesh_destroy;
-    texture_init_func           texture_init;
-    texture_destroy_func        texture_destroy;
-    sampler_init_func           sampler_init;
-    sampler_destroy_func        sampler_destroy;
-    shader_init_func            shader_init;
-    shader_destroy_func         shader_destroy;
-    shader_update_uniforms_func shader_update_uniforms;
+    BACKEND_FUNCS_LIST;
 } backend_jumptable_t;
+#undef BACKEND_FUNC_XMACRO
 
 static backend_jumptable_t backend_jumptables[GFX_BACKEND_NUM] = {0};
-static backend_jumptable_t* jumptable = NULL;
+static backend_jumptable_t* backend = NULL;
 
-static void gl_mesh_init(mesh_t* mesh, mesh_info_t info);
-static void gl_mesh_destroy(mesh_t* mesh);
-static void gl_texture_init(texture_t* tex, texture_info_t info);
-static void gl_texture_destroy(texture_t* tex);
-static void gl_texture_init(texture_t* tex, texture_info_t info);
-static void gl_texture_destroy(texture_t* tex);
-static void gl_sampler_init(sampler_t* sampler, sampler_info_t info);
-static void gl_sampler_destroy(sampler_t* sampler);
-static void gl_shader_init(shader_t* shader, shader_info_t info);
-static void gl_shader_destroy(shader_t* shader);
-static void gl_shader_update_uniforms(shader_t* shader, range_t data);
+// define backend-specific functions
+// gl
+#define BACKEND_FUNC_XMACRO(_name, ...) static void gl_ ## _name(__VA_ARGS__);
+BACKEND_FUNCS_LIST;
+#undef BACKEND_FUNC_XMACRO
 
 static void init_jumptables() {
+    #define BACKEND_FUNC_XMACRO(_name, ...) ._name = gl_ ## _name,
     backend_jumptables[GFX_BACKEND_GL] = (backend_jumptable_t) {
-        .mesh_init              = gl_mesh_init,
-        .mesh_destroy           = gl_mesh_destroy,
-        .texture_init           = gl_texture_init,
-        .texture_destroy        = gl_texture_destroy,
-        .sampler_init           = gl_sampler_init,
-        .sampler_destroy        = gl_sampler_destroy,
-        .shader_init            = gl_shader_init,
-        .shader_destroy         = gl_shader_destroy,
-        .shader_update_uniforms = gl_shader_update_uniforms,
+        BACKEND_FUNCS_LIST
     };
+    #undef BACKEND_FUNC_XMACRO
 
-    jumptable = &backend_jumptables[gfx_ctx.backend];
+    backend = &backend_jumptables[gfx_ctx.backend];
 }
 
-static mempool_t mesh_pool;
-static mempool_t texture_pool;
-static mempool_t sampler_pool;
-static mempool_t shader_pool;
+#undef BACKEND_FUNCS_LIST
+#undef BACKEND_FUNC_XMACRO
+
+static pool_t mesh_pool;
+static pool_t texture_pool;
+static pool_t sampler_pool;
+static pool_t shader_pool;
 
 void gfx_init(gfx_backend_t backend) {
     gfx_backend_info_t opengl_core_info = (gfx_backend_info_t) {
@@ -91,25 +81,25 @@ void gfx_init(gfx_backend_t backend) {
         PANIC("chosen backend is not supported on current OS\n");
 
     // for now, keep immutable
-    mesh_pool = mempool_alloc_new(GFX_MAX_MESHES, gfx_ctx.backend_info[backend].mesh_internal_size, EXPAND_TYPE_IMMUTABLE);
+    mesh_pool = pool_alloc(GFX_MAX_MESHES, gfx_ctx.backend_info[backend].mesh_internal_size, EXPAND_TYPE_IMMUTABLE);
     gfx_ctx.mesh_pool = &mesh_pool;
 
-    texture_pool = mempool_alloc_new(GFX_MAX_TEXTURES, gfx_ctx.backend_info[backend].texture_internal_size, EXPAND_TYPE_IMMUTABLE);
+    texture_pool = pool_alloc(GFX_MAX_TEXTURES, gfx_ctx.backend_info[backend].texture_internal_size, EXPAND_TYPE_IMMUTABLE);
     gfx_ctx.texture_pool = &texture_pool;
 
-    shader_pool = mempool_alloc_new(GFX_MAX_SHADERS, gfx_ctx.backend_info[backend].shader_internal_size, EXPAND_TYPE_IMMUTABLE);
+    shader_pool = pool_alloc(GFX_MAX_SHADERS, gfx_ctx.backend_info[backend].shader_internal_size, EXPAND_TYPE_IMMUTABLE);
     gfx_ctx.shader_pool = &shader_pool;
 
-    sampler_pool = mempool_alloc_new(GFX_MAX_SAMPLERS, gfx_ctx.backend_info[backend].sampler_internal_size, EXPAND_TYPE_IMMUTABLE);
+    sampler_pool = pool_alloc(GFX_MAX_SAMPLERS * GFX_MAX_SHADERS, gfx_ctx.backend_info[backend].sampler_internal_size, EXPAND_TYPE_IMMUTABLE);
     gfx_ctx.sampler_pool = &sampler_pool;
 
     init_jumptables();
 }
 
 void gfx_terminate() {
-    mempool_destroy(gfx_ctx.mesh_pool);
-    mempool_destroy(gfx_ctx.texture_pool);
-    mempool_destroy(gfx_ctx.shader_pool);
+    pool_destroy(gfx_ctx.mesh_pool);
+    pool_destroy(gfx_ctx.texture_pool);
+    pool_destroy(gfx_ctx.shader_pool);
 }
 
 gfx_backend_t gfx_backend() {
@@ -137,8 +127,6 @@ mesh_attribute_t mesh_attribute(void *data, u32 size, u32 dimensions) {
 
 mesh_t mesh_new(mesh_info_t info) {
     mesh_t mesh = {0};
-    mesh_init_func mesh_init_gfx = jumptable->mesh_init;
-    if(!mesh_init_gfx) PANIC("unsupported backend [%s] for %s\n", gfx_backend_info().name_pretty, __FUNCTION__);
 
     if(info.format == MESH_FORMAT_INVALID) {
         LOG_ERR("mesh format *must* be supplied\n");
@@ -159,21 +147,17 @@ mesh_t mesh_new(mesh_info_t info) {
     mesh.primitive = info.primitive;
     mesh.winding = info.winding;
 
-    mesh_init_gfx(&mesh, info);
+    backend->mesh_init(&mesh, info);
     return mesh;
 }
 
 void mesh_destroy(mesh_t* mesh) {
-    mesh_destroy_func mesh_destroy_gfx = jumptable->mesh_destroy;
-    if(!mesh_destroy_gfx) PANIC("unsupported backend [%s] for %s\n", gfx_backend_info().name_pretty, __FUNCTION__);
-    mesh_destroy_gfx(mesh);
-    mempool_free(gfx_ctx.mesh_pool, mesh->gfx_handle);
+    backend->mesh_destroy(mesh);
+    pool_free(gfx_ctx.mesh_pool, mesh->gfx_handle);
 }
 
 texture_t texture_new(texture_info_t info) {
     texture_t texture = {0};
-    texture_init_func texture_init_gfx = jumptable->texture_init;
-    if(!texture_init_gfx) PANIC("unsupported backend[%s] for %s\n", gfx_backend_info().name_pretty, "__FUNCTION__");
 
     if(info.type == TEXTURE_TYPE_UNDEFINED) info.type = TEXTURE_TYPE_2D;
     if(info.mipmaps == 0) info.mipmaps = 1;
@@ -184,21 +168,17 @@ texture_t texture_new(texture_info_t info) {
     texture.height = info.height;
     texture.mipmaps = info.mipmaps;
 
-    texture_init_gfx(&texture, info);
+    backend->texture_init(&texture, info);
     return texture;
 }
 
 void texture_destroy(texture_t* texture) {
-    texture_destroy_func texture_destroy_gfx = jumptable->texture_destroy;
-    if(!texture_destroy_gfx) PANIC("unsupported backend[%s] for %s\n", gfx_backend_info().name_pretty, "__FUNCTION__");
-    texture_destroy_gfx(texture);
-    mempool_free(gfx_ctx.texture_pool, texture->gfx_handle);
+    backend->texture_destroy(texture);
+    pool_free(gfx_ctx.texture_pool, texture->gfx_handle);
 }
 
 sampler_t sampler_new(sampler_info_t info) {
     sampler_t sampler = {0};
-    sampler_init_func sampler_init_gfx = jumptable->sampler_init;
-    if(!sampler_init_gfx) PANIC("unsupported backend[%s] for %s\n", gfx_backend_info().name_pretty, "__FUNCTION__");
 
     if(info.wrap != TEXTURE_WRAP_UNDEFINED) {
         info.u_wrap = info.wrap;
@@ -215,15 +195,13 @@ sampler_t sampler_new(sampler_info_t info) {
     sampler.min_filter = info.min_filter;
     sampler.mag_filter = info.mag_filter;
 
-    sampler_init_gfx(&sampler, info);
+    backend->sampler_init(&sampler, info);
     return sampler;
 }
 
 void sampler_destroy(sampler_t* sampler) {
-    sampler_destroy_func sampler_destroy_gfx = jumptable->sampler_destroy;
-    if(!sampler_destroy_gfx) PANIC("unsupported backend [%s] for %s\n", gfx_backend_info().name_pretty, __FUNCTION__);
-    sampler_destroy_gfx(sampler);
-    mempool_free(gfx_ctx.sampler_pool, sampler->gfx_handle);
+    backend->sampler_destroy(sampler);
+    pool_free(gfx_ctx.sampler_pool, sampler->gfx_handle);
 }
 
 static u32 uniform_type_get_bytes(uniform_type_t type) {
@@ -254,8 +232,6 @@ static char* shader_type_name(shader_pass_type_t type) {
 
 shader_t shader_new(shader_info_t info) {
     shader_t shader = {0};
-    shader_init_func shader_init = jumptable->shader_init;
-    if(!shader_init) PANIC("unsupported backend [%s] for %s\n", gfx_backend_info().name_pretty, __FUNCTION__);
 
     memcpy(shader.name, info.name, sizeof(shader.name));
     memcpy(shader.pretty_name, info.pretty_name, sizeof(shader.pretty_name));
@@ -271,21 +247,17 @@ shader_t shader_new(shader_info_t info) {
         .type = SHADER_PASS_FRAGMENT
     };
 
-    shader_init(&shader, info);
+    backend->shader_init(&shader, info);
     return shader;
 }
 
 void shader_destroy(shader_t* shader) {
-    shader_destroy_func shader_destroy_gfx = jumptable->shader_destroy;
-    if(!shader_destroy_gfx) PANIC("unsupported backend [%s] for %s\n", gfx_backend_info().name_pretty, __FUNCTION__);
-    shader_destroy_gfx(shader);
-    mempool_free(gfx_ctx.shader_pool, shader->gfx_handle);
+    backend->shader_destroy(shader);
+    pool_free(gfx_ctx.shader_pool, shader->gfx_handle);
 }
 
 void shader_update_uniforms(shader_t* shader, range_t data) {
-    shader_update_uniforms_func shader_update_uniforms_gfx = jumptable->shader_update_uniforms;
-    if(!shader_update_uniforms_gfx) PANIC("unsupported backend [%s] for %s\n", gfx_backend_info().name_pretty, __FUNCTION__);
-    shader_update_uniforms_gfx(shader, data);
+    backend->shader_update_uniforms(shader, data);
 }
 
 // OPENGL-SPECIFIC
@@ -314,7 +286,7 @@ static u32 gl_indices_vbo_create(u32* indices, u32 bytes) {
 }
 
 static void gl_mesh_init(mesh_t* mesh, mesh_info_t info) {
-    gl_mesh_info_t* glmesh = mempool_push(gfx_ctx.mesh_pool, &mesh->gfx_handle);
+    gl_mesh_info_t* glmesh = pool_push(gfx_ctx.mesh_pool, &mesh->gfx_handle);
     memset(glmesh, 0, sizeof(gl_mesh_info_t));
 
     glGenVertexArrays(1, &glmesh->vao);
@@ -332,7 +304,7 @@ static void gl_mesh_init(mesh_t* mesh, mesh_info_t info) {
 }
 
 static void gl_mesh_destroy(mesh_t* mesh) {
-    gl_mesh_info_t* glmesh = mempool_get(gfx_ctx.mesh_pool, mesh->gfx_handle);
+    gl_mesh_info_t* glmesh = pool_get(gfx_ctx.mesh_pool, mesh->gfx_handle);
     if(!glmesh) return;
 
     // glDeleteBuffers simply ignores any 0's or invalid ids
@@ -341,7 +313,7 @@ static void gl_mesh_destroy(mesh_t* mesh) {
     glDeleteBuffers(1, &glmesh->index_vbo);
     glDeleteVertexArrays(1, &glmesh->vao);
 
-    mempool_free(gfx_ctx.mesh_pool, mesh->gfx_handle);
+    pool_free(gfx_ctx.mesh_pool, mesh->gfx_handle);
 }
 
 // TEXTURE
@@ -529,7 +501,7 @@ static u32 gl_texture_data_type(texture_format_t format) {
 }
 
 static void gl_texture_init(texture_t* texture, texture_info_t info) {
-    gl_texture_info_t* gltex = mempool_push(gfx_ctx.texture_pool, &texture->gfx_handle);
+    gl_texture_info_t* gltex = pool_push(gfx_ctx.texture_pool, &texture->gfx_handle);
     memset(gltex, 0, sizeof(gl_texture_info_t));
 
     u32 target = gl_texture_bind_target(info.type);
@@ -553,10 +525,10 @@ static void gl_texture_init(texture_t* texture, texture_info_t info) {
 }
 
 static void gl_texture_destroy(texture_t* texture) {
-    gl_texture_info_t* gltex = mempool_get(gfx_ctx.texture_pool, texture->gfx_handle);
+    gl_texture_info_t* gltex = pool_get(gfx_ctx.texture_pool, texture->gfx_handle);
     if(!gltex) return;
     glDeleteTextures(1, &gltex->id);
-    mempool_free(gfx_ctx.texture_pool, texture->gfx_handle);
+    pool_free(gfx_ctx.texture_pool, texture->gfx_handle);
 }
 
 // SAMPLER
@@ -578,7 +550,7 @@ static u32 gl_texture_wrap(texture_wrap_t wrap) {
 }
 
 static void gl_sampler_init(sampler_t* sampler, sampler_info_t info) {
-    gl_sampler_info_t* glsampler = mempool_push(gfx_ctx.sampler_pool, &sampler->gfx_handle);
+    gl_sampler_info_t* glsampler = pool_push(gfx_ctx.sampler_pool, &sampler->gfx_handle);
     memset(glsampler, 0, sizeof(gl_sampler_info_t));
 
     glGenSamplers(1, &glsampler->id);
@@ -590,7 +562,7 @@ static void gl_sampler_init(sampler_t* sampler, sampler_info_t info) {
 }
 
 static void gl_sampler_destroy(sampler_t* sampler) {
-    gl_sampler_info_t* glsampler = mempool_get(gfx_ctx.sampler_pool, sampler->gfx_handle);
+    gl_sampler_info_t* glsampler = pool_get(gfx_ctx.sampler_pool, sampler->gfx_handle);
     if(!glsampler) return;
     glDeleteSamplers(1, &glsampler->id);
 }
@@ -625,7 +597,7 @@ static u32 gl_compile_shader(range_t src, shader_pass_type_t type) {
 }
 
 static void gl_shader_init(shader_t* shader, shader_info_t info) {
-    gl_shader_info_t* glshader = mempool_push(gfx_ctx.shader_pool, &shader->gfx_handle);
+    gl_shader_info_t* glshader = pool_push(gfx_ctx.shader_pool, &shader->gfx_handle);
     memset(glshader, 0, sizeof(gl_shader_info_t));
 
     glshader->program = glCreateProgram();
@@ -675,14 +647,14 @@ static void gl_shader_init(shader_t* shader, shader_info_t info) {
 }
 
 static void gl_shader_destroy(shader_t* shader) {
-    gl_shader_info_t* glshader = mempool_get(gfx_ctx.shader_pool, shader->gfx_handle);
+    gl_shader_info_t* glshader = pool_get(gfx_ctx.shader_pool, shader->gfx_handle);
     if(!glshader) return;
     glDeleteProgram(glshader->program);
-    mempool_free(gfx_ctx.shader_pool, shader->gfx_handle);
+    pool_free(gfx_ctx.shader_pool, shader->gfx_handle);
 }
 
 static void gl_shader_update_uniforms(shader_t* shader, range_t uniforms) {
-    gl_shader_info_t* glshader = mempool_get(gfx_ctx.shader_pool, shader->gfx_handle);
+    gl_shader_info_t* glshader = pool_get(gfx_ctx.shader_pool, shader->gfx_handle);
     if(!glshader) return;
     u32 read_size = 0;
     for(u32 i = 0; i < shader->uniform_block.num; i ++) {

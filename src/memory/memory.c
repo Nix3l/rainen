@@ -259,20 +259,20 @@ handle_t handle_inc_gen(handle_t handle) {
     return (gen << 24) | (handle & HANDLE_INDEX_MASK);
 }
 
-mempool_t mempool_alloc_new(u32 capacity, u32 element_size, expand_type_t type) {
+pool_t pool_alloc(u32 capacity, u32 element_size, expand_type_t type) {
     void* data = mem_calloc(capacity * element_size);
-    mempool_element_t* elements = mem_calloc(capacity * sizeof(mempool_element_t));
+    pool_element_t* elements = mem_calloc(capacity * sizeof(pool_element_t));
 
     if(!data || !elements) PANIC("couldnt allocate memory for pool\n");
 
     for(u32 i = 0; i < capacity; i ++) {
-        elements[i] = (mempool_element_t) {
+        elements[i] = (pool_element_t) {
             .handle = handle_new(i, 0),
-            .in_use = false,
+            .state = POOL_ELEMENT_FREE,
         };
     }
 
-    return (mempool_t) {
+    return (pool_t) {
         .element_size = element_size,
 
         .num_in_use = 0,
@@ -288,20 +288,20 @@ mempool_t mempool_alloc_new(u32 capacity, u32 element_size, expand_type_t type) 
     };
 }
 
-void mempool_resize(mempool_t* pool, u32 new_capacity) {
+void pool_resize(pool_t* pool, u32 new_capacity) {
     if(pool->type == EXPAND_TYPE_IMMUTABLE) return;
     if(pool->capacity == new_capacity) return;
 
     void* data = mem_realloc(pool->data, new_capacity * pool->element_size);
-    mempool_element_t* elements = mem_realloc(pool->elements, new_capacity * sizeof(mempool_element_t));
+    pool_element_t* elements = mem_realloc(pool->elements, new_capacity * sizeof(pool_element_t));
 
     if(!data || !elements) PANIC("couldnt prepare memory for pool\n");
 
     if(new_capacity > pool->capacity) {
         for(u32 i = pool->capacity + 1; i < new_capacity; i ++) {
-            elements[i] = (mempool_element_t) {
+            elements[i] = (pool_element_t) {
                 .handle = handle_new(i, 0),
-                .in_use = false,
+                .state = POOL_ELEMENT_FREE,
             };
         }
     }
@@ -311,29 +311,29 @@ void mempool_resize(mempool_t* pool, u32 new_capacity) {
     pool->elements = elements;
 }
 
-void mempool_prepare(mempool_t* pool, u32 num_new_elements) {
-    mempool_resize(pool, pool->capacity + num_new_elements);
+void pool_prepare(pool_t* pool, u32 num_new_elements) {
+    pool_resize(pool, pool->capacity + num_new_elements);
 }
 
-void* mempool_push(mempool_t* pool, handle_t* out_handle) {
+void* pool_push(pool_t* pool, handle_t* out_handle) {
     if(pool->num_in_use == pool->capacity) {
         // if the first free element is used,
         // then the pool is at capacity, and should be expanded if necessary
         if(pool->type != EXPAND_TYPE_AUTOEXPAND) return NULL;
 
         // TODO(nix3l): figure out a good number for this.
-        mempool_prepare(pool, 32);
+        pool_prepare(pool, 32);
 
         pool->first_free_element ++;
     }
 
-    mempool_element_t elem = pool->elements[pool->first_free_element];
-    elem.in_use = true;
+    pool_element_t elem = pool->elements[pool->first_free_element];
+    elem.state = POOL_ELEMENT_ALLOC;
     elem.handle = handle_inc_gen(elem.handle);
     pool->elements[handle_index(elem.handle)] = elem;
 
     for(u32 i = pool->first_free_element; i < pool->capacity; i ++) {
-        if(!pool->elements[i].in_use) {
+        if(pool->elements[i].state == POOL_ELEMENT_FREE) {
             pool->first_free_element = i;
             break;
         }
@@ -349,16 +349,16 @@ void* mempool_push(mempool_t* pool, handle_t* out_handle) {
     return pool->data + index * pool->element_size;
 }
 
-void* mempool_set(mempool_t* pool, u32 index, handle_t* out_handle) {
+void* pool_set(pool_t* pool, u32 index, handle_t* out_handle) {
     if(index > pool->capacity) return NULL;
     
-    mempool_element_t elem = pool->elements[pool->first_free_element];
-    elem.in_use = true;
+    pool_element_t elem = pool->elements[pool->first_free_element];
+    elem.state = POOL_ELEMENT_ALLOC;
     elem.handle = handle_inc_gen(elem.handle);
     pool->elements[handle_index(elem.handle)] = elem;
 
     for(u32 i = pool->first_free_element; i < pool->capacity; i ++) {
-        if(!pool->elements[i].in_use) {
+        if(pool->elements[i].state == POOL_ELEMENT_FREE) {
             pool->first_free_element = i;
             break;
         }
@@ -373,7 +373,7 @@ void* mempool_set(mempool_t* pool, u32 index, handle_t* out_handle) {
     return pool->data + handle_index(elem.handle) * pool->element_size;
 }
 
-void* mempool_get(mempool_t* pool, handle_t handle) {
+void* pool_get(pool_t* pool, handle_t handle) {
     u32 index = handle_index(handle);
     if(index > pool->capacity) return NULL;
 
@@ -383,8 +383,8 @@ void* mempool_get(mempool_t* pool, handle_t handle) {
         return NULL;
 
     for(u32 i = pool->first_used_element; i <= pool->last_used_element; i ++) {
-        mempool_element_t curr_elem = pool->elements[i];
-        if(!curr_elem.in_use) continue;
+        pool_element_t curr_elem = pool->elements[i];
+        if(curr_elem.state == POOL_ELEMENT_FREE) continue;
 
         if(handle == curr_elem.handle)
             return pool->data + i * pool->element_size;
@@ -393,17 +393,17 @@ void* mempool_get(mempool_t* pool, handle_t handle) {
     return NULL;
 }
 
-void* mempool_at_index(mempool_t* pool, u32 index) {
+void* pool_at_index(pool_t* pool, u32 index) {
     if(index > pool->num_in_use) return NULL;
     else return pool->data + index * pool->element_size;
 }
 
-void mempool_free(mempool_t* pool, handle_t handle) {
+void pool_free(pool_t* pool, handle_t handle) {
     u32 index = handle_index(handle);
     if(index > pool->capacity) return;
 
-    mempool_element_t elem = pool->elements[index];
-    elem.in_use = false;
+    pool_element_t elem = pool->elements[index];
+    elem.state = POOL_ELEMENT_FREE;
     elem.handle = handle_inc_gen(elem.handle);
     pool->elements[index] = elem;
 
@@ -425,7 +425,7 @@ void mempool_free(mempool_t* pool, handle_t handle) {
         // if we freed the first used element, find the next used element
         if(index == pool->first_used_element) {
             for(u32 i = index; i <= pool->last_used_element; i ++) {
-                if(pool->elements[i].in_use) {
+                if(pool->elements[i].state != POOL_ELEMENT_FREE) {
                     pool->first_used_element = i;
                     break;
                 }
@@ -433,7 +433,7 @@ void mempool_free(mempool_t* pool, handle_t handle) {
         // if we freed the last used element, find the previous used element
         } else if(index == pool->last_used_element) {
             for(u32 i = index; i >= pool->first_used_element; i --) {
-                if(pool->elements[i].in_use) {
+                if(pool->elements[i].state != POOL_ELEMENT_FREE) {
                     pool->last_used_element = i;
                     break;
                 }
@@ -449,14 +449,14 @@ void mempool_free(mempool_t* pool, handle_t handle) {
     */
 }
 
-void mempool_free_at_index(mempool_t* pool, u32 index) {
-    mempool_free(pool, handle_new(index, 0));
+void pool_free_at_index(pool_t* pool, u32 index) {
+    pool_free(pool, handle_new(index, 0));
 }
 
-void mempool_clear(mempool_t* pool) {
+void pool_clear(pool_t* pool) {
     for(u32 i = 0; i < pool->capacity; i ++) {
-        mempool_element_t elem = pool->elements[i];
-        elem.in_use = false;
+        pool_element_t elem = pool->elements[i];
+        elem.state = POOL_ELEMENT_FREE;
         elem.handle = handle_set_gen(elem.handle, 0);
         pool->elements[i] = elem;
     }
@@ -466,7 +466,7 @@ void mempool_clear(mempool_t* pool) {
     pool->num_in_use = 0;
 }
 
-void mempool_destroy(mempool_t* pool) {
+void pool_destroy(pool_t* pool) {
     pool->num_in_use = 0;
     pool->element_size = 0;
     pool->capacity = 0;
