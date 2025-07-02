@@ -116,7 +116,6 @@ handle_t handle_inc_gen(handle_t handle);
 typedef enum pool_element_state_t {
     POOL_ELEMENT_FREE = 0,
     POOL_ELEMENT_ALLOC,
-    POOL_ELEMENT_INIT,
 } pool_element_state_t;
 
 typedef struct pool_element_t {

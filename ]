@@ -206,12 +206,12 @@ void mesh_init(vmesh_t vmesh, mesh_info_t info) {
 
 void mesh_discard(vmesh_t vmesh) {
     mesh_t* mesh = gfx_respool_data(gfx_ctx.mesh_pool, vmesh.id);
+    if(!mesh) return;
     backend->mesh_destroy(mesh);
     gfx_respool_free_internal(gfx_ctx.mesh_pool, mesh->internal);
 }
 
 void mesh_destroy(vmesh_t vmesh) {
-    mesh_discard(vmesh);
     gfx_respool_free_data(gfx_ctx.mesh_pool, vmesh.id);
 }
 
@@ -223,51 +223,37 @@ vmesh_t mesh_new(mesh_info_t info) {
 
 vtex_t texture_alloc() {
     vtex_t vtex = {0};
-    texture_t* texture = gfx_respool_push_data(gfx_ctx.texture_pool, &vtex.id);
-    mem_clear(texture, sizeof(texture_t));
+    texture_t* texture = gfx_respool_push_data(gfx_ctx.texture_pool, vtex.id);
     return vtex;
 }
 
-void texture_init(vtex_t vtex, texture_info_t info) {
-    texture_t* texture = gfx_respool_data(gfx_ctx.texture_pool, vtex.id);
+void texture_init(vtex_t texture, texture_info_t info);
+void texture_discard(vtex_t texture);
+void texture_destroy(vtex_t texture);
+
+texture_t texture_new(texture_info_t info) {
+    texture_t texture = {0};
 
     if(info.type == TEXTURE_TYPE_UNDEFINED) info.type = TEXTURE_TYPE_2D;
     if(info.mipmaps == 0) info.mipmaps = 1;
 
-    texture->type = info.type;
-    texture->format = info.format;
-    texture->width = info.width;
-    texture->height = info.height;
-    texture->mipmaps = info.mipmaps;
+    texture.type = info.type;
+    texture.format = info.format;
+    texture.width = info.width;
+    texture.height = info.height;
+    texture.mipmaps = info.mipmaps;
 
-    backend->texture_init(texture, info);
+    backend->texture_init(&texture, info);
+    return texture;
 }
 
-void texture_discard(vtex_t vtex) {
-    texture_t* texture = gfx_respool_data(gfx_ctx.texture_pool, vtex.id);
+void texture_destroy(texture_t* texture) {
     backend->texture_destroy(texture);
     gfx_respool_free_internal(gfx_ctx.texture_pool, texture->internal);
 }
 
-void texture_destroy(vtex_t vtex) {
-    texture_discard(vtex);
-    gfx_respool_free_data(gfx_ctx.texture_pool, vtex.id);
-}
-
-vtex_t texture_new(texture_info_t info) {
-    vtex_t vtex = texture_alloc();
-    texture_init(vtex, info);
-    return vtex;
-}
-
-vsampler_t sampler_alloc() {
-    vsampler_t vsampler = {0};
-    gfx_respool_push_data(gfx_ctx.sampler_pool, &vsampler.id);
-    return vsampler;
-}
-
-void sampler_init(vsampler_t vsampler, sampler_info_t info) {
-    sampler_t* sampler = gfx_respool_data(gfx_ctx.sampler_pool, vsampler.id);
+sampler_t sampler_new(sampler_info_t info) {
+    sampler_t sampler = {0};
 
     if(info.wrap != TEXTURE_WRAP_UNDEFINED) {
         info.u_wrap = info.wrap;
@@ -279,29 +265,18 @@ void sampler_init(vsampler_t vsampler, sampler_info_t info) {
         info.mag_filter = info.filter;
     }
 
-    sampler->u_wrap = info.u_wrap;
-    sampler->v_wrap = info.v_wrap;
-    sampler->min_filter = info.min_filter;
-    sampler->mag_filter = info.mag_filter;
+    sampler.u_wrap = info.u_wrap;
+    sampler.v_wrap = info.v_wrap;
+    sampler.min_filter = info.min_filter;
+    sampler.mag_filter = info.mag_filter;
 
-    backend->sampler_init(sampler, info);
+    backend->sampler_init(&sampler, info);
+    return sampler;
 }
 
-void sampler_discard(vsampler_t vsampler) {
-    sampler_t* sampler = gfx_respool_data(gfx_ctx.sampler_pool, vsampler.id);
+void sampler_destroy(sampler_t* sampler) {
     backend->sampler_destroy(sampler);
     gfx_respool_free_internal(gfx_ctx.sampler_pool, sampler->internal);
-}
-
-void sampler_destroy(vsampler_t vsampler) {
-    sampler_discard(vsampler);
-    gfx_respool_free_data(gfx_ctx.sampler_pool, vsampler.id);
-}
-
-vsampler_t sampler_new(sampler_info_t info) {
-    vsampler_t vsampler = sampler_alloc();
-    sampler_init(vsampler, info);
-    return vsampler;
 }
 
 static u32 uniform_type_get_bytes(uniform_type_t type) {
@@ -330,51 +305,33 @@ static char* shader_type_name(shader_pass_type_t type) {
     }
 }
 
-vshader_t shader_alloc() {
-    vshader_t vshader = {0};
-    gfx_respool_push_data(gfx_ctx.shader_pool, &vshader.id);
-    return vshader;
-}
+shader_t shader_new(shader_info_t info) {
+    shader_t shader = {0};
 
-void shader_init(vshader_t vshader, shader_info_t info) {
-    shader_t* shader = gfx_respool_data(gfx_ctx.shader_pool, vshader.id);
+    memcpy(shader.name, info.name, sizeof(shader.name));
+    memcpy(shader.pretty_name, info.pretty_name, sizeof(shader.pretty_name));
+    memcpy(shader.attribs, info.attribs, sizeof(shader.attribs));
 
-    memcpy(shader->name, info.name, sizeof(shader->name));
-    memcpy(shader->pretty_name, info.pretty_name, sizeof(shader->pretty_name));
-    memcpy(shader->attribs, info.attribs, sizeof(shader->attribs));
-
-    shader->vertex_pass = (shader_pass_t) {
+    shader.vertex_pass = (shader_pass_t) {
         .src = info.vertex_src,
         .type = SHADER_PASS_VERTEX
     };
 
-    shader->fragment_pass = (shader_pass_t) {
+    shader.fragment_pass = (shader_pass_t) {
         .src = info.fragment_src,
         .type = SHADER_PASS_FRAGMENT
     };
 
-    backend->shader_init(shader, info);
+    backend->shader_init(&shader, info);
+    return shader;
 }
 
-void shader_discard(vshader_t vshader) {
-    shader_t* shader = gfx_respool_data(gfx_ctx.shader_pool, vshader.id);
+void shader_destroy(shader_t* shader) {
     backend->shader_destroy(shader);
     gfx_respool_free_internal(gfx_ctx.shader_pool, shader->internal);
 }
 
-void shader_destroy(vshader_t vshader) {
-    shader_discard(vshader);
-    gfx_respool_free_data(gfx_ctx.shader_pool, vshader.id);
-}
-
-vshader_t shader_new(shader_info_t info) {
-    vshader_t vshader = shader_alloc();
-    shader_init(vshader, info);
-    return vshader;
-}
-
-void shader_update_uniforms(vshader_t vshader, range_t data) {
-    shader_t* shader = gfx_respool_data(gfx_ctx.shader_pool, vshader.id);
+void shader_update_uniforms(shader_t* shader, range_t data) {
     backend->shader_update_uniforms(shader, data);
 }
 
@@ -423,12 +380,15 @@ static void gl_mesh_init(mesh_t* mesh, mesh_info_t info) {
 
 static void gl_mesh_destroy(mesh_t* mesh) {
     gl_mesh_internal_t* glmesh = gfx_respool_internal(gfx_ctx.mesh_pool, mesh->internal);
+    if(!glmesh) return;
 
     // glDeleteBuffers simply ignores any 0's or invalid ids
     // so this is perfectly fine
     glDeleteBuffers(GFX_MAX_VERTEX_ATTRIBS, glmesh->vbos);
     glDeleteBuffers(1, &glmesh->index_vbo);
     glDeleteVertexArrays(1, &glmesh->vao);
+
+    gfx_respool_free_internal(gfx_ctx.mesh_pool, mesh->internal);
 }
 
 // TEXTURE
@@ -641,7 +601,9 @@ static void gl_texture_init(texture_t* texture, texture_info_t info) {
 
 static void gl_texture_destroy(texture_t* texture) {
     gl_texture_internal_t* gltex = gfx_respool_internal(gfx_ctx.texture_pool, texture->internal);
+    if(!gltex) return;
     glDeleteTextures(1, &gltex->id);
+    gfx_respool_free_internal(gfx_ctx.texture_pool, texture->internal);
 }
 
 // SAMPLER
@@ -763,6 +725,7 @@ static void gl_shader_destroy(shader_t* shader) {
     gl_shader_internal_t* glshader = gfx_respool_internal(gfx_ctx.shader_pool, shader->internal);
     if(!glshader) return;
     glDeleteProgram(glshader->program);
+    gfx_respool_free_internal(gfx_ctx.shader_pool, shader->internal);
 }
 
 static void gl_shader_update_uniforms(shader_t* shader, range_t uniforms) {

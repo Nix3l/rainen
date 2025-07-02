@@ -1,17 +1,6 @@
 #ifndef _GFX_H
 #define _GFX_H
 
-// TODO(nix3l):
-//  => should i go only 2d, or also 3d? (i feel like 3d is a better choice)
-//  => how should i go about doing the rendering? custom pipelines or without pipelines altogether?
-//  => find a new way to do uniforms in shaders (the way i used to do it is very annoying)
-//  => how to do compute passes? shader storage buffers?
-//  => storing textures? meshes? (have to make as api agnostic as i can)
-//
-// essentially, make a full abstraction of what features the apis give me,
-// so i can (if i ever need to) implement other apis
-// i would like to eventually get into vulkan so that should be a priority here
-
 #include "base.h"
 #include "memory/memory.h"
 
@@ -31,7 +20,8 @@ enum {
     GFX_MAX_MESHES = 4096,
     GFX_MAX_VERTEX_ATTRIBS = 8,
     GFX_MAX_TEXTURES = 256, // TODO(nix3l): change this
-    GFX_MAX_SAMPLERS = 32,
+    GFX_MAX_SAMPLERS = 64,
+    GFX_MAX_SHADER_SAMPLERS = 32,
     GFX_MAX_SHADERS = 8,
     GFX_MAX_UNIFORMS = 64,
 };
@@ -56,37 +46,53 @@ typedef struct gfx_backend_info_t {
     u32 shader_internal_size;
 } gfx_backend_info_t;
 
+// each object comes with alloc,init,discard,destroy,new functions
+//  alloc   => reserve a data slot for the object
+//  init    => initialize the object data & gpu data
+//  discard => remove the gpu data associated with an object
+//  destroy => discard the gpu data & free the data slot for the object
+//  new     => combination of alloc & init
+
+// ids point to data_pool slot
+typedef struct vmesh_t    { handle_t id; } vmesh_t;
+typedef struct vtex_t     { handle_t id; } vtex_t;
+typedef struct vsampler_t { handle_t id; } vsampler_t;
+typedef struct vshader_t  { handle_t id; } vshader_t;
+
 // backend specific stuff goes here
-typedef struct gl_mesh_info_t {
+typedef struct gl_mesh_internal_t {
     u32 vao;
     u32 vbos[GFX_MAX_VERTEX_ATTRIBS];
     u32 index_vbo;
-} gl_mesh_info_t;
+} gl_mesh_internal_t;
 
-typedef struct gl_texture_info_t {
+typedef struct gl_texture_internal_t {
     u32 id;
-} gl_texture_info_t;
+} gl_texture_internal_t;
 
-typedef struct gl_sampler_info_t {
+typedef struct gl_sampler_internal_t {
     u32 id;
-} gl_sampler_info_t;
+} gl_sampler_internal_t;
 
-typedef struct gl_shader_info_t {
+typedef struct gl_shader_internal_t {
     u32 program;
-} gl_shader_info_t;
+} gl_shader_internal_t;
 
 // gfx lib context/state
+typedef struct gfx_respool_t {
+    u32 capacity;
+    pool_t data_pool;
+    pool_t gfx_pool;
+} gfx_respool_t;
+
 typedef struct gfx_ctx_t {
     gfx_backend_t backend;
     gfx_backend_info_t backend_info[GFX_BACKEND_NUM];
 
-    // in order to keep this as api agnostic as i can,
-    // instead of storing the identifier/id given by the api,
-    // i store it in this pool and retrieve it whenever necessary
-    pool_t* mesh_pool;
-    pool_t* texture_pool;
-    pool_t* sampler_pool;
-    pool_t* shader_pool;
+    gfx_respool_t* mesh_pool;
+    gfx_respool_t* texture_pool;
+    gfx_respool_t* sampler_pool;
+    gfx_respool_t* shader_pool;
 } gfx_ctx_t;
 
 extern gfx_ctx_t gfx_ctx;
@@ -134,7 +140,7 @@ typedef enum mesh_winding_order_t {
 } mesh_winding_order_t;
 
 typedef struct mesh_t {
-    handle_t gfx_handle;
+    handle_t internal;
     mesh_format_t format;
     mesh_index_type_t index_type;
     mesh_primitive_t primitive;
@@ -160,6 +166,11 @@ typedef struct mesh_info_t {
 // for use in mesh_info_t
 mesh_attribute_t mesh_attribute(void* data, u32 bytes, u32 dimensions);
 
+vmesh_t mesh_alloc();
+void mesh_init(vmesh_t mesh, mesh_info_t info);
+void mesh_discard(vmesh_t mesh);
+void mesh_destroy(vmesh_t mesh);
+
 // creates a new mesh
 // if index_type is MESH_INDEX_TYPE_NONE, the indices range is ignored, and vertex_count *must* be supplied
 // if index_type is undefined, it is implied using the indices range
@@ -167,11 +178,7 @@ mesh_attribute_t mesh_attribute(void* data, u32 bytes, u32 dimensions);
 // format *must* be supplied
 // if primitive not supplied, assumed to be triangles
 // if winding order not supplied, assumed to be CCW
-mesh_t mesh_new(mesh_info_t info);
-
-// deletes the resources from gpu memory and makes the mesh unusable
-// removes the mesh's gfx info from the pool
-void mesh_destroy(mesh_t* mesh);
+vmesh_t mesh_new(mesh_info_t info);
 
 // TEXTURE
 // NOTE(nix3l): be careful when updating this, might break some internal translation functions
@@ -256,7 +263,7 @@ typedef enum texture_wrap_t {
 } texture_wrap_t;
 
 typedef struct texture_t {
-    handle_t gfx_handle;
+    handle_t internal;
     texture_type_t type;
     texture_format_t format;
     u32 width;
@@ -273,12 +280,15 @@ typedef struct texture_info_t {
     range_t data;
 } texture_info_t;
 
-texture_t texture_new(texture_info_t info);
-void texture_destroy(texture_t* texture);
+vtex_t texture_alloc();
+void texture_init(vtex_t texture, texture_info_t info);
+void texture_discard(vtex_t texture);
+void texture_destroy(vtex_t texture);
+vtex_t texture_new(texture_info_t info);
 
 // SAMPLERS
 typedef struct sampler_t {
-    handle_t gfx_handle;
+    handle_t internal;
     texture_filter_t min_filter;
     texture_filter_t mag_filter;
     texture_wrap_t u_wrap;
@@ -294,11 +304,14 @@ typedef struct sampler_info_t {
     texture_wrap_t v_wrap;
 } sampler_info_t;
 
+vsampler_t sampler_alloc();
+void sampler_init(vsampler_t vsampler, sampler_info_t info);
+void sampler_discard(vsampler_t vsampler);
+void sampler_destroy(vsampler_t vsampler);
+
 // if filter is defined, min_filter and mag_filter are ignored
 // if wrap is defined, u_wrap and v_wrap are ignored
-sampler_t sampler_new(sampler_info_t info);
-
-void sampler_destroy(sampler_t* sampler);
+vsampler_t sampler_new(sampler_info_t info);
 
 // SHADER
 typedef struct shader_vertex_attribute_t {
@@ -344,7 +357,7 @@ typedef struct shader_pass_t {
 } shader_pass_t;
 
 typedef struct shader_t {
-    handle_t gfx_handle;
+    handle_t internal;
     char name[8];
     char pretty_name[16];
     shader_pass_t vertex_pass;
@@ -363,13 +376,16 @@ typedef struct shader_info_t {
     uniform_t uniforms[GFX_MAX_UNIFORMS];
 } shader_info_t;
 
-shader_t shader_new(shader_info_t info);
+vshader_t shader_alloc();
+void shader_init(vshader_t vshader, shader_info_t info);
+void shader_discard(vshader_t vshader);
+void shader_destroy(vshader_t vshader);
 
-void shader_destroy(shader_t* shader);
+vshader_t shader_new(shader_info_t info);
 
 // updates the shader's uniforms with the given data
 // all uniforms must be updated at once
 // data struct should be identical to uniform struct in shader
-void shader_update_uniforms(shader_t* shader, range_t data);
+void shader_update_uniforms(vshader_t shader, range_t data);
 
 #endif /* ifndef _GFX_H */
