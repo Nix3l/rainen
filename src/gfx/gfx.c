@@ -1,4 +1,6 @@
 #include "gfx.h"
+#include "base.h"
+#include "base_macros.h"
 #include "cglm/cam.h"
 #include "memory/memory.h"
 #include "util/util.h"
@@ -19,6 +21,9 @@ gfx_ctx_t gfx_ctx;
     BACKEND_FUNC_XMACRO(shader_init, shader_t* shader, shader_info_t info) \
     BACKEND_FUNC_XMACRO(shader_destroy, shader_t* shader) \
     BACKEND_FUNC_XMACRO(shader_update_uniforms, shader_t* shader, range_t uniforms) \
+    BACKEND_FUNC_XMACRO(activate_pipeline, render_pipeline_t pipeline) \
+    BACKEND_FUNC_XMACRO(activate_bindings, render_bindings_t bindings) \
+    BACKEND_FUNC_XMACRO(draw, vmesh_t mesh) \
 
 #define BACKEND_FUNC_XMACRO(_name, ...) typedef void (*_name ## _func) (__VA_ARGS__);
 BACKEND_FUNCS_LIST;
@@ -159,6 +164,7 @@ gfx_backend_info_t gfx_backend_info() {
 // API
 static u32 mesh_format_num_attributes(mesh_format_t format) {
     switch(format) {
+        case MESH_FORMAT_X2: return 1;
         case MESH_FORMAT_X3T2N3: return 3;
         default: UNREACHABLE; return 0;
     }
@@ -186,13 +192,13 @@ void mesh_init(vmesh_t vmesh, mesh_info_t info) {
         return;
     }
 
-    if(info.index_type == MESH_INDEX_TYPE_UNDEFINED)
-        info.index_type = info.indices.size == 0 ? MESH_INDEX_TYPE_NONE : MESH_INDEX_TYPE_32b;
+    if(info.index_type == MESH_INDEX_UNDEFINED)
+        info.index_type = info.indices.size == 0 ? MESH_INDEX_NONE : MESH_INDEX_32b;
 
-    if(info.primitive == MESH_PRIMITIVE_DEFAULT)
+    if(info.primitive == MESH_PRIMITIVE_UNDEFINED)
         info.primitive = MESH_PRIMITIVE_TRIANGLES;
 
-    if(info.winding == MESH_WINDING_DEFAULT)
+    if(info.winding == MESH_WINDING_UNDEFINED)
         info.winding = MESH_WINDING_CCW;
 
     mesh->format = info.format;
@@ -378,8 +384,31 @@ void shader_update_uniforms(vshader_t vshader, range_t data) {
     backend->shader_update_uniforms(shader, data);
 }
 
+void gfx_activate_pipeline(render_pipeline_t pipeline) {
+    gfx_ctx.active_pipeline = pipeline;
+}
+
+void gfx_supply_bindings(render_bindings_t bindings) {
+    gfx_ctx.active_bindings = bindings;
+}
+
+void gfx_draw() {
+    backend->activate_pipeline(gfx_ctx.active_pipeline);
+    backend->activate_bindings(gfx_ctx.active_bindings);
+    backend->draw(gfx_ctx.active_bindings.mesh);
+}
+
 // OPENGL-SPECIFIC
 // MESH
+static u32 gl_mesh_primitive(mesh_primitive_t primitive) {
+    switch(primitive) {
+        case MESH_PRIMITIVE_TRIANGLES: return GL_TRIANGLES;
+        case MESH_PRIMITIVE_LINES: return GL_LINES;
+        case MESH_PRIMITIVE_POINTS: return GL_POINTS;
+        default: UNREACHABLE; return 0;
+    }
+}
+
 static u32 gl_vbo_create(u32 attribute, u32 dimensions, void* data, u32 bytes) {
     u32 vbo;
     glGenBuffers(1, &vbo);
@@ -415,7 +444,7 @@ static void gl_mesh_init(mesh_t* mesh, mesh_info_t info) {
         glmesh->vbos[i] = gl_vbo_create(i, attribute.dimensions, attribute.data.ptr, attribute.data.size);
     }
 
-    if(info.index_type != MESH_INDEX_TYPE_NONE)
+    if(info.index_type != MESH_INDEX_NONE)
         glmesh->index_vbo = gl_indices_vbo_create(info.indices.ptr, info.indices.size);
 
     glBindVertexArray(0);
@@ -429,6 +458,12 @@ static void gl_mesh_destroy(mesh_t* mesh) {
     glDeleteBuffers(GFX_MAX_VERTEX_ATTRIBS, glmesh->vbos);
     glDeleteBuffers(1, &glmesh->index_vbo);
     glDeleteVertexArrays(1, &glmesh->vao);
+}
+
+static void gl_mesh_bind_attributes(mesh_t* mesh) {
+    for(u32 i = 0; i < mesh_format_num_attributes(mesh->format); i ++) {
+        glEnableVertexAttribArray(i);
+    }
 }
 
 // TEXTURE
@@ -814,5 +849,27 @@ static void gl_shader_update_uniforms(shader_t* shader, range_t uniforms) {
             LOG_ERR("tried to write more data than was provided. ignoring.\n");
             return;
         }
+    }
+}
+
+static void gl_activate_pipeline(render_pipeline_t pipeline) {
+    gl_shader_internal_t* shader_internal = gfx_respool_internal(gfx_ctx.shader_pool, pipeline.shader.id);
+    glUseProgram(shader_internal->program);
+}
+
+static void gl_activate_bindings(render_bindings_t bindings) {
+    mesh_t* mesh = gfx_respool_data(gfx_ctx.mesh_pool, bindings.mesh.id);
+    gl_mesh_internal_t* mesh_internal = gfx_respool_internal(gfx_ctx.mesh_pool, bindings.mesh.id);
+    glBindVertexArray(mesh_internal->vao);
+    gl_mesh_bind_attributes(mesh);
+}
+
+static void gl_draw(vmesh_t vmesh) {
+    mesh_t* mesh = gfx_respool_data(gfx_ctx.mesh_pool, vmesh.id);
+
+    if(mesh->index_type != MESH_INDEX_NONE) {
+        glDrawElements(gl_mesh_primitive(mesh->primitive), mesh->count, GL_UNSIGNED_INT, 0);
+    } else {
+        glDrawArrays(gl_mesh_primitive(mesh->primitive), 0, mesh->count);
     }
 }

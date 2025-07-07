@@ -13,7 +13,7 @@
 #endif
 
 // TODO(nix3l):
-//  => better gfx resource handling (alloc,init,deinit,destroy)
+//  => injecting textures/samplers into shaders
 
 enum {
     // compile time constants/limits
@@ -85,18 +85,6 @@ typedef struct gfx_respool_t {
     pool_t gfx_pool;
 } gfx_respool_t;
 
-typedef struct gfx_ctx_t {
-    gfx_backend_t backend;
-    gfx_backend_info_t backend_info[GFX_BACKEND_NUM];
-
-    gfx_respool_t* mesh_pool;
-    gfx_respool_t* texture_pool;
-    gfx_respool_t* sampler_pool;
-    gfx_respool_t* shader_pool;
-} gfx_ctx_t;
-
-extern gfx_ctx_t gfx_ctx;
-
 void gfx_init(gfx_backend_t backend);
 void gfx_terminate();
 
@@ -117,24 +105,25 @@ typedef enum {
     // C4 -> colours  | 4D, rgba
     // etc...
     MESH_FORMAT_INVALID = 0,
+    MESH_FORMAT_X2,
     MESH_FORMAT_X3T2N3,
 } mesh_format_t;
 
 typedef enum mesh_index_type_t {
-    MESH_INDEX_TYPE_UNDEFINED = 0,
-    MESH_INDEX_TYPE_NONE,
-    MESH_INDEX_TYPE_32b,
+    MESH_INDEX_UNDEFINED = 0,
+    MESH_INDEX_NONE,
+    MESH_INDEX_32b,
 } mesh_index_type_t;
 
 typedef enum {
-    MESH_PRIMITIVE_DEFAULT = 0,
+    MESH_PRIMITIVE_UNDEFINED = 0, // will be assumed triangles
     MESH_PRIMITIVE_TRIANGLES,
     MESH_PRIMITIVE_LINES,
     MESH_PRIMITIVE_POINTS,
 } mesh_primitive_t;
 
 typedef enum mesh_winding_order_t {
-    MESH_WINDING_DEFAULT = 0,
+    MESH_WINDING_UNDEFINED = 0, // will be assumed CCW
     MESH_WINDING_CW,
     MESH_WINDING_CCW,
 } mesh_winding_order_t;
@@ -387,5 +376,34 @@ vshader_t shader_new(shader_info_t info);
 // all uniforms must be updated at once
 // data struct should be identical to uniform struct in shader
 void shader_update_uniforms(vshader_t shader, range_t data);
+
+// RENDER PASS
+typedef struct render_bindings_t {
+    vmesh_t mesh;
+} render_bindings_t;
+
+typedef struct render_pipeline_t {
+    vshader_t shader;
+} render_pipeline_t;
+
+void gfx_activate_pipeline(render_pipeline_t pipeline);
+void gfx_supply_bindings(render_bindings_t bindings);
+void gfx_draw();
+
+// CONTEXT
+typedef struct gfx_ctx_t {
+    gfx_backend_t backend;
+    gfx_backend_info_t backend_info[GFX_BACKEND_NUM];
+
+    render_bindings_t active_bindings;
+    render_pipeline_t active_pipeline;
+
+    gfx_respool_t* mesh_pool;
+    gfx_respool_t* texture_pool;
+    gfx_respool_t* sampler_pool;
+    gfx_respool_t* shader_pool;
+} gfx_ctx_t;
+
+extern gfx_ctx_t gfx_ctx;
 
 #endif /* ifndef _GFX_H */
