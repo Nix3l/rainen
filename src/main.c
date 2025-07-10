@@ -4,7 +4,6 @@
 #include "gfx/gfx.h"
 #include "memory/memory.h"
 #include "platform/platform.h"
-#include "util/util.h"
 
 int main(void) {
     gfx_init(GFX_BACKEND_GL);
@@ -22,6 +21,10 @@ int main(void) {
         .pretty_name = "Dummy",
         .attribs = {
             { .name = "vs_position" },
+        },
+        .uniforms = {
+            { .name = "col", .type = UNIFORM_TYPE_v2f, },
+            { .name = "time", .type = UNIFORM_TYPE_f32, },
         },
         .vertex_src = vertex_src,
         .fragment_src = fragment_src,
@@ -53,6 +56,14 @@ int main(void) {
         gfx_supply_bindings((render_bindings_t) {
             .mesh = mesh
         });
+
+        struct {
+            f32 time;
+        } uniforms = {
+            .time = glfwGetTime(),
+        };
+
+        shader_update_uniforms(shader, range_new(&uniforms, sizeof(uniforms)));
 
         gfx_draw();
 

@@ -205,6 +205,7 @@ void mesh_init(vmesh_t vmesh, mesh_info_t info) {
     mesh->index_type = info.index_type;
     mesh->primitive = info.primitive;
     mesh->winding = info.winding;
+    mesh->count = info.vertex_count;
 
     backend->mesh_init(mesh, info);
     return;
@@ -777,7 +778,7 @@ static void gl_shader_init(shader_t* shader, shader_info_t info) {
     for(u32 i = 0; i < GFX_MAX_UNIFORMS; i ++) {
         uniform_t uniform_info = info.uniforms[i];
         if(!uniform_info.name || uniform_info.type == UNIFORM_TYPE_INVALID) {
-            shader->uniform_block.num = i + 1;
+            shader->uniform_block.num = i;
             break;
         }
 

@@ -377,7 +377,7 @@ vshader_t shader_new(shader_info_t info);
 // data struct should be identical to uniform struct in shader
 void shader_update_uniforms(vshader_t shader, range_t data);
 
-// RENDER PASS
+// RENDERING
 typedef struct render_bindings_t {
     vmesh_t mesh;
 } render_bindings_t;
