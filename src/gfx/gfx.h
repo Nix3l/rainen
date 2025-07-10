@@ -14,6 +14,9 @@
 
 // TODO(nix3l):
 //  => injecting textures/samplers into shaders
+//  => rename from type_t to type_data_t and vtype_t to type_t
+
+#define GFX_INVALID_ID (0)
 
 enum {
     // compile time constants/limits
@@ -21,7 +24,7 @@ enum {
     GFX_MAX_VERTEX_ATTRIBS = 8,
     GFX_MAX_TEXTURES = 256, // TODO(nix3l): change this
     GFX_MAX_SAMPLERS = 64,
-    GFX_MAX_SHADER_SAMPLERS = 32,
+    GFX_MAX_SAMPLER_SLOTS = 16,
     GFX_MAX_SHADERS = 8,
     GFX_MAX_UNIFORMS = 64,
 };
@@ -54,10 +57,10 @@ typedef struct gfx_backend_info_t {
 //  new     => combination of alloc & init
 
 // ids point to data_pool slot
-typedef struct vmesh_t    { handle_t id; } vmesh_t;
-typedef struct vtex_t     { handle_t id; } vtex_t;
-typedef struct vsampler_t { handle_t id; } vsampler_t;
-typedef struct vshader_t  { handle_t id; } vshader_t;
+typedef struct mesh_t    { handle_t id; } mesh_t;
+typedef struct texture_t { handle_t id; } texture_t;
+typedef struct sampler_t { handle_t id; } sampler_t;
+typedef struct shader_t  { handle_t id; } shader_t;
 
 // backend specific stuff goes here
 typedef struct gl_mesh_internal_t {
@@ -128,14 +131,14 @@ typedef enum mesh_winding_order_t {
     MESH_WINDING_CCW,
 } mesh_winding_order_t;
 
-typedef struct mesh_t {
+typedef struct mesh_data_t {
     handle_t internal;
     mesh_format_t format;
     mesh_index_type_t index_type;
     mesh_primitive_t primitive;
     mesh_winding_order_t winding;
     u32 count; // either vertex count or index count depending on index_type
-} mesh_t;
+} mesh_data_t;
 
 typedef struct mesh_attribute_t {
     u32 dimensions;
@@ -155,10 +158,10 @@ typedef struct mesh_info_t {
 // for use in mesh_info_t
 mesh_attribute_t mesh_attribute(void* data, u32 bytes, u32 dimensions);
 
-vmesh_t mesh_alloc();
-void mesh_init(vmesh_t mesh, mesh_info_t info);
-void mesh_discard(vmesh_t mesh);
-void mesh_destroy(vmesh_t mesh);
+mesh_t mesh_alloc();
+void mesh_init(mesh_t mesh, mesh_info_t info);
+void mesh_discard(mesh_t mesh);
+void mesh_destroy(mesh_t mesh);
 
 // creates a new mesh
 // if index_type is MESH_INDEX_TYPE_NONE, the indices range is ignored, and vertex_count *must* be supplied
@@ -167,7 +170,9 @@ void mesh_destroy(vmesh_t mesh);
 // format *must* be supplied
 // if primitive not supplied, assumed to be triangles
 // if winding order not supplied, assumed to be CCW
-vmesh_t mesh_new(mesh_info_t info);
+mesh_t mesh_new(mesh_info_t info);
+
+mesh_data_t* mesh_query_data(mesh_t mesh);
 
 // TEXTURE
 // NOTE(nix3l): be careful when updating this, might break some internal translation functions
@@ -245,20 +250,20 @@ typedef enum texture_filter_t {
 } texture_filter_t;
 
 typedef enum texture_wrap_t {
-    TEXTURE_WRAP_UNDEFINED = 0,
+    TEXTURE_WRAP_UNDEFINED = 0, // will be assumed clamp to edge
     TEXTURE_WRAP_REPEAT,
     TEXTURE_WRAP_MIRRORED_REPEAT,
     TEXTURE_WRAP_CLAMP_TO_EDGE,
 } texture_wrap_t;
 
-typedef struct texture_t {
+typedef struct texture_data_t {
     handle_t internal;
     texture_type_t type;
     texture_format_t format;
     u32 width;
     u32 height;
     u32 mipmaps;
-} texture_t;
+} texture_data_t;
 
 typedef struct texture_info_t {
     texture_type_t type;
@@ -269,20 +274,22 @@ typedef struct texture_info_t {
     range_t data;
 } texture_info_t;
 
-vtex_t texture_alloc();
-void texture_init(vtex_t texture, texture_info_t info);
-void texture_discard(vtex_t texture);
-void texture_destroy(vtex_t texture);
-vtex_t texture_new(texture_info_t info);
+texture_t texture_alloc();
+void texture_init(texture_t texture, texture_info_t info);
+void texture_discard(texture_t texture);
+void texture_destroy(texture_t texture);
+texture_t texture_new(texture_info_t info);
+
+texture_data_t* texture_query_data(texture_t texture);
 
 // SAMPLERS
-typedef struct sampler_t {
+typedef struct sampler_data_t {
     handle_t internal;
     texture_filter_t min_filter;
     texture_filter_t mag_filter;
     texture_wrap_t u_wrap;
     texture_wrap_t v_wrap;
-} sampler_t;
+} sampler_data_t;
 
 typedef struct sampler_info_t {
     texture_filter_t filter;
@@ -293,14 +300,16 @@ typedef struct sampler_info_t {
     texture_wrap_t v_wrap;
 } sampler_info_t;
 
-vsampler_t sampler_alloc();
-void sampler_init(vsampler_t vsampler, sampler_info_t info);
-void sampler_discard(vsampler_t vsampler);
-void sampler_destroy(vsampler_t vsampler);
+sampler_t sampler_alloc();
+void sampler_init(sampler_t vsampler, sampler_info_t info);
+void sampler_discard(sampler_t vsampler);
+void sampler_destroy(sampler_t vsampler);
 
 // if filter is defined, min_filter and mag_filter are ignored
 // if wrap is defined, u_wrap and v_wrap are ignored
-vsampler_t sampler_new(sampler_info_t info);
+sampler_t sampler_new(sampler_info_t info);
+
+sampler_data_t* sampler_query_data(sampler_t sampler);
 
 // SHADER
 typedef struct shader_vertex_attribute_t {
@@ -345,7 +354,7 @@ typedef struct shader_pass_t {
     range_t src;
 } shader_pass_t;
 
-typedef struct shader_t {
+typedef struct shader_data_t {
     handle_t internal;
     char name[8];
     char pretty_name[16];
@@ -354,7 +363,7 @@ typedef struct shader_t {
     // TODO(nix3l): compute
     shader_vertex_attribute_t attribs[GFX_MAX_VERTEX_ATTRIBS];
     uniform_block_t uniform_block;
-} shader_t;
+} shader_data_t;
 
 typedef struct shader_info_t {
     char name[8];
@@ -365,25 +374,33 @@ typedef struct shader_info_t {
     uniform_t uniforms[GFX_MAX_UNIFORMS];
 } shader_info_t;
 
-vshader_t shader_alloc();
-void shader_init(vshader_t vshader, shader_info_t info);
-void shader_discard(vshader_t vshader);
-void shader_destroy(vshader_t vshader);
+shader_t shader_alloc();
+void shader_init(shader_t vshader, shader_info_t info);
+void shader_discard(shader_t vshader);
+void shader_destroy(shader_t vshader);
 
-vshader_t shader_new(shader_info_t info);
+shader_t shader_new(shader_info_t info);
+
+shader_data_t* shader_query_data(shader_t shader);
 
 // updates the shader's uniforms with the given data
 // all uniforms must be updated at once
 // data struct should be identical to uniform struct in shader
-void shader_update_uniforms(vshader_t shader, range_t data);
+void shader_update_uniforms(shader_t shader, range_t data);
 
 // RENDERING
+typedef struct sampler_slot_t {
+    texture_t texture;
+    sampler_t sampler;
+} sampler_slot_t;
+
 typedef struct render_bindings_t {
-    vmesh_t mesh;
+    mesh_t mesh;
+    sampler_slot_t texture_samplers[GFX_MAX_SAMPLER_SLOTS];
 } render_bindings_t;
 
 typedef struct render_pipeline_t {
-    vshader_t shader;
+    shader_t shader;
 } render_pipeline_t;
 
 void gfx_activate_pipeline(render_pipeline_t pipeline);

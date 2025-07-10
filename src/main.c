@@ -16,14 +16,13 @@ int main(void) {
     range_t vertex_src = platform_load_file(&shader_code_arena, "shader/default.vs");
     range_t fragment_src = platform_load_file(&shader_code_arena, "shader/default.fs");
 
-    vshader_t shader = shader_new((shader_info_t) {
+    shader_t shader = shader_new((shader_info_t) {
         .name = "dummy",
         .pretty_name = "Dummy",
         .attribs = {
             { .name = "vs_position" },
         },
         .uniforms = {
-            { .name = "col", .type = UNIFORM_TYPE_v2f, },
             { .name = "time", .type = UNIFORM_TYPE_f32, },
         },
         .vertex_src = vertex_src,
@@ -36,7 +35,7 @@ int main(void) {
         0.5f, 0.0f
     };
 
-    vmesh_t mesh = mesh_new((mesh_info_t) {
+    mesh_t mesh = mesh_new((mesh_info_t) {
         .format = MESH_FORMAT_X2,
         .index_type = MESH_INDEX_NONE,
         .attributes = {
