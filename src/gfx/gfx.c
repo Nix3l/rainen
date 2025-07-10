@@ -170,6 +170,7 @@ gfx_backend_info_t gfx_backend_info() {
 static u32 mesh_format_num_attributes(mesh_format_t format) {
     switch(format) {
         case MESH_FORMAT_X2: return 1;
+        case MESH_FORMAT_X2T2: return 2;
         case MESH_FORMAT_X3T2N3: return 3;
         default: UNREACHABLE; return 0;
     }
@@ -210,7 +211,7 @@ void mesh_init(mesh_t mesh, mesh_info_t info) {
     mesh_data->index_type = info.index_type;
     mesh_data->primitive = info.primitive;
     mesh_data->winding = info.winding;
-    mesh_data->count = info.vertex_count;
+    mesh_data->count = info.count;
 
     backend->mesh_init(mesh_data, info);
     return;
@@ -911,8 +912,13 @@ static void gl_activate_bindings(render_bindings_t bindings) {
         sampler_t sampler = bindings.texture_samplers[i].sampler;
         if(texture.id == GFX_INVALID_ID) break;
 
+        texture_data_t* texture_data = texture_query_data(texture);
+        gl_texture_internal_t* gltex = texture_internal(texture);
+        gl_sampler_internal_t* glsampler = sampler_internal(sampler);
+
         glActiveTexture(GL_TEXTURE0 + i);
-        // TODO
+        glBindTexture(gl_texture_bind_target(texture_data->type), gltex->id);
+        glBindSampler(i, glsampler->id);
     }
 }
 

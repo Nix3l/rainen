@@ -109,6 +109,7 @@ typedef enum {
     // etc...
     MESH_FORMAT_INVALID = 0,
     MESH_FORMAT_X2,
+    MESH_FORMAT_X2T2,
     MESH_FORMAT_X3T2N3,
 } mesh_format_t;
 
@@ -152,7 +153,7 @@ typedef struct mesh_info_t {
     mesh_winding_order_t winding;
     mesh_attribute_t attributes[GFX_MAX_VERTEX_ATTRIBS];
     range_t indices;
-    u32 vertex_count;
+    u32 count;
 } mesh_info_t;
 
 // for use in mesh_info_t
