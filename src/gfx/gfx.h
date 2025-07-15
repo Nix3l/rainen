@@ -13,8 +13,7 @@
 #endif
 
 // TODO(nix3l):
-//  => injecting textures/samplers into shaders
-//  => rename from type_t to type_data_t and vtype_t to type_t
+//  => framebuffers
 
 #define GFX_INVALID_ID (0)
 
@@ -25,6 +24,8 @@ enum {
     GFX_MAX_TEXTURES = 256, // TODO(nix3l): change this
     GFX_MAX_SAMPLERS = 64,
     GFX_MAX_SAMPLER_SLOTS = 16,
+    GFX_MAX_ATTACHMENT_OBJECTS = 8,
+    GFX_MAX_COLOUR_ATTACHMENTS = 8,
     GFX_MAX_SHADERS = 8,
     GFX_MAX_UNIFORMS = 64,
 };
@@ -46,6 +47,7 @@ typedef struct gfx_backend_info_t {
     u32 mesh_internal_size;
     u32 texture_internal_size;
     u32 sampler_internal_size;
+    u32 attachments_internal_size;
     u32 shader_internal_size;
 } gfx_backend_info_t;
 
@@ -57,10 +59,11 @@ typedef struct gfx_backend_info_t {
 //  new     => combination of alloc & init
 
 // ids point to data_pool slot
-typedef struct mesh_t    { handle_t id; } mesh_t;
-typedef struct texture_t { handle_t id; } texture_t;
-typedef struct sampler_t { handle_t id; } sampler_t;
-typedef struct shader_t  { handle_t id; } shader_t;
+typedef struct mesh_t        { handle_t id; } mesh_t;
+typedef struct texture_t     { handle_t id; } texture_t;
+typedef struct sampler_t     { handle_t id; } sampler_t;
+typedef struct attachments_t { handle_t id; } attachments_t;
+typedef struct shader_t      { handle_t id; } shader_t;
 
 // backend specific stuff goes here
 typedef struct gl_mesh_internal_t {
@@ -80,6 +83,10 @@ typedef struct gl_sampler_internal_t {
 typedef struct gl_shader_internal_t {
     u32 program;
 } gl_shader_internal_t;
+
+typedef struct gl_attachments_internal_t {
+    u32 fbo;
+} gl_attachments_internal_t;
 
 // gfx lib context/state
 typedef struct gfx_respool_t {
@@ -302,15 +309,43 @@ typedef struct sampler_info_t {
 } sampler_info_t;
 
 sampler_t sampler_alloc();
-void sampler_init(sampler_t vsampler, sampler_info_t info);
-void sampler_discard(sampler_t vsampler);
-void sampler_destroy(sampler_t vsampler);
+void sampler_init(sampler_t sampler, sampler_info_t info);
+void sampler_discard(sampler_t sampler);
+void sampler_destroy(sampler_t sampler);
 
 // if filter is defined, min_filter and mag_filter are ignored
 // if wrap is defined, u_wrap and v_wrap are ignored
 sampler_t sampler_new(sampler_info_t info);
 
 sampler_data_t* sampler_query_data(sampler_t sampler);
+
+// RENDER ATTACHMENTS
+typedef struct attachments_data_t {
+    handle_t internal;
+    u32 num_colours;
+    texture_t colours[GFX_MAX_COLOUR_ATTACHMENTS];
+    texture_t depth_stencil;
+} attachments_data_t;
+
+typedef struct attachments_info_t {
+    texture_t colours[GFX_MAX_COLOUR_ATTACHMENTS];
+    texture_t depth_stencil;
+} attachments_info_t;
+
+attachments_t attachments_alloc();
+void attachments_init(attachments_t attachments, attachments_info_t info);
+void attachments_discard(attachments_t attachments);
+void attachments_destroy(attachments_t attachments);
+
+attachments_t attachments_new(attachments_info_t info);
+
+attachments_data_t* attachments_query_data(attachments_t attachments);
+
+void attachments_clear_colour(v4f col);
+void attachments_clear_depth_stencil();
+
+void attachments_blit_colour(attachments_t dest, attachments_t src, u32 dest_att, u32 src_att);
+void attachments_blit_depth_stencil(attachments_t dest, attachments_t src);
 
 // SHADER
 typedef struct shader_vertex_attribute_t {
@@ -376,9 +411,9 @@ typedef struct shader_info_t {
 } shader_info_t;
 
 shader_t shader_alloc();
-void shader_init(shader_t vshader, shader_info_t info);
-void shader_discard(shader_t vshader);
-void shader_destroy(shader_t vshader);
+void shader_init(shader_t shader, shader_info_t info);
+void shader_discard(shader_t shader);
+void shader_destroy(shader_t shader);
 
 shader_t shader_new(shader_info_t info);
 
@@ -397,16 +432,89 @@ typedef struct sampler_slot_t {
 
 typedef struct render_bindings_t {
     mesh_t mesh;
+    attachments_t read_attachments;
     sampler_slot_t texture_samplers[GFX_MAX_SAMPLER_SLOTS];
 } render_bindings_t;
 
+typedef struct render_target_t {
+    bool enable;
+    bool disable_clear;
+    bool override_clear_col;
+    v4f clear_col; // overrides the default clear colour in the pipeline
+} render_target_t;
+
+typedef enum cull_face_t {
+    CULL_FACE_UNDEFINED = 0, // will be assumed back
+    CULL_FACE_FRONT,
+    CULL_FACE_BACK,
+    CULL_FACE_FRONT_AND_BACK,
+} cull_face_t;
+
+typedef struct render_cull_state_t {
+    bool enable;
+    cull_face_t face;
+} render_cull_state_t;
+
+typedef enum depth_func_t {
+    DEPTH_FUNC_UNDEFINED = 0, // will be assumed less
+    DEPTH_FUNC_NEVER,
+    DEPTH_FUNC_ALWAYS,
+    DEPTH_FUNC_LESS,
+    DEPTH_FUNC_GREATER,
+    DEPTH_FUNC_LESS_EQUAL,
+    DEPTH_FUNC_GREATER_EQUAL,
+    DEPTH_FUNC_EQUAL,
+    DEPTH_FUNC_NOT_EQUAL,
+} depth_func_t;
+
+typedef struct render_depth_state_t {
+    bool enable;
+    depth_func_t func;
+} render_depth_state_t;
+
+typedef enum blend_func_t {
+    BLEND_FUNC_UNDEFINED = 0,
+    BLEND_FUNC_ZERO,
+    BLEND_FUNC_ONE,
+    BLEND_FUNC_SRC_COLOUR,
+    BLEND_FUNC_SRC_ONE_MINUS_COLOUR,
+    BLEND_FUNC_SRC_ALPHA,
+    BLEND_FUNC_SRC_ONE_MINUS_ALPHA,
+    BLEND_FUNC_DST_COLOUR,
+    BLEND_FUNC_DST_ONE_MINUS_COLOUR,
+    BLEND_FUNC_DST_ALPHA,
+    BLEND_FUNC_DST_ONE_MINUS_ALPHA,
+} blend_func_t;
+
+typedef struct render_blend_state_t {
+    bool enable;
+    blend_func_t src_func;
+    blend_func_t dst_func;
+} render_blend_state_t;
+
+typedef struct render_clear_state_t {
+    bool depth;
+    bool stencil;
+    bool colour;
+    v4f clear_col; // default clear colour for all render targets
+} render_clear_state_t;
+
 typedef struct render_pipeline_t {
+    render_depth_state_t depth;
+    render_cull_state_t cull;
+    render_blend_state_t blend;
+    render_clear_state_t clear;
+    attachments_t draw_attachments;
+    render_target_t colour_targets[GFX_MAX_COLOUR_ATTACHMENTS];
     shader_t shader;
 } render_pipeline_t;
 
 void gfx_activate_pipeline(render_pipeline_t pipeline);
 void gfx_supply_bindings(render_bindings_t bindings);
 void gfx_draw();
+
+// VIEWPORT
+void gfx_viewport(u32 x, u32 y, u32 w, u32 h);
 
 // CONTEXT
 typedef struct gfx_ctx_t {
@@ -419,6 +527,7 @@ typedef struct gfx_ctx_t {
     gfx_respool_t* mesh_pool;
     gfx_respool_t* texture_pool;
     gfx_respool_t* sampler_pool;
+    gfx_respool_t* attachments_pool;
     gfx_respool_t* shader_pool;
 } gfx_ctx_t;
 

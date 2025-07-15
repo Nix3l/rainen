@@ -1,6 +1,5 @@
 #include "gfx.h"
 #include "base.h"
-#include "base_macros.h"
 #include "memory/memory.h"
 #include "util/util.h"
 
@@ -17,12 +16,15 @@ gfx_ctx_t gfx_ctx;
     BACKEND_FUNC_XMACRO(texture_destroy, texture_data_t* texture) \
     BACKEND_FUNC_XMACRO(sampler_init, sampler_data_t* sampler, sampler_info_t info) \
     BACKEND_FUNC_XMACRO(sampler_destroy, sampler_data_t* sampler) \
+    BACKEND_FUNC_XMACRO(attachments_init, attachments_data_t* attachments, attachments_info_t info) \
+    BACKEND_FUNC_XMACRO(attachments_destroy, attachments_data_t* attachments) \
     BACKEND_FUNC_XMACRO(shader_init, shader_data_t* shader, shader_info_t info) \
     BACKEND_FUNC_XMACRO(shader_destroy, shader_data_t* shader) \
     BACKEND_FUNC_XMACRO(shader_update_uniforms, shader_data_t* shader, range_t uniforms) \
     BACKEND_FUNC_XMACRO(activate_pipeline, render_pipeline_t pipeline) \
     BACKEND_FUNC_XMACRO(activate_bindings, render_bindings_t bindings) \
     BACKEND_FUNC_XMACRO(draw, mesh_t mesh) \
+    BACKEND_FUNC_XMACRO(viewport, u32 x, u32 y, u32 w, u32 h) \
 
 #define BACKEND_FUNC_XMACRO(_name, ...) typedef void (*_name ## _func) (__VA_ARGS__);
 BACKEND_FUNCS_LIST;
@@ -61,6 +63,7 @@ static void init_jumptables() {
 static gfx_respool_t mesh_pool;
 static gfx_respool_t texture_pool;
 static gfx_respool_t sampler_pool;
+static gfx_respool_t attachments_pool;
 static gfx_respool_t shader_pool;
 
 static gfx_respool_t gfx_respool_alloc(u32 capacity, u32 res_bytes, u32 internal_bytes) {
@@ -120,6 +123,7 @@ void gfx_init(gfx_backend_t backend) {
         .mesh_internal_size = sizeof(gl_mesh_internal_t),
         .texture_internal_size = sizeof(gl_texture_internal_t),
         .sampler_internal_size = sizeof(gl_sampler_internal_t),
+        .attachments_internal_size = sizeof(gl_attachments_internal_t),
         .shader_internal_size = sizeof(gl_shader_internal_t),
     };
 
@@ -132,8 +136,7 @@ void gfx_init(gfx_backend_t backend) {
     };
 
     gfx_backend_info_t curr_backend_info = gfx_ctx.backend_info[backend];
-    if(!curr_backend_info.supported)
-        PANIC("chosen backend is not supported on current OS\n");
+    if(!curr_backend_info.supported) PANIC("chosen backend is not supported on current OS\n");
 
     // for now, keep immutable
     mesh_pool = gfx_respool_alloc(GFX_MAX_MESHES, sizeof(mesh_data_t), curr_backend_info.mesh_internal_size);
@@ -144,6 +147,9 @@ void gfx_init(gfx_backend_t backend) {
 
     sampler_pool = gfx_respool_alloc(GFX_MAX_SAMPLERS, sizeof(sampler_data_t), curr_backend_info.sampler_internal_size);
     gfx_ctx.sampler_pool = &sampler_pool;
+
+    attachments_pool = gfx_respool_alloc(GFX_MAX_ATTACHMENT_OBJECTS, sizeof(attachments_data_t), curr_backend_info.attachments_internal_size);
+    gfx_ctx.attachments_pool = &attachments_pool;
 
     shader_pool = gfx_respool_alloc(GFX_MAX_SHADERS, sizeof(shader_data_t), curr_backend_info.shader_internal_size);
     gfx_ctx.shader_pool = &shader_pool;
@@ -176,7 +182,7 @@ static u32 mesh_format_num_attributes(mesh_format_t format) {
     }
 }
 
-mesh_attribute_t mesh_attribute(void *data, u32 size, u32 dimensions) {
+mesh_attribute_t mesh_attribute(void* data, u32 size, u32 dimensions) {
     return (mesh_attribute_t) {
         .dimensions = dimensions,
         .data = range_new(data, size),
@@ -214,7 +220,6 @@ void mesh_init(mesh_t mesh, mesh_info_t info) {
     mesh_data->count = info.count;
 
     backend->mesh_init(mesh_data, info);
-    return;
 }
 
 void mesh_discard(mesh_t mesh) {
@@ -345,6 +350,53 @@ static void* sampler_internal(sampler_t sampler) {
     return gfx_respool_internal(gfx_ctx.sampler_pool, sampler_data->internal);
 }
 
+attachments_t attachments_alloc() {
+    attachments_t attachments = {0};
+    attachments_data_t* attachments_data = gfx_respool_push_data(gfx_ctx.attachments_pool, &attachments.id);
+    mem_clear(attachments_data, sizeof(attachments_data_t));
+    return attachments;
+}
+
+void attachments_init(attachments_t attachments, attachments_info_t info) {
+    attachments_data_t* data = gfx_respool_data(gfx_ctx.attachments_pool, attachments.id);
+
+    memcpy(data->colours, info.colours, sizeof(data->colours));
+    data->depth_stencil = info.depth_stencil;
+
+    for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
+        printf("%u, ", data->colours[i].id);
+    }
+    printf("\n");
+
+    backend->attachments_init(data, info);
+}
+
+void attachments_discard(attachments_t attachments) {
+    attachments_data_t* data = gfx_respool_data(gfx_ctx.attachments_pool, attachments.id);
+    backend->attachments_destroy(data);
+    gfx_respool_free_internal(gfx_ctx.attachments_pool, data->internal);
+}
+
+void attachments_destroy(attachments_t attachments) {
+    attachments_discard(attachments);
+    gfx_respool_free_data(gfx_ctx.attachments_pool, attachments.id);
+}
+
+attachments_t attachments_new(attachments_info_t info) {
+    attachments_t attachments = attachments_alloc();
+    attachments_init(attachments, info);
+    return attachments;
+}
+
+attachments_data_t* attachments_query_data(attachments_t attachments) {
+    return gfx_respool_data(gfx_ctx.attachments_pool, attachments.id);
+}
+
+static void* attachments_internal(attachments_t attachments) {
+    attachments_data_t* data = attachments_query_data(attachments);
+    return gfx_respool_internal(gfx_ctx.attachments_pool, data->internal);
+}
+
 static u32 uniform_type_get_bytes(uniform_type_t type) {
     // TODO(nix3l): padding??
     switch (type) {
@@ -429,18 +481,24 @@ void shader_update_uniforms(shader_t shader, range_t data) {
     backend->shader_update_uniforms(shader_data, data);
 }
 
-void gfx_activate_pipeline(render_pipeline_t pipeline) {
-    gfx_ctx.active_pipeline = pipeline;
+void gfx_activate_pipeline(render_pipeline_t pip) {
+    if(pip.depth.func == DEPTH_FUNC_UNDEFINED) pip.depth.func = DEPTH_FUNC_LESS;
+    if(pip.cull.face == CULL_FACE_UNDEFINED) pip.cull.face = CULL_FACE_BACK;
+    gfx_ctx.active_pipeline = pip;
+    backend->activate_pipeline(gfx_ctx.active_pipeline);
 }
 
 void gfx_supply_bindings(render_bindings_t bindings) {
     gfx_ctx.active_bindings = bindings;
+    backend->activate_bindings(gfx_ctx.active_bindings);
 }
 
 void gfx_draw() {
-    backend->activate_pipeline(gfx_ctx.active_pipeline);
-    backend->activate_bindings(gfx_ctx.active_bindings);
     backend->draw(gfx_ctx.active_bindings.mesh);
+}
+
+void gfx_viewport(u32 x, u32 y, u32 w, u32 h) {
+    backend->viewport(x, y, w, h);
 }
 
 // OPENGL-SPECIFIC
@@ -760,6 +818,50 @@ static void gl_sampler_destroy(sampler_data_t* sampler) {
     glDeleteSamplers(1, &glsampler->id);
 }
 
+// ATTACHMENTS
+static void gl_attachments_init(attachments_data_t* att, attachments_info_t info) {
+    gl_attachments_internal_t* glatt = gfx_respool_push_internal(gfx_ctx.attachments_pool, &att->internal);
+    mem_clear(glatt, sizeof(gl_attachments_internal_t));
+
+    glGenFramebuffers(1, &glatt->fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, glatt->fbo);
+
+    for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
+        texture_t tex = info.colours[i];
+        if(tex.id == GFX_INVALID_ID) {
+            att->num_colours = i;
+            break;
+        }
+
+        texture_data_t* tex_data = texture_query_data(tex);
+        gl_texture_internal_t* gltex = texture_internal(tex);
+
+        u32 target = gl_texture_bind_target(tex_data->type);
+        glBindTexture(target, gltex->id);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, target, gltex->id, 0);
+        glBindTexture(target, 0);
+    }
+
+    if(info.depth_stencil.id != GFX_INVALID_ID) {
+        texture_t tex = info.depth_stencil;
+        texture_data_t* tex_data = texture_query_data(tex);
+        gl_texture_internal_t* gltex = texture_internal(tex);
+        u32 target = gl_texture_bind_target(tex_data->type);
+
+        glBindTexture(target, gltex->id);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, target, gltex->id, 0);
+        glBindTexture(target, 0);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void gl_attachments_destroy(attachments_data_t* att) {
+    gl_attachments_internal_t* glatt = gfx_respool_internal(gfx_ctx.attachments_pool, att->internal);
+    if(!glatt) return;
+    glDeleteFramebuffers(1, &glatt->fbo);
+}
+
 // SHADER
 static u32 gl_shader_type(shader_pass_type_t type) {
     switch(type) {
@@ -816,7 +918,7 @@ static void gl_shader_init(shader_data_t* shader, shader_info_t info) {
     if(!success) {
         char log[512];
         glGetProgramInfoLog(glshader->program, 512, NULL, log);
-        LOG_ERR("failed to link shader [%s]:\n%s\n", info.pretty_name, log);
+        LOG_ERR("failed to link shader [%s]:\n%s\n", info.name, log);
     }
 
     for(u32 i = 0; i < GFX_MAX_UNIFORMS; i ++) {
@@ -897,37 +999,135 @@ static void gl_shader_update_uniforms(shader_data_t* shader, range_t uniforms) {
     }
 }
 
-static void gl_activate_pipeline(render_pipeline_t pipeline) {
-    gl_shader_internal_t* shader_internal = gfx_respool_internal(gfx_ctx.shader_pool, pipeline.shader.id);
-    glUseProgram(shader_internal->program);
+static u32 gl_depth_func(depth_func_t func) {
+    switch(func) {
+        case DEPTH_FUNC_NEVER: return GL_NEVER;
+        case DEPTH_FUNC_ALWAYS: return GL_ALWAYS;
+        case DEPTH_FUNC_LESS: return GL_LESS;
+        case DEPTH_FUNC_GREATER: return GL_GREATER;
+        case DEPTH_FUNC_LESS_EQUAL: return GL_LEQUAL;
+        case DEPTH_FUNC_GREATER_EQUAL: return GL_GEQUAL;
+        case DEPTH_FUNC_EQUAL: return GL_EQUAL;
+        case DEPTH_FUNC_NOT_EQUAL: return GL_NOTEQUAL;
+        default: UNREACHABLE; return 0;
+    }
+}
+
+static u32 gl_cull_face(cull_face_t face) {
+    switch(face) {
+        case CULL_FACE_FRONT: return GL_FRONT;
+        case CULL_FACE_BACK: return GL_BACK;
+        case CULL_FACE_FRONT_AND_BACK: return GL_FRONT_AND_BACK;
+        default: UNREACHABLE; return 0;
+    }
+}
+
+static u32 gl_blend_func(blend_func_t func) {
+    switch(func) {
+        case BLEND_FUNC_ZERO: return GL_ZERO;
+        case BLEND_FUNC_ONE: return GL_ONE;
+        case BLEND_FUNC_SRC_COLOUR: return GL_SRC_COLOR;
+        case BLEND_FUNC_SRC_ALPHA: return GL_SRC_ALPHA;
+        case BLEND_FUNC_SRC_ONE_MINUS_COLOUR: return GL_ONE_MINUS_SRC_COLOR;
+        case BLEND_FUNC_SRC_ONE_MINUS_ALPHA: return GL_ONE_MINUS_SRC_ALPHA;
+        case BLEND_FUNC_DST_COLOUR: return GL_DST_COLOR;
+        case BLEND_FUNC_DST_ALPHA: return GL_DST_ALPHA;
+        case BLEND_FUNC_DST_ONE_MINUS_COLOUR: return GL_ONE_MINUS_DST_COLOR;
+        case BLEND_FUNC_DST_ONE_MINUS_ALPHA: return GL_ONE_MINUS_DST_ALPHA;
+        default: UNREACHABLE; return 0;
+    }
+}
+
+static void gl_activate_pipeline(render_pipeline_t pip) {
+    if(pip.depth.enable) {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(gl_depth_func(pip.depth.func));
+    }
+
+    if(pip.cull.enable) {
+        glEnable(GL_CULL_FACE);
+        glCullFace(gl_cull_face(pip.cull.face));
+    }
+
+    if(pip.blend.enable) {
+        glEnable(GL_BLEND);
+        glBlendFunc(gl_blend_func(pip.blend.src_func), gl_blend_func(pip.blend.dst_func));
+    }
+
+    if(pip.draw_attachments.id != GFX_INVALID_ID) {
+        gl_attachments_internal_t* glatt = attachments_internal(pip.draw_attachments);
+        glBindFramebuffer(GL_FRAMEBUFFER, glatt->fbo);
+
+        for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
+            render_target_t target = pip.colour_targets[i];
+            if(!target.enable) continue;
+            glDrawBuffer(GL_COLOR_ATTACHMENT0 + i);
+
+            if(pip.clear.colour && !target.disable_clear)
+                glClearBufferfv(GL_COLOR, i, target.override_clear_col ? target.clear_col.raw : pip.clear.clear_col.raw);
+        }
+    } else {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDrawBuffer(GL_BACK);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(v4f_expand(pip.clear.clear_col));
+    }
+
+    GLbitfield depth_stencil_clear = 0;
+    if(pip.clear.depth) depth_stencil_clear |= GL_DEPTH_BUFFER_BIT;
+    if(pip.clear.stencil) depth_stencil_clear |= GL_STENCIL_BUFFER_BIT;
+    glClear(depth_stencil_clear);
+
+    gl_shader_internal_t* glshader = shader_internal(pip.shader);
+    glUseProgram(glshader->program);
 }
 
 static void gl_activate_bindings(render_bindings_t bindings) {
-    mesh_data_t* mesh = gfx_respool_data(gfx_ctx.mesh_pool, bindings.mesh.id);
-    gl_mesh_internal_t* mesh_internal = gfx_respool_internal(gfx_ctx.mesh_pool, bindings.mesh.id);
-    glBindVertexArray(mesh_internal->vao);
+    mesh_data_t* mesh = mesh_query_data(bindings.mesh);
+    gl_mesh_internal_t* glmesh = mesh_internal(bindings.mesh);
+    glBindVertexArray(glmesh->vao);
     gl_mesh_bind_attributes(mesh);
+
+    if(bindings.read_attachments.id != GFX_INVALID_ID) {
+        gl_attachments_internal_t* glatt = attachments_internal(bindings.read_attachments);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, glatt->fbo);
+        attachments_data_t* att_data = attachments_query_data(bindings.read_attachments);
+        for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
+            if(att_data->colours[i].id != GFX_INVALID_ID)
+                glReadBuffer(GL_COLOR_ATTACHMENT0 + i);
+        }
+    } else {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    }
+
     for(u32 i = 0; i < GFX_MAX_SAMPLER_SLOTS; i ++) {
         texture_t texture = bindings.texture_samplers[i].texture;
         sampler_t sampler = bindings.texture_samplers[i].sampler;
-        if(texture.id == GFX_INVALID_ID) break;
+        if(texture.id == GFX_INVALID_ID) continue;
 
         texture_data_t* texture_data = texture_query_data(texture);
         gl_texture_internal_t* gltex = texture_internal(texture);
-        gl_sampler_internal_t* glsampler = sampler_internal(sampler);
 
         glActiveTexture(GL_TEXTURE0 + i);
         glBindTexture(gl_texture_bind_target(texture_data->type), gltex->id);
-        glBindSampler(i, glsampler->id);
+
+        if(sampler.id != GFX_INVALID_ID) {
+            gl_sampler_internal_t* glsampler = sampler_internal(sampler);
+            glBindSampler(i, glsampler->id);
+        }
     }
 }
 
 static void gl_draw(mesh_t mesh) {
-    mesh_data_t* mesh_data = gfx_respool_data(gfx_ctx.mesh_pool, mesh.id);
+    mesh_data_t* mesh_data = mesh_query_data(mesh);
 
     if(mesh_data->index_type != MESH_INDEX_NONE) {
         glDrawElements(gl_mesh_primitive(mesh_data->primitive), mesh_data->count, GL_UNSIGNED_INT, 0);
     } else {
         glDrawArrays(gl_mesh_primitive(mesh_data->primitive), 0, mesh_data->count);
     }
+}
+
+static void gl_viewport(u32 x, u32 y, u32 w, u32 h) {
+    glViewport(x, y, w, h);
 }
