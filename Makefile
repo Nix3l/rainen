@@ -26,10 +26,13 @@ $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CCFLAGS) $(INC_FLAGS) $(DEBUG_FLAGS) -c $< -o $@
 
+.PHONY: compile
+compile: $(BUILD_DIR)/$(TARGET_EXEC)
+
 .PHONY: run
 run: $(BUILD_DIR)/$(TARGET_EXEC)
 	$(BUILD_DIR)/$(TARGET_EXEC)
 
 .PHONY: clean
 clean:
-	rm -r $(BUILD_DIR)
+	rm -r $(BUILD_DIR)/*

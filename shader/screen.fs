@@ -8,6 +8,5 @@ out vec4 out_col;
 uniform sampler2D tex;
 
 void main(void) {
-    // out_col = texture(tex, fs_uvs * 0.3);
-    out_col = vec4(fs_pos.rg, 0.0, 1.0);
+    out_col = texture(tex, fs_uvs);
 }

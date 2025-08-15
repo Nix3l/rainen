@@ -1,6 +1,4 @@
 #include "gfx.h"
-#include "base.h"
-#include "memory/memory.h"
 #include "util/util.h"
 
 gfx_ctx_t gfx_ctx;
@@ -10,17 +8,17 @@ gfx_ctx_t gfx_ctx;
 // BACKEND_FUNC_XMACRO(function name, parameters)
 // will get expanded into all the necessary function definitions
 #define BACKEND_FUNCS_LIST \
-    BACKEND_FUNC_XMACRO(mesh_init, mesh_data_t* mesh, mesh_info_t info) \
-    BACKEND_FUNC_XMACRO(mesh_destroy, mesh_data_t* mesh) \
-    BACKEND_FUNC_XMACRO(texture_init, texture_data_t* texture, texture_info_t info) \
-    BACKEND_FUNC_XMACRO(texture_destroy, texture_data_t* texture) \
-    BACKEND_FUNC_XMACRO(sampler_init, sampler_data_t* sampler, sampler_info_t info) \
-    BACKEND_FUNC_XMACRO(sampler_destroy, sampler_data_t* sampler) \
-    BACKEND_FUNC_XMACRO(attachments_init, attachments_data_t* attachments, attachments_info_t info) \
-    BACKEND_FUNC_XMACRO(attachments_destroy, attachments_data_t* attachments) \
-    BACKEND_FUNC_XMACRO(shader_init, shader_data_t* shader, shader_info_t info) \
-    BACKEND_FUNC_XMACRO(shader_destroy, shader_data_t* shader) \
-    BACKEND_FUNC_XMACRO(shader_update_uniforms, shader_data_t* shader, range_t uniforms) \
+    BACKEND_FUNC_XMACRO(mesh_init, mesh_t mesh, mesh_info_t info) \
+    BACKEND_FUNC_XMACRO(mesh_destroy, mesh_t mesh) \
+    BACKEND_FUNC_XMACRO(texture_init, texture_t texture, texture_info_t info) \
+    BACKEND_FUNC_XMACRO(texture_destroy, texture_t texture) \
+    BACKEND_FUNC_XMACRO(sampler_init, sampler_t sampler, sampler_info_t info) \
+    BACKEND_FUNC_XMACRO(sampler_destroy, sampler_t sampler) \
+    BACKEND_FUNC_XMACRO(attachments_init, attachments_t att, attachments_info_t info) \
+    BACKEND_FUNC_XMACRO(attachments_destroy, attachments_t att) \
+    BACKEND_FUNC_XMACRO(shader_init, shader_t shader, shader_info_t info) \
+    BACKEND_FUNC_XMACRO(shader_destroy, shader_t shader) \
+    BACKEND_FUNC_XMACRO(shader_update_uniforms, shader_t shader, range_t uniforms) \
     BACKEND_FUNC_XMACRO(activate_pipeline, render_pipeline_t pipeline) \
     BACKEND_FUNC_XMACRO(activate_bindings, render_bindings_t bindings) \
     BACKEND_FUNC_XMACRO(draw, mesh_t mesh) \
@@ -60,55 +58,69 @@ static void init_jumptables() {
 
 // end of black magic ----------------
 
+// backend specific stuff goes here
+typedef struct gl_mesh_internal_t {
+    u32 vao;
+    u32 vbos[GFX_MAX_VERTEX_ATTRIBS];
+    u32 index_vbo;
+} gl_mesh_internal_t;
+
+typedef struct gl_texture_internal_t {
+    u32 id;
+} gl_texture_internal_t;
+
+typedef struct gl_sampler_internal_t {
+    u32 id;
+} gl_sampler_internal_t;
+
+typedef struct gl_shader_internal_t {
+    u32 program;
+} gl_shader_internal_t;
+
+typedef struct gl_attachments_internal_t {
+    u32 fbo;
+} gl_attachments_internal_t;
+
+// pools
 static gfx_respool_t mesh_pool;
 static gfx_respool_t texture_pool;
 static gfx_respool_t sampler_pool;
 static gfx_respool_t attachments_pool;
 static gfx_respool_t shader_pool;
 
-static gfx_respool_t gfx_respool_alloc(u32 capacity, u32 res_bytes, u32 internal_bytes) {
+static gfx_respool_t gfx_respool_alloc_new(u32 capacity, u32 res_bytes, u32 internal_bytes) {
     gfx_respool_t pool = (gfx_respool_t) {
         .capacity = capacity,
+        .res_pool = pool_alloc(capacity, sizeof(gfx_res_slot_t), EXPAND_TYPE_IMMUTABLE),
         .data_pool = pool_alloc(capacity, res_bytes, EXPAND_TYPE_IMMUTABLE),
-        .gfx_pool = pool_alloc(capacity, internal_bytes, EXPAND_TYPE_IMMUTABLE),
+        .internal_pool = pool_alloc(capacity, internal_bytes, EXPAND_TYPE_IMMUTABLE),
     };
 
     // reserve the 0 index for invalid ids
+    (void) pool_push(&pool.res_pool, NULL);
     (void) pool_push(&pool.data_pool, NULL);
-    (void) pool_push(&pool.gfx_pool, NULL);
+    (void) pool_push(&pool.internal_pool, NULL);
 
     return pool;
 }
 
-// TODO(nix3l): inline these?
-static void* gfx_respool_push_data(gfx_respool_t* pool, handle_t* slot) {
-    return pool_push(&pool->data_pool, slot);
+static gfx_res_slot_t* gfx_respool_alloc_slot(gfx_respool_t* pool, handle_t* slot) {
+    return pool_push(&pool->res_pool, slot);
 }
 
-static void* gfx_respool_push_internal(gfx_respool_t* pool, handle_t* slot) {
-    return pool_push(&pool->gfx_pool, slot);
+static void gfx_respool_dealloc_slot(gfx_respool_t* pool, handle_t slot) {
+    pool_free(&pool->res_pool, slot);
 }
 
-static void* gfx_respool_data(gfx_respool_t* pool, handle_t slot) {
-    return pool_get(&pool->data_pool, slot);
-}
-
-static void* gfx_respool_internal(gfx_respool_t* pool, handle_t slot) {
-    return pool_get(&pool->gfx_pool, slot);
-}
-
-static void gfx_respool_free_data(gfx_respool_t* pool, handle_t slot) {
-    pool_free(&pool->data_pool, slot);
-}
-
-static void gfx_respool_free_internal(gfx_respool_t* pool, handle_t slot) {
-    pool_free(&pool->gfx_pool, slot);
+static gfx_res_slot_t* gfx_respool_get_slot(gfx_respool_t* pool, handle_t slot) {
+    return pool_get(&pool->res_pool, slot);
 }
 
 static void gfx_respool_destroy(gfx_respool_t* pool) {
     pool->capacity = 0;
+    pool_destroy(&pool->res_pool);
     pool_destroy(&pool->data_pool);
-    pool_destroy(&pool->gfx_pool);
+    pool_destroy(&pool->internal_pool);
 }
 
 void gfx_init(gfx_backend_t backend) {
@@ -139,19 +151,19 @@ void gfx_init(gfx_backend_t backend) {
     if(!curr_backend_info.supported) PANIC("chosen backend is not supported on current OS\n");
 
     // for now, keep immutable
-    mesh_pool = gfx_respool_alloc(GFX_MAX_MESHES, sizeof(mesh_data_t), curr_backend_info.mesh_internal_size);
+    mesh_pool = gfx_respool_alloc_new(GFX_MAX_MESHES, sizeof(mesh_data_t), curr_backend_info.mesh_internal_size);
     gfx_ctx.mesh_pool = &mesh_pool;
 
-    texture_pool = gfx_respool_alloc(GFX_MAX_TEXTURES, sizeof(texture_data_t), curr_backend_info.texture_internal_size);
+    texture_pool = gfx_respool_alloc_new(GFX_MAX_TEXTURES, sizeof(texture_data_t), curr_backend_info.texture_internal_size);
     gfx_ctx.texture_pool = &texture_pool;
 
-    sampler_pool = gfx_respool_alloc(GFX_MAX_SAMPLERS, sizeof(sampler_data_t), curr_backend_info.sampler_internal_size);
+    sampler_pool = gfx_respool_alloc_new(GFX_MAX_SAMPLERS, sizeof(sampler_data_t), curr_backend_info.sampler_internal_size);
     gfx_ctx.sampler_pool = &sampler_pool;
 
-    attachments_pool = gfx_respool_alloc(GFX_MAX_ATTACHMENT_OBJECTS, sizeof(attachments_data_t), curr_backend_info.attachments_internal_size);
+    attachments_pool = gfx_respool_alloc_new(GFX_MAX_ATTACHMENT_OBJECTS, sizeof(attachments_data_t), curr_backend_info.attachments_internal_size);
     gfx_ctx.attachments_pool = &attachments_pool;
 
-    shader_pool = gfx_respool_alloc(GFX_MAX_SHADERS, sizeof(shader_data_t), curr_backend_info.shader_internal_size);
+    shader_pool = gfx_respool_alloc_new(GFX_MAX_SHADERS, sizeof(shader_data_t), curr_backend_info.shader_internal_size);
     gfx_ctx.shader_pool = &shader_pool;
 
     init_jumptables();
@@ -161,6 +173,7 @@ void gfx_terminate() {
     gfx_respool_destroy(gfx_ctx.mesh_pool);
     gfx_respool_destroy(gfx_ctx.texture_pool);
     gfx_respool_destroy(gfx_ctx.sampler_pool);
+    gfx_respool_destroy(gfx_ctx.attachments_pool);
     gfx_respool_destroy(gfx_ctx.shader_pool);
 }
 
@@ -191,13 +204,15 @@ mesh_attribute_t mesh_attribute(void* data, u32 size, u32 dimensions) {
 
 mesh_t mesh_alloc() {
     mesh_t mesh = {0};
-    mesh_data_t* mesh_data = gfx_respool_push_data(gfx_ctx.mesh_pool, &mesh.id);
+    gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.mesh_pool, &mesh.id);
+    mesh_data_t* mesh_data = pool_push(&gfx_ctx.mesh_pool->data_pool, &slot->data_handle);
     mem_clear(mesh_data, sizeof(mesh_data_t));
     return mesh;
 }
 
 void mesh_init(mesh_t mesh, mesh_info_t info) {
-    mesh_data_t* mesh_data = gfx_respool_data(gfx_ctx.mesh_pool, mesh.id);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    mesh_data_t* mesh_data = pool_get(&gfx_ctx.mesh_pool->data_pool, slot->data_handle);
 
     if(info.format == MESH_FORMAT_INVALID) {
         LOG_ERR("mesh format *must* be supplied\n");
@@ -219,18 +234,22 @@ void mesh_init(mesh_t mesh, mesh_info_t info) {
     mesh_data->winding = info.winding;
     mesh_data->count = info.count;
 
-    backend->mesh_init(mesh_data, info);
+    pool_push(&gfx_ctx.mesh_pool->internal_pool, &slot->internal_handle);
+    backend->mesh_init(mesh, info);
 }
 
 void mesh_discard(mesh_t mesh) {
-    mesh_data_t* mesh_data = gfx_respool_data(gfx_ctx.mesh_pool, mesh.id);
-    backend->mesh_destroy(mesh_data);
-    gfx_respool_free_internal(gfx_ctx.mesh_pool, mesh_data->internal);
+    backend->mesh_destroy(mesh);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    pool_free(&gfx_ctx.mesh_pool->internal_pool, slot->internal_handle);
 }
 
 void mesh_destroy(mesh_t mesh) {
-    mesh_discard(mesh);
-    gfx_respool_free_data(gfx_ctx.mesh_pool, mesh.id);
+    backend->mesh_destroy(mesh);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    pool_free(&gfx_ctx.mesh_pool->data_pool, slot->data_handle);
+    pool_free(&gfx_ctx.mesh_pool->internal_pool, slot->internal_handle);
+    gfx_respool_dealloc_slot(gfx_ctx.mesh_pool, mesh.id);
 }
 
 mesh_t mesh_new(mesh_info_t info) {
@@ -239,24 +258,27 @@ mesh_t mesh_new(mesh_info_t info) {
     return mesh;
 }
 
-mesh_data_t* mesh_query_data(mesh_t mesh) {
-    return gfx_respool_data(gfx_ctx.mesh_pool, mesh.id);
+mesh_data_t* mesh_get_data(mesh_t mesh) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    return pool_get(&gfx_ctx.mesh_pool->data_pool, slot->data_handle);
 }
 
-static void* mesh_internal(mesh_t mesh) {
-    mesh_data_t* mesh_data = mesh_query_data(mesh);
-    return gfx_respool_internal(gfx_ctx.mesh_pool, mesh_data->internal);
+static void* mesh_get_internal(mesh_t mesh) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    return pool_get(&gfx_ctx.mesh_pool->internal_pool, slot->internal_handle);
 }
 
 texture_t texture_alloc() {
     texture_t texture = {0};
-    texture_data_t* texture_data = gfx_respool_push_data(gfx_ctx.texture_pool, &texture.id);
+    gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.texture_pool, &texture.id);
+    texture_data_t* texture_data = pool_push(&gfx_ctx.texture_pool->data_pool, &slot->data_handle);
     mem_clear(texture_data, sizeof(texture_data_t));
     return texture;
 }
 
 void texture_init(texture_t texture, texture_info_t info) {
-    texture_data_t* texture_data = gfx_respool_data(gfx_ctx.texture_pool, texture.id);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    texture_data_t* texture_data = pool_get(&gfx_ctx.texture_pool->data_pool, slot->data_handle);
 
     if(info.type == TEXTURE_TYPE_UNDEFINED) info.type = TEXTURE_TYPE_2D;
     if(info.mipmaps == 0) info.mipmaps = 1;
@@ -267,18 +289,22 @@ void texture_init(texture_t texture, texture_info_t info) {
     texture_data->height = info.height;
     texture_data->mipmaps = info.mipmaps;
 
-    backend->texture_init(texture_data, info);
+    pool_push(&gfx_ctx.texture_pool->internal_pool, &slot->internal_handle);
+    backend->texture_init(texture, info);
 }
 
 void texture_discard(texture_t texture) {
-    texture_data_t* texture_data = gfx_respool_data(gfx_ctx.texture_pool, texture.id);
-    backend->texture_destroy(texture_data);
-    gfx_respool_free_internal(gfx_ctx.texture_pool, texture_data->internal);
+    backend->texture_destroy(texture);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    pool_free(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
 }
 
 void texture_destroy(texture_t texture) {
-    texture_discard(texture);
-    gfx_respool_free_data(gfx_ctx.texture_pool, texture.id);
+    backend->texture_destroy(texture);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    pool_free(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
+    pool_free(&gfx_ctx.texture_pool->data_pool, slot->data_handle);
+    gfx_respool_dealloc_slot(gfx_ctx.texture_pool, texture.id);
 }
 
 texture_t texture_new(texture_info_t info) {
@@ -287,24 +313,27 @@ texture_t texture_new(texture_info_t info) {
     return texture;
 }
 
-texture_data_t* texture_query_data(texture_t texture) {
-    return gfx_respool_data(gfx_ctx.texture_pool, texture.id);
+texture_data_t* texture_get_data(texture_t texture) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    return pool_get(&gfx_ctx.texture_pool->data_pool, slot->data_handle);
 }
 
-static void* texture_internal(texture_t texture) {
-    texture_data_t* texture_data = texture_query_data(texture);
-    return gfx_respool_internal(gfx_ctx.texture_pool, texture_data->internal);
+static void* texture_get_internal(texture_t texture) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    return pool_get(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
 }
 
 sampler_t sampler_alloc() {
     sampler_t sampler = {0};
-    sampler_data_t* sampler_data = gfx_respool_push_data(gfx_ctx.sampler_pool, &sampler.id);
+    gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.sampler_pool, &sampler.id);
+    sampler_data_t* sampler_data = pool_push(&gfx_ctx.sampler_pool->data_pool, &slot->data_handle);
     mem_clear(sampler_data, sizeof(sampler_data_t));
     return sampler;
 }
 
 void sampler_init(sampler_t sampler, sampler_info_t info) {
-    sampler_data_t* sampler_data = gfx_respool_data(gfx_ctx.sampler_pool, sampler.id);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    sampler_data_t* sampler_data = pool_get(&gfx_ctx.sampler_pool->data_pool, slot->data_handle);
 
     if(info.wrap != TEXTURE_WRAP_UNDEFINED) {
         info.u_wrap = info.wrap;
@@ -321,18 +350,22 @@ void sampler_init(sampler_t sampler, sampler_info_t info) {
     sampler_data->min_filter = info.min_filter;
     sampler_data->mag_filter = info.mag_filter;
 
-    backend->sampler_init(sampler_data, info);
+    pool_push(&gfx_ctx.sampler_pool->internal_pool, &slot->internal_handle);
+    backend->sampler_init(sampler, info);
 }
 
 void sampler_discard(sampler_t sampler) {
-    sampler_data_t* sampler_data = gfx_respool_data(gfx_ctx.sampler_pool, sampler.id);
-    backend->sampler_destroy(sampler_data);
-    gfx_respool_free_internal(gfx_ctx.sampler_pool, sampler_data->internal);
+    backend->sampler_destroy(sampler);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    pool_free(&gfx_ctx.sampler_pool->internal_pool, slot->internal_handle);
 }
 
 void sampler_destroy(sampler_t sampler) {
-    sampler_discard(sampler);
-    gfx_respool_free_data(gfx_ctx.sampler_pool, sampler.id);
+    backend->sampler_destroy(sampler);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    pool_free(&gfx_ctx.sampler_pool->internal_pool, slot->internal_handle);
+    pool_free(&gfx_ctx.sampler_pool->data_pool, slot->data_handle);
+    gfx_respool_dealloc_slot(gfx_ctx.sampler_pool, sampler.id);
 }
 
 sampler_t sampler_new(sampler_info_t info) {
@@ -341,45 +374,47 @@ sampler_t sampler_new(sampler_info_t info) {
     return sampler;
 }
 
-sampler_data_t* sampler_query_data(sampler_t sampler) {
-    return gfx_respool_data(gfx_ctx.sampler_pool, sampler.id);
+sampler_data_t* sampler_get_data(sampler_t sampler) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    return pool_get(&gfx_ctx.sampler_pool->data_pool, slot->data_handle);
 }
 
-static void* sampler_internal(sampler_t sampler) {
-    sampler_data_t* sampler_data = sampler_query_data(sampler);
-    return gfx_respool_internal(gfx_ctx.sampler_pool, sampler_data->internal);
+static void* sampler_get_internal(sampler_t sampler) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    return pool_get(&gfx_ctx.sampler_pool->internal_pool, slot->internal_handle);
 }
 
 attachments_t attachments_alloc() {
-    attachments_t attachments = {0};
-    attachments_data_t* attachments_data = gfx_respool_push_data(gfx_ctx.attachments_pool, &attachments.id);
-    mem_clear(attachments_data, sizeof(attachments_data_t));
-    return attachments;
+    attachments_t att = {0};
+    gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.attachments_pool, &att.id);
+    attachments_data_t* att_data = pool_push(&gfx_ctx.attachments_pool->data_pool, &slot->data_handle);
+    mem_clear(att_data, sizeof(attachments_data_t));
+    return att;
 }
 
-void attachments_init(attachments_t attachments, attachments_info_t info) {
-    attachments_data_t* data = gfx_respool_data(gfx_ctx.attachments_pool, attachments.id);
+void attachments_init(attachments_t att, attachments_info_t info) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    attachments_data_t* att_data = pool_get(&gfx_ctx.attachments_pool->data_pool, slot->data_handle);
 
-    memcpy(data->colours, info.colours, sizeof(data->colours));
-    data->depth_stencil = info.depth_stencil;
+    memcpy(att_data->colours, info.colours, sizeof(att_data->colours));
+    att_data->depth_stencil = info.depth_stencil;
 
-    for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
-        printf("%u, ", data->colours[i].id);
-    }
-    printf("\n");
-
-    backend->attachments_init(data, info);
+    pool_push(&gfx_ctx.attachments_pool->internal_pool, &slot->internal_handle);
+    backend->attachments_init(att, info);
 }
 
-void attachments_discard(attachments_t attachments) {
-    attachments_data_t* data = gfx_respool_data(gfx_ctx.attachments_pool, attachments.id);
-    backend->attachments_destroy(data);
-    gfx_respool_free_internal(gfx_ctx.attachments_pool, data->internal);
+void attachments_discard(attachments_t att) {
+    backend->attachments_destroy(att);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    pool_free(&gfx_ctx.attachments_pool->internal_pool, slot->internal_handle);
 }
 
-void attachments_destroy(attachments_t attachments) {
-    attachments_discard(attachments);
-    gfx_respool_free_data(gfx_ctx.attachments_pool, attachments.id);
+void attachments_destroy(attachments_t att) {
+    backend->attachments_destroy(att);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    pool_free(&gfx_ctx.attachments_pool->internal_pool, slot->internal_handle);
+    pool_free(&gfx_ctx.attachments_pool->data_pool, slot->data_handle);
+    gfx_respool_dealloc_slot(gfx_ctx.attachments_pool, att.id);
 }
 
 attachments_t attachments_new(attachments_info_t info) {
@@ -388,13 +423,14 @@ attachments_t attachments_new(attachments_info_t info) {
     return attachments;
 }
 
-attachments_data_t* attachments_query_data(attachments_t attachments) {
-    return gfx_respool_data(gfx_ctx.attachments_pool, attachments.id);
+attachments_data_t* attachments_get_data(attachments_t att) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    return pool_get(&gfx_ctx.attachments_pool->data_pool, slot->data_handle);
 }
 
-static void* attachments_internal(attachments_t attachments) {
-    attachments_data_t* data = attachments_query_data(attachments);
-    return gfx_respool_internal(gfx_ctx.attachments_pool, data->internal);
+static void* attachments_get_internal(attachments_t att) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    return pool_get(&gfx_ctx.attachments_pool->internal_pool, slot->internal_handle);
 }
 
 static u32 uniform_type_get_bytes(uniform_type_t type) {
@@ -425,13 +461,15 @@ static char* shader_type_name(shader_pass_type_t type) {
 
 shader_t shader_alloc() {
     shader_t shader = {0};
-    shader_data_t* shader_data = gfx_respool_push_data(gfx_ctx.shader_pool, &shader.id);
+    gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.shader_pool, &shader.id);
+    shader_data_t* shader_data = pool_push(&gfx_ctx.shader_pool->data_pool, &slot->data_handle);
     mem_clear(shader_data, sizeof(shader_data_t));
     return shader;
 }
 
 void shader_init(shader_t shader, shader_info_t info) {
-    shader_data_t* shader_data = gfx_respool_data(gfx_ctx.shader_pool, shader.id);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    shader_data_t* shader_data = pool_get(&gfx_ctx.shader_pool->data_pool, slot->data_handle);
 
     memcpy(shader_data->name, info.name, sizeof(shader_data->name));
     memcpy(shader_data->pretty_name, info.pretty_name, sizeof(shader_data->pretty_name));
@@ -447,18 +485,22 @@ void shader_init(shader_t shader, shader_info_t info) {
         .type = SHADER_PASS_FRAGMENT
     };
 
-    backend->shader_init(shader_data, info);
+    pool_push(&gfx_ctx.shader_pool->internal_pool, &slot->internal_handle);
+    backend->shader_init(shader, info);
 }
 
 void shader_discard(shader_t shader) {
-    shader_data_t* shader_data = gfx_respool_data(gfx_ctx.shader_pool, shader.id);
-    backend->shader_destroy(shader_data);
-    gfx_respool_free_internal(gfx_ctx.shader_pool, shader_data->internal);
+    backend->shader_destroy(shader);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    pool_free(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
 }
 
 void shader_destroy(shader_t shader) {
-    shader_discard(shader);
-    gfx_respool_free_data(gfx_ctx.shader_pool, shader.id);
+    backend->shader_destroy(shader);
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    pool_free(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
+    pool_free(&gfx_ctx.shader_pool->data_pool, slot->data_handle);
+    gfx_respool_dealloc_slot(gfx_ctx.shader_pool, shader.id);
 }
 
 shader_t shader_new(shader_info_t info) {
@@ -467,18 +509,18 @@ shader_t shader_new(shader_info_t info) {
     return shader;
 }
 
-shader_data_t* shader_query_data(shader_t shader) {
-    return gfx_respool_data(gfx_ctx.shader_pool, shader.id);
+shader_data_t* shader_get_data(shader_t shader) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    return pool_get(&gfx_ctx.shader_pool->data_pool, slot->data_handle);
 }
 
-static void* shader_internal(shader_t shader) {
-    shader_data_t* shader_data = shader_query_data(shader);
-    return gfx_respool_internal(gfx_ctx.shader_pool, shader_data->internal);
+static void* shader_get_internal(shader_t shader) {
+    gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    return pool_get(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
 }
 
 void shader_update_uniforms(shader_t shader, range_t data) {
-    shader_data_t* shader_data = gfx_respool_data(gfx_ctx.shader_pool, shader.id);
-    backend->shader_update_uniforms(shader_data, data);
+    backend->shader_update_uniforms(shader, data);
 }
 
 void gfx_activate_pipeline(render_pipeline_t pip) {
@@ -535,8 +577,8 @@ static u32 gl_indices_vbo_create(u32* indices, u32 bytes) {
     return vbo;
 }
 
-static void gl_mesh_init(mesh_data_t* mesh, mesh_info_t info) {
-    gl_mesh_internal_t* glmesh = gfx_respool_push_internal(gfx_ctx.mesh_pool, &mesh->internal);
+static void gl_mesh_init(mesh_t mesh, mesh_info_t info) {
+    gl_mesh_internal_t* glmesh = mesh_get_internal(mesh);
     mem_clear(glmesh, sizeof(gl_mesh_internal_t));
 
     glGenVertexArrays(1, &glmesh->vao);
@@ -553,8 +595,8 @@ static void gl_mesh_init(mesh_data_t* mesh, mesh_info_t info) {
     glBindVertexArray(0);
 }
 
-static void gl_mesh_destroy(mesh_data_t* mesh) {
-    gl_mesh_internal_t* glmesh = gfx_respool_internal(gfx_ctx.mesh_pool, mesh->internal);
+static void gl_mesh_destroy(mesh_t mesh) {
+    gl_mesh_internal_t* glmesh = mesh_get_internal(mesh);
 
     // glDeleteBuffers simply ignores any 0's or invalid ids
     // so this is perfectly fine
@@ -563,8 +605,8 @@ static void gl_mesh_destroy(mesh_data_t* mesh) {
     glDeleteVertexArrays(1, &glmesh->vao);
 }
 
-static void gl_mesh_bind_attributes(mesh_data_t* mesh) {
-    for(u32 i = 0; i < mesh_format_num_attributes(mesh->format); i ++) {
+static void gl_mesh_bind_attributes(mesh_format_t format) {
+    for(u32 i = 0; i < mesh_format_num_attributes(format); i ++) {
         glEnableVertexAttribArray(i);
     }
 }
@@ -753,8 +795,8 @@ static u32 gl_texture_data_type(texture_format_t format) {
     }
 }
 
-static void gl_texture_init(texture_data_t* texture, texture_info_t info) {
-    gl_texture_internal_t* gltex = gfx_respool_push_internal(gfx_ctx.texture_pool, &texture->internal);
+static void gl_texture_init(texture_t texture, texture_info_t info) {
+    gl_texture_internal_t* gltex = texture_get_internal(texture);
     mem_clear(gltex, sizeof(gl_texture_internal_t));
 
     u32 target = gl_texture_bind_target(info.type);
@@ -777,8 +819,8 @@ static void gl_texture_init(texture_data_t* texture, texture_info_t info) {
     glBindTexture(target, 0);
 }
 
-static void gl_texture_destroy(texture_data_t* texture) {
-    gl_texture_internal_t* gltex = gfx_respool_internal(gfx_ctx.texture_pool, texture->internal);
+static void gl_texture_destroy(texture_t texture) {
+    gl_texture_internal_t* gltex = texture_get_internal(texture);
     glDeleteTextures(1, &gltex->id);
 }
 
@@ -800,8 +842,8 @@ static u32 gl_texture_wrap(texture_wrap_t wrap) {
     }
 }
 
-static void gl_sampler_init(sampler_data_t* sampler, sampler_info_t info) {
-    gl_sampler_internal_t* glsampler = gfx_respool_push_internal(gfx_ctx.sampler_pool, &sampler->internal);
+static void gl_sampler_init(sampler_t sampler, sampler_info_t info) {
+    gl_sampler_internal_t* glsampler = sampler_get_internal(sampler);
     mem_clear(glsampler, sizeof(gl_sampler_internal_t));
 
     glGenSamplers(1, &glsampler->id);
@@ -812,15 +854,15 @@ static void gl_sampler_init(sampler_data_t* sampler, sampler_info_t info) {
     // TODO(nix3l): update for GL_TEXTURE_WRAP_T
 }
 
-static void gl_sampler_destroy(sampler_data_t* sampler) {
-    gl_sampler_internal_t* glsampler = gfx_respool_internal(gfx_ctx.sampler_pool, sampler->internal);
-    if(!glsampler) return;
+static void gl_sampler_destroy(sampler_t sampler) {
+    gl_sampler_internal_t* glsampler = sampler_get_internal(sampler);
     glDeleteSamplers(1, &glsampler->id);
 }
 
 // ATTACHMENTS
-static void gl_attachments_init(attachments_data_t* att, attachments_info_t info) {
-    gl_attachments_internal_t* glatt = gfx_respool_push_internal(gfx_ctx.attachments_pool, &att->internal);
+static void gl_attachments_init(attachments_t att, attachments_info_t info) {
+    attachments_data_t* att_data = attachments_get_data(att);
+    gl_attachments_internal_t* glatt = attachments_get_internal(att);
     mem_clear(glatt, sizeof(gl_attachments_internal_t));
 
     glGenFramebuffers(1, &glatt->fbo);
@@ -829,12 +871,12 @@ static void gl_attachments_init(attachments_data_t* att, attachments_info_t info
     for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
         texture_t tex = info.colours[i];
         if(tex.id == GFX_INVALID_ID) {
-            att->num_colours = i;
+            att_data->num_colours = i;
             break;
         }
 
-        texture_data_t* tex_data = texture_query_data(tex);
-        gl_texture_internal_t* gltex = texture_internal(tex);
+        texture_data_t* tex_data = texture_get_data(tex);
+        gl_texture_internal_t* gltex = texture_get_internal(tex);
 
         u32 target = gl_texture_bind_target(tex_data->type);
         glBindTexture(target, gltex->id);
@@ -844,8 +886,8 @@ static void gl_attachments_init(attachments_data_t* att, attachments_info_t info
 
     if(info.depth_stencil.id != GFX_INVALID_ID) {
         texture_t tex = info.depth_stencil;
-        texture_data_t* tex_data = texture_query_data(tex);
-        gl_texture_internal_t* gltex = texture_internal(tex);
+        texture_data_t* tex_data = texture_get_data(tex);
+        gl_texture_internal_t* gltex = texture_get_internal(tex);
         u32 target = gl_texture_bind_target(tex_data->type);
 
         glBindTexture(target, gltex->id);
@@ -856,9 +898,8 @@ static void gl_attachments_init(attachments_data_t* att, attachments_info_t info
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-static void gl_attachments_destroy(attachments_data_t* att) {
-    gl_attachments_internal_t* glatt = gfx_respool_internal(gfx_ctx.attachments_pool, att->internal);
-    if(!glatt) return;
+static void gl_attachments_destroy(attachments_t att) {
+    gl_attachments_internal_t* glatt = attachments_get_internal(att);
     glDeleteFramebuffers(1, &glatt->fbo);
 }
 
@@ -891,9 +932,10 @@ static u32 gl_compile_shader(range_t src, shader_pass_type_t type) {
     return id;
 }
 
-static void gl_shader_init(shader_data_t* shader, shader_info_t info) {
-    gl_shader_internal_t* glshader = gfx_respool_push_internal(gfx_ctx.shader_pool, &shader->internal);
+static void gl_shader_init(shader_t shader, shader_info_t info) {
+    gl_shader_internal_t* glshader = shader_get_internal(shader);
     mem_clear(glshader, sizeof(gl_shader_internal_t));
+    shader_data_t* shader_data = shader_get_data(shader);
 
     glshader->program = glCreateProgram();
 
@@ -924,11 +966,11 @@ static void gl_shader_init(shader_data_t* shader, shader_info_t info) {
     for(u32 i = 0; i < GFX_MAX_UNIFORMS; i ++) {
         uniform_t uniform_info = info.uniforms[i];
         if(!uniform_info.name || uniform_info.type == UNIFORM_TYPE_INVALID) {
-            shader->uniform_block.num = i;
+            shader_data->uniform_block.num = i;
             break;
         }
 
-        uniform_t* shader_uniform = &shader->uniform_block.uniforms[i];
+        uniform_t* shader_uniform = &shader_data->uniform_block.uniforms[i];
         shader_uniform->glid = glGetUniformLocation(glshader->program, uniform_info.name);
         if(shader_uniform->glid == (u32)-1) LOG_ERR("couldnt find uniform [%s] in shader [%s]\n", uniform_info.name, info.pretty_name);
         shader_uniform->name = uniform_info.name;
@@ -941,18 +983,18 @@ static void gl_shader_init(shader_data_t* shader, shader_info_t info) {
     glDeleteShader(fs_id);
 }
 
-static void gl_shader_destroy(shader_data_t* shader) {
-    gl_shader_internal_t* glshader = gfx_respool_internal(gfx_ctx.shader_pool, shader->internal);
-    if(!glshader) return;
+static void gl_shader_destroy(shader_t shader) {
+    gl_shader_internal_t* glshader = shader_get_internal(shader);
     glDeleteProgram(glshader->program);
 }
 
-static void gl_shader_update_uniforms(shader_data_t* shader, range_t uniforms) {
-    gl_shader_internal_t* glshader = gfx_respool_internal(gfx_ctx.shader_pool, shader->internal);
+static void gl_shader_update_uniforms(shader_t shader, range_t uniforms) {
+    gl_shader_internal_t* glshader = shader_get_internal(shader);
+    shader_data_t* shader_data = shader_get_data(shader);
     if(!glshader) return;
     u32 read_size = 0;
-    for(u32 i = 0; i < shader->uniform_block.num; i ++) {
-        uniform_t uniform = shader->uniform_block.uniforms[i];
+    for(u32 i = 0; i < shader_data->uniform_block.num; i ++) {
+        uniform_t uniform = shader_data->uniform_block.uniforms[i];
         u32 size = uniform_type_get_bytes(uniform.type);
         if(size == 0) continue;
 
@@ -1042,20 +1084,26 @@ static void gl_activate_pipeline(render_pipeline_t pip) {
     if(pip.depth.enable) {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(gl_depth_func(pip.depth.func));
+    } else {
+        glDisable(GL_DEPTH_TEST);
     }
 
     if(pip.cull.enable) {
         glEnable(GL_CULL_FACE);
         glCullFace(gl_cull_face(pip.cull.face));
+    } else {
+        glDisable(GL_CULL_FACE);
     }
 
     if(pip.blend.enable) {
         glEnable(GL_BLEND);
         glBlendFunc(gl_blend_func(pip.blend.src_func), gl_blend_func(pip.blend.dst_func));
+    } else {
+        glDisable(GL_BLEND);
     }
 
     if(pip.draw_attachments.id != GFX_INVALID_ID) {
-        gl_attachments_internal_t* glatt = attachments_internal(pip.draw_attachments);
+        gl_attachments_internal_t* glatt = attachments_get_internal(pip.draw_attachments);
         glBindFramebuffer(GL_FRAMEBUFFER, glatt->fbo);
 
         for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
@@ -1068,7 +1116,7 @@ static void gl_activate_pipeline(render_pipeline_t pip) {
         }
     } else {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDrawBuffer(GL_BACK);
+        // glDrawBuffer(GL_BACK);
         glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(v4f_expand(pip.clear.clear_col));
     }
@@ -1076,50 +1124,38 @@ static void gl_activate_pipeline(render_pipeline_t pip) {
     GLbitfield depth_stencil_clear = 0;
     if(pip.clear.depth) depth_stencil_clear |= GL_DEPTH_BUFFER_BIT;
     if(pip.clear.stencil) depth_stencil_clear |= GL_STENCIL_BUFFER_BIT;
-    glClear(depth_stencil_clear);
+    if(depth_stencil_clear != 0) glClear(depth_stencil_clear);
 
-    gl_shader_internal_t* glshader = shader_internal(pip.shader);
+    gl_shader_internal_t* glshader = shader_get_internal(pip.shader);
     glUseProgram(glshader->program);
 }
 
 static void gl_activate_bindings(render_bindings_t bindings) {
-    mesh_data_t* mesh = mesh_query_data(bindings.mesh);
-    gl_mesh_internal_t* glmesh = mesh_internal(bindings.mesh);
+    mesh_data_t* mesh_data = mesh_get_data(bindings.mesh);
+    gl_mesh_internal_t* glmesh = mesh_get_internal(bindings.mesh);
     glBindVertexArray(glmesh->vao);
-    gl_mesh_bind_attributes(mesh);
-
-    if(bindings.read_attachments.id != GFX_INVALID_ID) {
-        gl_attachments_internal_t* glatt = attachments_internal(bindings.read_attachments);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, glatt->fbo);
-        attachments_data_t* att_data = attachments_query_data(bindings.read_attachments);
-        for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
-            if(att_data->colours[i].id != GFX_INVALID_ID)
-                glReadBuffer(GL_COLOR_ATTACHMENT0 + i);
-        }
-    } else {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    }
+    gl_mesh_bind_attributes(mesh_data->format);
 
     for(u32 i = 0; i < GFX_MAX_SAMPLER_SLOTS; i ++) {
         texture_t texture = bindings.texture_samplers[i].texture;
         sampler_t sampler = bindings.texture_samplers[i].sampler;
         if(texture.id == GFX_INVALID_ID) continue;
 
-        texture_data_t* texture_data = texture_query_data(texture);
-        gl_texture_internal_t* gltex = texture_internal(texture);
+        texture_data_t* texture_data = texture_get_data(texture);
+        gl_texture_internal_t* gltex = texture_get_internal(texture);
 
         glActiveTexture(GL_TEXTURE0 + i);
         glBindTexture(gl_texture_bind_target(texture_data->type), gltex->id);
 
         if(sampler.id != GFX_INVALID_ID) {
-            gl_sampler_internal_t* glsampler = sampler_internal(sampler);
+            gl_sampler_internal_t* glsampler = sampler_get_internal(sampler);
             glBindSampler(i, glsampler->id);
         }
     }
 }
 
 static void gl_draw(mesh_t mesh) {
-    mesh_data_t* mesh_data = mesh_query_data(mesh);
+    mesh_data_t* mesh_data = mesh_get_data(mesh);
 
     if(mesh_data->index_type != MESH_INDEX_NONE) {
         glDrawElements(gl_mesh_primitive(mesh_data->primitive), mesh_data->count, GL_UNSIGNED_INT, 0);

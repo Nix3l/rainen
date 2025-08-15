@@ -1,4 +1,3 @@
-#include "base_macros.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -130,7 +129,7 @@ int main(void) {
             .depth = { .enable = true, },
             .draw_attachments = att,
             .colour_targets = {
-                { .enable = true, .override_clear_col = true, .clear_col = v4f_new(1.0f, 0.0f, 0.0f, 1.0f), }
+                [0] = { .enable = true, .override_clear_col = true, .clear_col = v4f_new(1.0f, 0.0f, 0.0f, 1.0f), }
             },
             .shader = shader,
         });
@@ -138,7 +137,7 @@ int main(void) {
         gfx_supply_bindings((render_bindings_t) {
             .mesh = mesh,
             .texture_samplers = {
-                { .texture = col, .sampler = sampler },
+                { .texture = texture, .sampler = sampler },
             },
         });
 
@@ -154,15 +153,19 @@ int main(void) {
         gfx_draw();
 
         gfx_activate_pipeline((render_pipeline_t) {
-            .clear = { .colour = true, .clear_col = v4f_new(0.0f, 0.0f, 0.0f, 1.0f), },
+            .clear = {
+                .colour = true,
+                .depth = true,
+                .clear_col = v4f_new(0.0f, 0.0f, 0.0f, 1.0f),
+            },
+            .depth = { .enable = true, },
             .shader = screen_shader,
         });
 
         gfx_supply_bindings((render_bindings_t) {
             .mesh = mesh,
-            .read_attachments = att,
             .texture_samplers = {
-                { .texture = texture, .sampler = sampler },
+                { .texture = col, .sampler = sampler },
             },
         });
 

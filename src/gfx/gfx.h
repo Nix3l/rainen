@@ -13,7 +13,7 @@
 #endif
 
 // TODO(nix3l):
-//  => framebuffers
+//  => redo resource pool system
 
 #define GFX_INVALID_ID (0)
 
@@ -58,41 +58,31 @@ typedef struct gfx_backend_info_t {
 //  destroy => discard the gpu data & free the data slot for the object
 //  new     => combination of alloc & init
 
-// ids point to data_pool slot
+// ids point to resource slot
 typedef struct mesh_t        { handle_t id; } mesh_t;
 typedef struct texture_t     { handle_t id; } texture_t;
 typedef struct sampler_t     { handle_t id; } sampler_t;
 typedef struct attachments_t { handle_t id; } attachments_t;
 typedef struct shader_t      { handle_t id; } shader_t;
 
-// backend specific stuff goes here
-typedef struct gl_mesh_internal_t {
-    u32 vao;
-    u32 vbos[GFX_MAX_VERTEX_ATTRIBS];
-    u32 index_vbo;
-} gl_mesh_internal_t;
+typedef enum gfx_res_state_t {
+    GFX_RES_STATE_FREE  = 0,
+    GFX_RES_STATE_ALLOC = 1,
+    GFX_RES_STATE_INIT  = 2,
+    // TODO: valid? discarded?
+} gfx_res_state_t;
 
-typedef struct gl_texture_internal_t {
-    u32 id;
-} gl_texture_internal_t;
+typedef struct gfx_res_slot_t {
+    gfx_res_state_t state;
+    handle_t data_handle;
+    handle_t internal_handle;
+} gfx_res_slot_t;
 
-typedef struct gl_sampler_internal_t {
-    u32 id;
-} gl_sampler_internal_t;
-
-typedef struct gl_shader_internal_t {
-    u32 program;
-} gl_shader_internal_t;
-
-typedef struct gl_attachments_internal_t {
-    u32 fbo;
-} gl_attachments_internal_t;
-
-// gfx lib context/state
 typedef struct gfx_respool_t {
     u32 capacity;
+    pool_t res_pool;
     pool_t data_pool;
-    pool_t gfx_pool;
+    pool_t internal_pool;
 } gfx_respool_t;
 
 void gfx_init(gfx_backend_t backend);
@@ -140,7 +130,6 @@ typedef enum mesh_winding_order_t {
 } mesh_winding_order_t;
 
 typedef struct mesh_data_t {
-    handle_t internal;
     mesh_format_t format;
     mesh_index_type_t index_type;
     mesh_primitive_t primitive;
@@ -180,7 +169,7 @@ void mesh_destroy(mesh_t mesh);
 // if winding order not supplied, assumed to be CCW
 mesh_t mesh_new(mesh_info_t info);
 
-mesh_data_t* mesh_query_data(mesh_t mesh);
+mesh_data_t* mesh_get_data(mesh_t mesh);
 
 // TEXTURE
 // NOTE(nix3l): be careful when updating this, might break some internal translation functions
@@ -265,7 +254,6 @@ typedef enum texture_wrap_t {
 } texture_wrap_t;
 
 typedef struct texture_data_t {
-    handle_t internal;
     texture_type_t type;
     texture_format_t format;
     u32 width;
@@ -288,11 +276,10 @@ void texture_discard(texture_t texture);
 void texture_destroy(texture_t texture);
 texture_t texture_new(texture_info_t info);
 
-texture_data_t* texture_query_data(texture_t texture);
+texture_data_t* texture_get_data(texture_t texture);
 
 // SAMPLERS
 typedef struct sampler_data_t {
-    handle_t internal;
     texture_filter_t min_filter;
     texture_filter_t mag_filter;
     texture_wrap_t u_wrap;
@@ -317,11 +304,10 @@ void sampler_destroy(sampler_t sampler);
 // if wrap is defined, u_wrap and v_wrap are ignored
 sampler_t sampler_new(sampler_info_t info);
 
-sampler_data_t* sampler_query_data(sampler_t sampler);
+sampler_data_t* sampler_get_data(sampler_t sampler);
 
 // RENDER ATTACHMENTS
 typedef struct attachments_data_t {
-    handle_t internal;
     u32 num_colours;
     texture_t colours[GFX_MAX_COLOUR_ATTACHMENTS];
     texture_t depth_stencil;
@@ -339,8 +325,9 @@ void attachments_destroy(attachments_t attachments);
 
 attachments_t attachments_new(attachments_info_t info);
 
-attachments_data_t* attachments_query_data(attachments_t attachments);
+attachments_data_t* attachments_get_data(attachments_t attachments);
 
+// TODO(nix3l)
 void attachments_clear_colour(v4f col);
 void attachments_clear_depth_stencil();
 
@@ -391,7 +378,6 @@ typedef struct shader_pass_t {
 } shader_pass_t;
 
 typedef struct shader_data_t {
-    handle_t internal;
     char name[8];
     char pretty_name[16];
     shader_pass_t vertex_pass;
@@ -417,7 +403,7 @@ void shader_destroy(shader_t shader);
 
 shader_t shader_new(shader_info_t info);
 
-shader_data_t* shader_query_data(shader_t shader);
+shader_data_t* shader_get_data(shader_t shader);
 
 // updates the shader's uniforms with the given data
 // all uniforms must be updated at once
@@ -432,7 +418,6 @@ typedef struct sampler_slot_t {
 
 typedef struct render_bindings_t {
     mesh_t mesh;
-    attachments_t read_attachments;
     sampler_slot_t texture_samplers[GFX_MAX_SAMPLER_SLOTS];
 } render_bindings_t;
 
