@@ -12,10 +12,10 @@
 #define GFX_SUPPORT_GL (0)
 #endif
 
-// TODO(nix3l):
-//  => redo resource pool system
-
 #define GFX_INVALID_ID (0)
+
+// TODO(nix3l): actually update the state variable in res slot
+// TODO(nix3l): any sort of validation whatsoever would be nice i think
 
 enum {
     // compile time constants/limits
@@ -66,9 +66,9 @@ typedef struct attachments_t { handle_t id; } attachments_t;
 typedef struct shader_t      { handle_t id; } shader_t;
 
 typedef enum gfx_res_state_t {
-    GFX_RES_STATE_FREE  = 0,
-    GFX_RES_STATE_ALLOC = 1,
-    GFX_RES_STATE_INIT  = 2,
+    GFX_RES_STATE_FREE = 0,
+    GFX_RES_STATE_ALLOC,
+    GFX_RES_STATE_INIT,
     // TODO: valid? discarded?
 } gfx_res_state_t;
 

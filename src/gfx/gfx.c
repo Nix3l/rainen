@@ -1,7 +1,14 @@
 #include "gfx.h"
+#include "errors/errors.h"
 #include "util/util.h"
 
 gfx_ctx_t gfx_ctx;
+
+// few NOTEs for myself later in case i forget:
+//  => we want backend functions to ONLY deal with backend stuff,
+//     so no allocing/deallocing in backend funcs
+//  => backend functions should NOT deal with validating slots/data allocation states
+//  => we dont care about performance until we have to
 
 // start of black magic --------------
 
@@ -73,13 +80,13 @@ typedef struct gl_sampler_internal_t {
     u32 id;
 } gl_sampler_internal_t;
 
-typedef struct gl_shader_internal_t {
-    u32 program;
-} gl_shader_internal_t;
-
 typedef struct gl_attachments_internal_t {
     u32 fbo;
 } gl_attachments_internal_t;
+
+typedef struct gl_shader_internal_t {
+    u32 program;
+} gl_shader_internal_t;
 
 // pools
 static gfx_respool_t mesh_pool;
@@ -104,16 +111,39 @@ static gfx_respool_t gfx_respool_alloc_new(u32 capacity, u32 res_bytes, u32 inte
     return pool;
 }
 
-static gfx_res_slot_t* gfx_respool_alloc_slot(gfx_respool_t* pool, handle_t* slot) {
-    return pool_push(&pool->res_pool, slot);
+static gfx_res_slot_t* gfx_respool_alloc_slot(gfx_respool_t* pool, handle_t* id) {
+    if(!pool) return NULL;
+    gfx_res_slot_t* slot = pool_push(&pool->res_pool, id);
+    mem_clear(slot, sizeof(gfx_res_slot_t));
+    return slot;
 }
 
-static void gfx_respool_dealloc_slot(gfx_respool_t* pool, handle_t slot) {
-    pool_free(&pool->res_pool, slot);
+static void gfx_respool_dealloc_slot(gfx_respool_t* pool, handle_t id) {
+    if(!pool) {
+        LOG_ERR_CODE(ERR_BAD_POINTER);
+        return;
+    }
+
+    if(id == GFX_INVALID_ID) {
+        LOG_ERR_CODE(ERR_GFX_BAD_ID);
+        return;
+    }
+
+    pool_free(&pool->res_pool, id);
 }
 
-static gfx_res_slot_t* gfx_respool_get_slot(gfx_respool_t* pool, handle_t slot) {
-    return pool_get(&pool->res_pool, slot);
+static gfx_res_slot_t* gfx_respool_get_slot(gfx_respool_t* pool, handle_t id) {
+    if(!pool) {
+        LOG_ERR_CODE(ERR_BAD_POINTER);
+        return NULL;
+    }
+
+    if(id == GFX_INVALID_ID) {
+        LOG_ERR_CODE(ERR_GFX_BAD_ID);
+        return NULL;
+    }
+
+    return pool_get(&pool->res_pool, id);
 }
 
 static void gfx_respool_destroy(gfx_respool_t* pool) {
@@ -207,15 +237,25 @@ mesh_t mesh_alloc() {
     gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.mesh_pool, &mesh.id);
     mesh_data_t* mesh_data = pool_push(&gfx_ctx.mesh_pool->data_pool, &slot->data_handle);
     mem_clear(mesh_data, sizeof(mesh_data_t));
+    slot->state = GFX_RES_STATE_ALLOC;
     return mesh;
 }
 
 void mesh_init(mesh_t mesh, mesh_info_t info) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
     mesh_data_t* mesh_data = pool_get(&gfx_ctx.mesh_pool->data_pool, slot->data_handle);
+    if(!mesh_data) {
+        LOG_ERR_CODE(ERR_GFX_INIT_BEFORE_ALLOC);
+        return;
+    }
 
     if(info.format == MESH_FORMAT_INVALID) {
-        LOG_ERR("mesh format *must* be supplied\n");
+        LOG_ERR_CODE(ERR_GFX_MESH_INVALID_FORMAT);
         return;
     }
 
@@ -236,19 +276,32 @@ void mesh_init(mesh_t mesh, mesh_info_t info) {
 
     pool_push(&gfx_ctx.mesh_pool->internal_pool, &slot->internal_handle);
     backend->mesh_init(mesh, info);
+    slot->state = GFX_RES_STATE_INIT;
 }
 
 void mesh_discard(mesh_t mesh) {
-    backend->mesh_destroy(mesh);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->mesh_destroy(mesh);
     pool_free(&gfx_ctx.mesh_pool->internal_pool, slot->internal_handle);
+    slot->state = GFX_RES_STATE_ALLOC;
 }
 
 void mesh_destroy(mesh_t mesh) {
-    backend->mesh_destroy(mesh);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->mesh_destroy(mesh);
     pool_free(&gfx_ctx.mesh_pool->data_pool, slot->data_handle);
     pool_free(&gfx_ctx.mesh_pool->internal_pool, slot->internal_handle);
+    slot->state = GFX_RES_STATE_FREE;
     gfx_respool_dealloc_slot(gfx_ctx.mesh_pool, mesh.id);
 }
 
@@ -260,11 +313,21 @@ mesh_t mesh_new(mesh_info_t info) {
 
 mesh_data_t* mesh_get_data(mesh_t mesh) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.mesh_pool->data_pool, slot->data_handle);
 }
 
 static void* mesh_get_internal(mesh_t mesh) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.mesh_pool, mesh.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.mesh_pool->internal_pool, slot->internal_handle);
 }
 
@@ -278,6 +341,11 @@ texture_t texture_alloc() {
 
 void texture_init(texture_t texture, texture_info_t info) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
     texture_data_t* texture_data = pool_get(&gfx_ctx.texture_pool->data_pool, slot->data_handle);
 
     if(info.type == TEXTURE_TYPE_UNDEFINED) info.type = TEXTURE_TYPE_2D;
@@ -294,14 +362,24 @@ void texture_init(texture_t texture, texture_info_t info) {
 }
 
 void texture_discard(texture_t texture) {
-    backend->texture_destroy(texture);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->texture_destroy(texture);
     pool_free(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
 }
 
 void texture_destroy(texture_t texture) {
-    backend->texture_destroy(texture);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->texture_destroy(texture);
     pool_free(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
     pool_free(&gfx_ctx.texture_pool->data_pool, slot->data_handle);
     gfx_respool_dealloc_slot(gfx_ctx.texture_pool, texture.id);
@@ -315,11 +393,21 @@ texture_t texture_new(texture_info_t info) {
 
 texture_data_t* texture_get_data(texture_t texture) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.texture_pool->data_pool, slot->data_handle);
 }
 
 static void* texture_get_internal(texture_t texture) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.texture_pool, texture.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
 }
 
@@ -333,6 +421,11 @@ sampler_t sampler_alloc() {
 
 void sampler_init(sampler_t sampler, sampler_info_t info) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
     sampler_data_t* sampler_data = pool_get(&gfx_ctx.sampler_pool->data_pool, slot->data_handle);
 
     if(info.wrap != TEXTURE_WRAP_UNDEFINED) {
@@ -355,14 +448,24 @@ void sampler_init(sampler_t sampler, sampler_info_t info) {
 }
 
 void sampler_discard(sampler_t sampler) {
-    backend->sampler_destroy(sampler);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->sampler_destroy(sampler);
     pool_free(&gfx_ctx.sampler_pool->internal_pool, slot->internal_handle);
 }
 
 void sampler_destroy(sampler_t sampler) {
-    backend->sampler_destroy(sampler);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->sampler_destroy(sampler);
     pool_free(&gfx_ctx.sampler_pool->internal_pool, slot->internal_handle);
     pool_free(&gfx_ctx.sampler_pool->data_pool, slot->data_handle);
     gfx_respool_dealloc_slot(gfx_ctx.sampler_pool, sampler.id);
@@ -376,11 +479,21 @@ sampler_t sampler_new(sampler_info_t info) {
 
 sampler_data_t* sampler_get_data(sampler_t sampler) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.sampler_pool->data_pool, slot->data_handle);
 }
 
 static void* sampler_get_internal(sampler_t sampler) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.sampler_pool, sampler.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.sampler_pool->internal_pool, slot->internal_handle);
 }
 
@@ -394,6 +507,11 @@ attachments_t attachments_alloc() {
 
 void attachments_init(attachments_t att, attachments_info_t info) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
     attachments_data_t* att_data = pool_get(&gfx_ctx.attachments_pool->data_pool, slot->data_handle);
 
     memcpy(att_data->colours, info.colours, sizeof(att_data->colours));
@@ -404,14 +522,24 @@ void attachments_init(attachments_t att, attachments_info_t info) {
 }
 
 void attachments_discard(attachments_t att) {
-    backend->attachments_destroy(att);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->attachments_destroy(att);
     pool_free(&gfx_ctx.attachments_pool->internal_pool, slot->internal_handle);
 }
 
 void attachments_destroy(attachments_t att) {
-    backend->attachments_destroy(att);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->attachments_destroy(att);
     pool_free(&gfx_ctx.attachments_pool->internal_pool, slot->internal_handle);
     pool_free(&gfx_ctx.attachments_pool->data_pool, slot->data_handle);
     gfx_respool_dealloc_slot(gfx_ctx.attachments_pool, att.id);
@@ -425,11 +553,21 @@ attachments_t attachments_new(attachments_info_t info) {
 
 attachments_data_t* attachments_get_data(attachments_t att) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.attachments_pool->data_pool, slot->data_handle);
 }
 
 static void* attachments_get_internal(attachments_t att) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.attachments_pool, att.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.attachments_pool->internal_pool, slot->internal_handle);
 }
 
@@ -469,6 +607,11 @@ shader_t shader_alloc() {
 
 void shader_init(shader_t shader, shader_info_t info) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
     shader_data_t* shader_data = pool_get(&gfx_ctx.shader_pool->data_pool, slot->data_handle);
 
     memcpy(shader_data->name, info.name, sizeof(shader_data->name));
@@ -490,14 +633,24 @@ void shader_init(shader_t shader, shader_info_t info) {
 }
 
 void shader_discard(shader_t shader) {
-    backend->shader_destroy(shader);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->shader_destroy(shader);
     pool_free(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
 }
 
 void shader_destroy(shader_t shader) {
-    backend->shader_destroy(shader);
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return;
+    }
+
+    backend->shader_destroy(shader);
     pool_free(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
     pool_free(&gfx_ctx.shader_pool->data_pool, slot->data_handle);
     gfx_respool_dealloc_slot(gfx_ctx.shader_pool, shader.id);
@@ -511,11 +664,21 @@ shader_t shader_new(shader_info_t info) {
 
 shader_data_t* shader_get_data(shader_t shader) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.shader_pool->data_pool, slot->data_handle);
 }
 
 static void* shader_get_internal(shader_t shader) {
     gfx_res_slot_t* slot = gfx_respool_get_slot(gfx_ctx.shader_pool, shader.id);
+    if(!slot) {
+        LOG_ERR_CODE(ERR_GFX_BAD_SLOT);
+        return NULL;
+    }
+
     return pool_get(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
 }
 
