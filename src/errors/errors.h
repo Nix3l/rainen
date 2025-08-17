@@ -16,8 +16,12 @@ typedef enum error_code_t {
     ERR_RENDER_BAD_PASS,
     ERR_RENDER_NO_ACTIVE_PASS,
     ERR_RENDER_BAD_CALL,
+    ERR_ENT_BAD_ID,
+    ERR_ENT_BAD_SLOT,
+    ERR_ENT_BAD_MANAGER,
+    ERR_ENT_GARBAGE_COLLECTION_MISMATCH,
 } error_code_t;
 
-#define LOG_ERR_CODE(_c) do { LOG_ERR("%u - %s\n", _c, #_c); } while(0)
+#define LOG_ERR_CODE(_c) do { LOG_ERR("%s - code [%u]\n", #_c, _c); } while(0)
 
 #endif

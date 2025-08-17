@@ -1,0 +1,30 @@
+#include "game.h"
+#include "entity.h"
+#include "memory/memory.h"
+
+game_ctx_t game_ctx;
+
+static pool_t entity_pool;
+
+static entity_manager_t render_manager;
+
+void game_init() {
+    entity_pool = pool_alloc_new(GAME_MAX_ENTITIES, sizeof(entity_slot_t), EXPAND_TYPE_IMMUTABLE);
+
+    // reserve first element for invalid ids
+    pool_push(&entity_pool, NULL);
+
+    render_manager.label = "render-manager";
+    render_manager.batch = vector_alloc_new(GAME_MAX_ENTITIES, sizeof(entity_t));
+
+    game_ctx = (game_ctx_t) {
+        .num_dirty_entities = 0,
+        .entity_pool = &entity_pool,
+        .render_manager = &render_manager,
+    };
+}
+
+void game_terminate() {
+    pool_destroy(game_ctx.entity_pool);
+    vector_destroy(&game_ctx.render_manager->batch);
+}

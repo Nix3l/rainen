@@ -42,13 +42,13 @@ void render_init() {
                 .shader = shader,
             },
             .state = {
-                .anchor = { .enable = true, .position = v3f_new(0.0f, 0.0f, 2.0f), },
+                .anchor = { .enable = true, .position = v3f_new(0.0f, 0.0f, 100.0f), },
                 .projection = {
-                    .type = PROJECTION_PERSPECTIVE,
+                    .type = PROJECTION_ORTHO,
                     .fov = RADIANS(80.0f),
                     .aspect_ratio = 16.0f/9.0f,
-                    .w = 16.0f,
-                    .h = 9.0f,
+                    .w = 1600.0f,
+                    .h = 900.0f,
                     .near = 0.001f,
                     .far = 1000.0f,
                 },

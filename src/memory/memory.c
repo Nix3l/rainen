@@ -250,7 +250,7 @@ handle_t handle_set_gen(handle_t handle, u32 gen) {
 }
 
 handle_t handle_inc_index(handle_t handle) {
-    u32 index = (handle & HANDLE_INDEX_MASK) + 1;
+    u32 index = handle_index(handle) + 1;
     return (handle & HANDLE_GEN_MASK) | (index & HANDLE_INDEX_MASK);
 }
 
@@ -259,7 +259,7 @@ handle_t handle_inc_gen(handle_t handle) {
     return (gen << 24) | (handle & HANDLE_INDEX_MASK);
 }
 
-pool_t pool_alloc(u32 capacity, u32 element_size, expand_type_t type) {
+pool_t pool_alloc_new(u32 capacity, u32 element_size, expand_type_t type) {
     void* data = mem_calloc(capacity * element_size);
     pool_element_t* elements = mem_calloc(capacity * sizeof(pool_element_t));
 
@@ -328,7 +328,7 @@ void* pool_push(pool_t* pool, handle_t* out_handle) {
     }
 
     pool_element_t elem = pool->elements[pool->first_free_element];
-    elem.state = POOL_ELEMENT_ALLOC;
+    elem.state = POOL_ELEMENT_IN_USE;
     elem.handle = handle_inc_gen(elem.handle);
     pool->elements[handle_index(elem.handle)] = elem;
 
@@ -340,7 +340,7 @@ void* pool_push(pool_t* pool, handle_t* out_handle) {
     }
 
     u32 index = handle_index(elem.handle);
-    if(index < pool->first_used_element) pool->first_used_element =index;
+    if(index < pool->first_used_element) pool->first_used_element = index;
     if(index > pool->last_used_element) pool->last_used_element = index;
     pool->num_in_use ++;
 
@@ -353,7 +353,7 @@ void* pool_set(pool_t* pool, u32 index, handle_t* out_handle) {
     if(index > pool->capacity) return NULL;
     
     pool_element_t elem = pool->elements[pool->first_free_element];
-    elem.state = POOL_ELEMENT_ALLOC;
+    elem.state = POOL_ELEMENT_IN_USE;
     elem.handle = handle_inc_gen(elem.handle);
     pool->elements[handle_index(elem.handle)] = elem;
 
@@ -379,7 +379,7 @@ void* pool_get(pool_t* pool, handle_t handle) {
 
     // bit of an optimisation
     // probably doesnt speed it up all that much but hey its there
-    if(index < pool->first_used_element || index > pool->num_in_use)
+    if(index < pool->first_used_element || index > pool->last_used_element)
         return NULL;
 
     for(u32 i = pool->first_used_element; i <= pool->last_used_element; i ++) {
@@ -394,7 +394,7 @@ void* pool_get(pool_t* pool, handle_t handle) {
 }
 
 void* pool_at_index(pool_t* pool, u32 index) {
-    if(index > pool->num_in_use) return NULL;
+    if(index > pool->last_used_element || index < pool->first_used_element) return NULL;
     else return pool->data + index * pool->element_size;
 }
 
@@ -449,10 +449,6 @@ void pool_free(pool_t* pool, handle_t handle) {
     */
 }
 
-void pool_free_at_index(pool_t* pool, u32 index) {
-    pool_free(pool, handle_new(index, 0));
-}
-
 void pool_clear(pool_t* pool) {
     for(u32 i = 0; i < pool->capacity; i ++) {
         pool_element_t elem = pool->elements[i];
@@ -477,4 +473,37 @@ void pool_destroy(pool_t* pool) {
     pool->data = NULL;
     mem_free(pool->elements);
     pool->elements = NULL;
+}
+
+bool pool_iter(pool_t* pool, pool_iter_t* iter) {
+    if(!pool || !iter) return false;
+    if(pool->num_in_use == 0) return false;
+
+    if(iter->absolute_index >= pool->last_used_element) {
+        iter->data = NULL;
+        return false;
+    }
+
+    bool found_elem = false;
+    pool_element_t elem;
+    if(iter->absolute_index < pool->first_used_element || iter->absolute_index == 0) {
+        elem = pool->elements[pool->first_used_element];
+        iter->absolute_index = pool->first_used_element;
+    } else {
+        for(u32 i = iter->absolute_index + 1; i <= pool->last_used_element; i ++) {
+            elem = pool->elements[i];
+            if(elem.state == POOL_ELEMENT_IN_USE) {
+                iter->absolute_index = i;
+                found_elem = true;
+                break;
+            }
+        }
+
+        if(!found_elem) return false;
+    }
+
+    iter->iteration ++;
+    iter->handle = elem.handle;
+    iter->data = pool_at_index(pool, iter->absolute_index);
+    return true;
 }

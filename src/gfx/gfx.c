@@ -99,9 +99,9 @@ static gfx_respool_t shader_pool;
 static gfx_respool_t gfx_respool_alloc_new(u32 capacity, u32 res_bytes, u32 internal_bytes) {
     gfx_respool_t pool = (gfx_respool_t) {
         .capacity = capacity,
-        .res_pool = pool_alloc(capacity, sizeof(gfx_res_slot_t), EXPAND_TYPE_IMMUTABLE),
-        .data_pool = pool_alloc(capacity, res_bytes, EXPAND_TYPE_IMMUTABLE),
-        .internal_pool = pool_alloc(capacity, internal_bytes, EXPAND_TYPE_IMMUTABLE),
+        .res_pool = pool_alloc_new(capacity, sizeof(gfx_res_slot_t), EXPAND_TYPE_IMMUTABLE),
+        .data_pool = pool_alloc_new(capacity, res_bytes, EXPAND_TYPE_IMMUTABLE),
+        .internal_pool = pool_alloc_new(capacity, internal_bytes, EXPAND_TYPE_IMMUTABLE),
     };
 
     // reserve the 0 index for invalid ids

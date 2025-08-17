@@ -116,7 +116,8 @@ handle_t handle_inc_gen(handle_t handle);
 // TODO(nix3l): what the fuck am i doing here?
 typedef enum pool_element_state_t {
     POOL_ELEMENT_FREE = 0,
-    POOL_ELEMENT_ALLOC,
+    POOL_ELEMENT_IN_USE,
+    POOL_ELEMENT_RESERVED,
 } pool_element_state_t;
 
 typedef struct pool_element_t {
@@ -143,7 +144,7 @@ typedef struct pool_t {
     pool_element_t* elements;
 } pool_t;
 
-pool_t pool_alloc(u32 capacity, u32 element_size, expand_type_t expand_type);
+pool_t pool_alloc_new(u32 capacity, u32 element_size, expand_type_t expand_type);
 
 void pool_resize(pool_t* pool, u32 new_capacity);
 void pool_prepare(pool_t* pool, u32 num_new_elements);
@@ -159,11 +160,19 @@ void* pool_get(pool_t* pool, handle_t handle);
 void* pool_at_index(pool_t* pool, u32 index);
 
 void pool_free(pool_t* pool, handle_t handle);
-void pool_free_at_index(pool_t* pool, u32 index);
 
 // resets all the elements to 0 (including generations)
 void pool_clear(pool_t* pool);
 void pool_destroy(pool_t* pool);
+
+typedef struct {
+    void* data;
+    u32 iteration;
+    u32 absolute_index;
+    handle_t handle;
+} pool_iter_t;
+
+bool pool_iter(pool_t* pool, pool_iter_t* iter);
 
 // TODO(nix3l): linked lists
 

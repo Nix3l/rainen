@@ -1,5 +1,4 @@
 #include "math_util.h"
-#include "cglm/struct/cam.h"
 
 mat4s model_matrix_new(v3f pos, v3f rot, v3f scale) {
     mat4s model = mat4_IDENTITY;
@@ -27,9 +26,9 @@ mat4s view_matrix_new(v3f pos, v3f rot) {
 }
 
 mat4s proj_perspective_matrix_new(f32 fov, f32 aspect_ratio, f32 near, f32 far) {
-    return glms_perspective(fov, aspect_ratio, near, far);
+    return glms_perspective_rh_no(fov, aspect_ratio, near, far);
 }
 
 mat4s proj_ortho_matrix_new(f32 w, f32 h, f32 near, f32 far) {
-    return glms_ortho(0.0f, w, 0.0f, h, near, far);
+    return glms_ortho_rh_no(-w/2.0f, w/2.0f, -h/2.0f, h/2.0f, near, far);
 }
