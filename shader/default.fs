@@ -2,11 +2,10 @@
 
 in vec2 fs_uvs;
 
+uniform vec4 col;
+
 out vec4 out_col;
 
-uniform sampler2D tex;
-uniform float time;
-
 void main(void) {
-    out_col = vec4(texture(tex, fs_uvs).rrr * abs(sin(time)), 1.0);
+    out_col = vec4(col.rgb, 1.0);
 }

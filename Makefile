@@ -27,7 +27,7 @@ $(BUILD_DIR)/%.c.o: %.c
 	$(CC) $(CCFLAGS) $(INC_FLAGS) $(DEBUG_FLAGS) -c $< -o $@
 
 .PHONY: compile
-compile: $(BUILD_DIR)/$(TARGET_EXEC)
+compile: clean $(BUILD_DIR)/$(TARGET_EXEC)
 
 .PHONY: run
 run: $(BUILD_DIR)/$(TARGET_EXEC)

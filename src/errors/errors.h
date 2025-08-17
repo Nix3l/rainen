@@ -13,6 +13,9 @@ typedef enum error_code_t {
     ERR_GFX_BAD_SLOT,
     ERR_GFX_INIT_BEFORE_ALLOC,
     ERR_GFX_MESH_INVALID_FORMAT,
+    ERR_RENDER_BAD_PASS,
+    ERR_RENDER_NO_ACTIVE_PASS,
+    ERR_RENDER_BAD_CALL,
 } error_code_t;
 
 #define LOG_ERR_CODE(_c) do { LOG_ERR("%u - %s\n", _c, #_c); } while(0)

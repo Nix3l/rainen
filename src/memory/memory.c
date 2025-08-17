@@ -52,7 +52,7 @@ vector_t vector_alloc_new(u32 capacity, u32 element_size) {
 void* vector_push(vector_t* vector) {
     if(vector->size == vector->capacity) return NULL;
     vector->size ++;
-    return vector->data + (vector->size - 1) * vector->element_size;;
+    return vector->data + (vector->size - 1) * vector->element_size;
 }
 
 void* vector_push_data(vector_t* vector, void* data) {

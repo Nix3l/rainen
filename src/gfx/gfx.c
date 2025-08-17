@@ -1,4 +1,5 @@
 #include "gfx.h"
+#include "base.h"
 #include "errors/errors.h"
 #include "util/util.h"
 
@@ -347,6 +348,10 @@ void texture_init(texture_t texture, texture_info_t info) {
     }
 
     texture_data_t* texture_data = pool_get(&gfx_ctx.texture_pool->data_pool, slot->data_handle);
+    if(!texture_data) {
+        LOG_ERR_CODE(ERR_GFX_INIT_BEFORE_ALLOC);
+        return;
+    }
 
     if(info.type == TEXTURE_TYPE_UNDEFINED) info.type = TEXTURE_TYPE_2D;
     if(info.mipmaps == 0) info.mipmaps = 1;
@@ -427,6 +432,10 @@ void sampler_init(sampler_t sampler, sampler_info_t info) {
     }
 
     sampler_data_t* sampler_data = pool_get(&gfx_ctx.sampler_pool->data_pool, slot->data_handle);
+    if(!sampler_data) {
+        LOG_ERR_CODE(ERR_GFX_INIT_BEFORE_ALLOC);
+        return;
+    }
 
     if(info.wrap != TEXTURE_WRAP_UNDEFINED) {
         info.u_wrap = info.wrap;
@@ -513,6 +522,10 @@ void attachments_init(attachments_t att, attachments_info_t info) {
     }
 
     attachments_data_t* att_data = pool_get(&gfx_ctx.attachments_pool->data_pool, slot->data_handle);
+    if(!att_data) {
+        LOG_ERR_CODE(ERR_GFX_INIT_BEFORE_ALLOC);
+        return;
+    }
 
     memcpy(att_data->colours, info.colours, sizeof(att_data->colours));
     att_data->depth_stencil = info.depth_stencil;
@@ -613,6 +626,10 @@ void shader_init(shader_t shader, shader_info_t info) {
     }
 
     shader_data_t* shader_data = pool_get(&gfx_ctx.shader_pool->data_pool, slot->data_handle);
+    if(!shader_data) {
+        LOG_ERR_CODE(ERR_GFX_INIT_BEFORE_ALLOC);
+        return;
+    }
 
     memcpy(shader_data->name, info.name, sizeof(shader_data->name));
     memcpy(shader_data->pretty_name, info.pretty_name, sizeof(shader_data->pretty_name));
@@ -1280,8 +1297,11 @@ static void gl_activate_pipeline(render_pipeline_t pip) {
     } else {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         // glDrawBuffer(GL_BACK);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glClearColor(v4f_expand(pip.clear.clear_col));
+
+        if(pip.clear.colour) {
+            glClearColor(v4f_expand(pip.clear.clear_col));
+            glClear(GL_COLOR_BUFFER_BIT);
+        }
     }
 
     GLbitfield depth_stencil_clear = 0;

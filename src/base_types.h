@@ -2,6 +2,7 @@
 #define BASE_TYPES_H
 
 #include <stdint.h>
+#include <cglm/cglm.h>
 #include <cglm/struct.h>
 
 typedef uint8_t  u8;

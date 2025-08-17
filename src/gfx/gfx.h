@@ -14,8 +14,7 @@
 
 #define GFX_INVALID_ID (0)
 
-// TODO(nix3l): actually update the state variable in res slot
-// TODO(nix3l): any sort of validation whatsoever would be nice i think
+// TODO(nix3l): more validation
 
 enum {
     // compile time constants/limits
@@ -161,7 +160,7 @@ void mesh_discard(mesh_t mesh);
 void mesh_destroy(mesh_t mesh);
 
 // creates a new mesh
-// if index_type is MESH_INDEX_TYPE_NONE, the indices range is ignored, and vertex_count *must* be supplied
+// if index_type is MESH_INDEX_NONE, the indices range is ignored, and vertex_count *must* be supplied
 // if index_type is undefined, it is implied using the indices range
 // format is not checked against the supplied attributes, so make sure you specify the correct format
 // format *must* be supplied

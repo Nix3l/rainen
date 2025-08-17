@@ -113,6 +113,7 @@ handle_t handle_set_gen(handle_t handle, u32 gen);
 handle_t handle_inc_index(handle_t handle);
 handle_t handle_inc_gen(handle_t handle);
 
+// TODO(nix3l): what the fuck am i doing here?
 typedef enum pool_element_state_t {
     POOL_ELEMENT_FREE = 0,
     POOL_ELEMENT_ALLOC,
