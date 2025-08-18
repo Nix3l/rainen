@@ -17,10 +17,23 @@ void game_init() {
     render_manager.label = "render-manager";
     render_manager.batch = vector_alloc_new(GAME_MAX_ENTITIES, sizeof(entity_t));
 
+    // CAMERA
+    camera_t camera = (camera_t) {
+        .transform = (transform_t) {
+            .position = v2f_ZERO,
+            .rotation = 0.0f,
+            .z = 100,
+        },
+        .near = 0.1f,
+        .far = 200.0f,
+        .pixel_scale = 2.0f,
+    };
+
     game_ctx = (game_ctx_t) {
         .num_dirty_entities = 0,
         .entity_pool = &entity_pool,
         .render_manager = &render_manager,
+        .camera = camera,
     };
 }
 
@@ -31,4 +44,6 @@ void game_terminate() {
 
 void game_update() {
     entity_update();
+    camera_update();
+    camera_attach();
 }

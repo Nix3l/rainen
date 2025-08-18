@@ -212,6 +212,16 @@ void window_destroy();
 typedef struct input_state_t {
     hitmode_t keys[KEYS_NUM];
     hitmode_t buttons[BUTTONS_NUM];
+
+    f32 scroll;
+    f32 scroll_last;
+
+    v2f mouse_pos;
+    v2f mouse_pos_last;
+
+    v2f mouse_move; // normalized (divide by width/height of window)
+    v2f mouse_move_raw; // either -1, 0, or 1
+    v2f mouse_move_absolute; // movement in pixels
 } input_state_t;
 
 void input_start_frame();
@@ -221,10 +231,12 @@ bool input_key_pressed(keycode_t key);
 bool input_key_held(keycode_t key);
 bool input_key_released(keycode_t key);
 
-bool input_mouse_down(mousebutton_t button);
-bool input_mouse_pressed(mousebutton_t button);
-bool input_mouse_held(mousebutton_t button);
-bool input_mouse_released(mousebutton_t button);
+bool input_button_down(mousebutton_t button);
+bool input_button_pressed(mousebutton_t button);
+bool input_button_held(mousebutton_t button);
+bool input_button_released(mousebutton_t button);
+
+f32 input_get_scroll();
 
 v2f input_mouse_pos();
 v2f input_mouse_move();
@@ -239,13 +251,6 @@ typedef struct io_ctx_t {
     window_t window;
 
     input_state_t state;
-
-    v2f mouse_pos;
-    v2f mouse_pos_last;
-
-    v2f mouse_move; // normalized (divide by width/height of window)
-    v2f mouse_move_raw; // either -1, 0, or 1
-    v2f mouse_move_absolute; // movement in pixels
 } io_ctx_t;
 
 extern io_ctx_t io_ctx;

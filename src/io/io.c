@@ -1,6 +1,7 @@
 #include "io.h"
 
 #include "GLFW/glfw3.h"
+#include "base_macros.h"
 #include "util/util.h"
 #include "gfx/gfx.h"
 
@@ -180,6 +181,14 @@ static void gl_key_callback(GLFWwindow* window, int key, int scancode, int actio
     UNUSED(mods);
 }
 
+static void gl_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    if(yoffset > 0.0) io_ctx.state.scroll = 1.0;
+    else if(yoffset < 0.0) io_ctx.state.scroll = -1.0;
+
+    UNUSED(window);
+    UNUSED(xoffset);
+}
+
 static void gl_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
     mousebutton_t buttoncode = gl_mousebutton(button);
     hitmode_t hit = io_ctx.state.buttons[buttoncode];
@@ -196,8 +205,8 @@ static void gl_mouse_button_callback(GLFWwindow* window, int button, int action,
 }
 
 static void gl_mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {
-    io_ctx.mouse_pos.x = (f32) xpos;
-    io_ctx.mouse_pos.y = (f32) ypos;
+    io_ctx.state.mouse_pos.x = (f32) xpos;
+    io_ctx.state.mouse_pos.y = (f32) ypos;
 
     UNUSED(window);
 }
@@ -277,6 +286,7 @@ static void gl_window_new(u32 width, u32 height, char* name) {
     glfwSetWindowIconifyCallback(glfw_window, gl_window_minimize_callback);
     glfwSetWindowCloseCallback(glfw_window, gl_window_close_callback);
     glfwSetKeyCallback(glfw_window, gl_key_callback);
+    glfwSetScrollCallback(glfw_window, gl_scroll_callback);
     glfwSetMouseButtonCallback(glfw_window, gl_mouse_button_callback);
     glfwSetCursorPosCallback(glfw_window, gl_mouse_position_callback);
 
@@ -412,7 +422,8 @@ void window_destroy() {
 
 // INPUT
 void input_start_frame() {
-    io_ctx.mouse_pos_last = io_ctx.mouse_pos;
+    io_ctx.state.mouse_pos_last = io_ctx.state.mouse_pos;
+    io_ctx.state.scroll = 0.0f;
     input_state_t old_state = io_ctx.state;
 
     switch(gfx_backend()) {
@@ -436,13 +447,15 @@ void input_start_frame() {
             io_ctx.state.buttons[i] = HITMODE_NONE;
     }
 
-    v2f diff = v2f_sub(io_ctx.mouse_pos, io_ctx.mouse_pos_last);
-    io_ctx.mouse_move_absolute = diff;
-    io_ctx.mouse_move = v2f_new(
+    v2f diff = v2f_sub(io_ctx.state.mouse_pos, io_ctx.state.mouse_pos_last);
+    io_ctx.state.mouse_move_absolute = diff;
+
+    io_ctx.state.mouse_move = v2f_new(
         diff.x / (f32) io_ctx.window.width,
         diff.y / (f32) io_ctx.window.height
     );
-    io_ctx.mouse_move_raw = v2f_new(
+
+    io_ctx.state.mouse_move_raw = v2f_new(
         diff.x == 0.0f ? 0.0f : diff.x / diff.x,
         diff.y == 0.0f ? 0.0f : diff.y / diff.y
     );
@@ -471,34 +484,38 @@ bool input_key_released(keycode_t key) {
     return io_ctx.state.keys[key] == HITMODE_RELEASED;
 }
 
-bool input_mouse_down(mousebutton_t button) {
+bool input_button_down(mousebutton_t button) {
     return io_ctx.state.buttons[button] == HITMODE_PRESSED || io_ctx.state.buttons[button] == HITMODE_HELD;
 }
 
-bool input_mouse_pressed(mousebutton_t button) {
+bool input_button_pressed(mousebutton_t button) {
     return io_ctx.state.buttons[button] == HITMODE_PRESSED;
 }
 
-bool input_mouse_held(mousebutton_t button) {
+bool input_button_held(mousebutton_t button) {
     return io_ctx.state.buttons[button] == HITMODE_HELD;
 }
 
-bool input_mouse_released(mousebutton_t button) {
+bool input_button_released(mousebutton_t button) {
     return io_ctx.state.buttons[button] == HITMODE_RELEASED;
 }
 
+f32 input_get_scroll() {
+    return io_ctx.state.scroll;
+}
+
 v2f input_mouse_pos() {
-    return io_ctx.mouse_pos;
+    return io_ctx.state.mouse_pos;
 }
 
 v2f input_mouse_move() {
-    return io_ctx.mouse_move;
+    return io_ctx.state.mouse_move;
 }
 
 v2f input_mouse_move_raw() {
-    return io_ctx.mouse_move_raw;
+    return io_ctx.state.mouse_move_raw;
 }
 
 v2f input_mouse_move_absolute() {
-    return io_ctx.mouse_move_absolute;
+    return io_ctx.state.mouse_move_absolute;
 }
