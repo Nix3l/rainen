@@ -17,7 +17,7 @@ int main(void) {
     gfx_init(GFX_BACKEND_GL);
     io_init();
     monitors_detect();
-    io_ctx.window = window_new(io_ctx.active_monitor, 1600, 900, "hello there");
+    window_new(1600, 900, "hello there");
     render_init();
     game_init();
 
@@ -46,7 +46,7 @@ int main(void) {
             },
             .transform = {
                 .position = v2f_new(-2.0f, 1.0f),
-                .rotation = 45.0f,
+                .rotation = 120.0f,
                 .size = v2f_new(500.0f, 700.0f),
                 .z = 0,
             },
@@ -65,21 +65,20 @@ int main(void) {
         },
     });
 
-    while(!window_closing(game_window)) {
-        input_start_frame(&io_ctx);
+    while(!window_closing()) {
+        input_start_frame();
 
-        if(input_key_pressed(GLFW_KEY_P)) entity_mark_dirty(ent);
+        if(input_key_pressed(KEY_P)) entity_mark_dirty(ent);
 
-        entity_update();
-
+        game_update();
         render_dispatch();
-        glfwSwapBuffers(game_window->glfw_window);
-        input_end_frame(&io_ctx);
+        window_swap_buffers();
     }
 
     game_terminate();
     render_terminate();
     gfx_terminate();
+    window_destroy();
     io_terminate();
     return 0;
 }

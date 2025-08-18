@@ -1296,7 +1296,7 @@ static void gl_activate_pipeline(render_pipeline_t pip) {
         }
     } else {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        // glDrawBuffer(GL_BACK);
+        glDrawBuffer(GL_BACK);
 
         if(pip.clear.colour) {
             glClearColor(v4f_expand(pip.clear.clear_col));

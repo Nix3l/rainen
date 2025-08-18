@@ -20,5 +20,6 @@ extern game_ctx_t game_ctx;
 
 void game_init();
 void game_terminate();
+void game_update();
 
 #endif
