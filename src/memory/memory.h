@@ -165,7 +165,7 @@ void pool_free(pool_t* pool, handle_t handle);
 void pool_clear(pool_t* pool);
 void pool_destroy(pool_t* pool);
 
-typedef struct {
+typedef struct pool_iter_t {
     void* data;
     u32 iteration;
     u32 absolute_index;

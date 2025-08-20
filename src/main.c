@@ -11,12 +11,14 @@
 #include "platform/platform.h"
 #include "render/render.h"
 #include "game/game.h"
+#include "imgui/imgui_manager.h"
 
 int main(void) {
     gfx_init(GFX_BACKEND_GL);
     io_init();
     monitors_detect();
-    window_new(1600, 900, "hello there");
+    window_new(1600, 900, "WINDOW");
+    imgui_init();
     render_init();
     game_init();
 
@@ -66,15 +68,20 @@ int main(void) {
 
     while(!window_closing()) {
         input_start_frame();
+        imgui_start_frame();
 
         if(input_key_pressed(KEY_P)) entity_mark_dirty(ent);
 
+        igShowDemoWindow(NULL);
+
         game_update();
         render_dispatch();
+        imgui_show();
         window_swap_buffers();
     }
 
     game_terminate();
+    imgui_terminate();
     render_terminate();
     gfx_terminate();
     window_destroy();

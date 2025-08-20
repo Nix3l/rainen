@@ -15,5 +15,6 @@ pkgs.clangStdenv.mkDerivation {
         cglm
         assimp
         gdb
+        imgui
     ];
 }

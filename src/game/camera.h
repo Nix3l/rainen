@@ -4,7 +4,7 @@
 #include "base.h"
 #include "entity.h"
 
-typedef struct {
+typedef struct camera_t {
     transform_t transform;
 
     f32 pixel_scale;

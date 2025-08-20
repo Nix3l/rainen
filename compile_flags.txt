@@ -6,5 +6,8 @@
 -lm
 -lassimp
 -lglfw
+-lcimgui
+-Llib/so
+-Llib
 -Isrc
 -Ilib

@@ -153,16 +153,16 @@ typedef enum hitmode_t {
 } hitmode_t;
 
 // BACKEND SPECIFIC STUFF
-typedef struct {
+typedef struct gl_window_t {
     GLFWwindow* id;
 } gl_window_t;
 
-typedef struct {
+typedef struct gl_monitor_t {
     GLFWmonitor* id;
 } gl_monitor_t;
 
 // MONITOR
-typedef struct {
+typedef struct video_mode_t {
     u32 w, h;
     u32 r_bits, g_bits, b_bits;
     u32 refresh_rate;
