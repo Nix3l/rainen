@@ -14,6 +14,8 @@
 
 #define GFX_INVALID_ID (0)
 
+// TODO(nix3l): actually use the mipmaps moron
+// TOOD(nix3l): add texture filters to texture_data_t
 // TODO(nix3l): more validation
 
 enum {
@@ -255,6 +257,8 @@ typedef enum texture_wrap_t {
 typedef struct texture_data_t {
     texture_type_t type;
     texture_format_t format;
+    texture_wrap_t wrap;
+    texture_filter_t filter;
     u32 width;
     u32 height;
     u32 mipmaps;
@@ -263,6 +267,8 @@ typedef struct texture_data_t {
 typedef struct texture_info_t {
     texture_type_t type;
     texture_format_t format;
+    texture_wrap_t wrap;
+    texture_filter_t filter;
     u32 width;
     u32 height;
     u32 mipmaps;

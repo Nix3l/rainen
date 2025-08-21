@@ -289,6 +289,7 @@ void mesh_discard(mesh_t mesh) {
 
     backend->mesh_destroy(mesh);
     pool_free(&gfx_ctx.mesh_pool->internal_pool, slot->internal_handle);
+
     slot->state = GFX_RES_STATE_ALLOC;
 }
 
@@ -337,6 +338,7 @@ texture_t texture_alloc() {
     gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.texture_pool, &texture.id);
     texture_data_t* texture_data = pool_push(&gfx_ctx.texture_pool->data_pool, &slot->data_handle);
     mem_clear(texture_data, sizeof(texture_data_t));
+    slot->state = GFX_RES_STATE_ALLOC;
     return texture;
 }
 
@@ -354,16 +356,22 @@ void texture_init(texture_t texture, texture_info_t info) {
     }
 
     if(info.type == TEXTURE_TYPE_UNDEFINED) info.type = TEXTURE_TYPE_2D;
+    if(info.filter == TEXTURE_FILTER_UNDEFINED) info.filter = TEXTURE_FILTER_NEAREST;
+    if(info.wrap == TEXTURE_WRAP_UNDEFINED) info.wrap = TEXTURE_WRAP_CLAMP_TO_EDGE;
     if(info.mipmaps == 0) info.mipmaps = 1;
 
     texture_data->type = info.type;
     texture_data->format = info.format;
+    texture_data->wrap = info.wrap;
+    texture_data->filter = info.filter;
     texture_data->width = info.width;
     texture_data->height = info.height;
     texture_data->mipmaps = info.mipmaps;
 
     pool_push(&gfx_ctx.texture_pool->internal_pool, &slot->internal_handle);
     backend->texture_init(texture, info);
+
+    slot->state = GFX_RES_STATE_INIT;
 }
 
 void texture_discard(texture_t texture) {
@@ -375,6 +383,8 @@ void texture_discard(texture_t texture) {
 
     backend->texture_destroy(texture);
     pool_free(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
+
+    slot->state = GFX_RES_STATE_ALLOC;
 }
 
 void texture_destroy(texture_t texture) {
@@ -387,6 +397,7 @@ void texture_destroy(texture_t texture) {
     backend->texture_destroy(texture);
     pool_free(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
     pool_free(&gfx_ctx.texture_pool->data_pool, slot->data_handle);
+    slot->state = GFX_RES_STATE_FREE;
     gfx_respool_dealloc_slot(gfx_ctx.texture_pool, texture.id);
 }
 
@@ -421,6 +432,7 @@ sampler_t sampler_alloc() {
     gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.sampler_pool, &sampler.id);
     sampler_data_t* sampler_data = pool_push(&gfx_ctx.sampler_pool->data_pool, &slot->data_handle);
     mem_clear(sampler_data, sizeof(sampler_data_t));
+    slot->state = GFX_RES_STATE_ALLOC;
     return sampler;
 }
 
@@ -454,6 +466,8 @@ void sampler_init(sampler_t sampler, sampler_info_t info) {
 
     pool_push(&gfx_ctx.sampler_pool->internal_pool, &slot->internal_handle);
     backend->sampler_init(sampler, info);
+
+    slot->state = GFX_RES_STATE_INIT;
 }
 
 void sampler_discard(sampler_t sampler) {
@@ -465,6 +479,8 @@ void sampler_discard(sampler_t sampler) {
 
     backend->sampler_destroy(sampler);
     pool_free(&gfx_ctx.sampler_pool->internal_pool, slot->internal_handle);
+
+    slot->state = GFX_RES_STATE_ALLOC;
 }
 
 void sampler_destroy(sampler_t sampler) {
@@ -477,6 +493,7 @@ void sampler_destroy(sampler_t sampler) {
     backend->sampler_destroy(sampler);
     pool_free(&gfx_ctx.sampler_pool->internal_pool, slot->internal_handle);
     pool_free(&gfx_ctx.sampler_pool->data_pool, slot->data_handle);
+    slot->state = GFX_RES_STATE_FREE;
     gfx_respool_dealloc_slot(gfx_ctx.sampler_pool, sampler.id);
 }
 
@@ -511,6 +528,7 @@ attachments_t attachments_alloc() {
     gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.attachments_pool, &att.id);
     attachments_data_t* att_data = pool_push(&gfx_ctx.attachments_pool->data_pool, &slot->data_handle);
     mem_clear(att_data, sizeof(attachments_data_t));
+    slot->state = GFX_RES_STATE_ALLOC;
     return att;
 }
 
@@ -532,6 +550,8 @@ void attachments_init(attachments_t att, attachments_info_t info) {
 
     pool_push(&gfx_ctx.attachments_pool->internal_pool, &slot->internal_handle);
     backend->attachments_init(att, info);
+
+    slot->state = GFX_RES_STATE_INIT;
 }
 
 void attachments_discard(attachments_t att) {
@@ -543,6 +563,8 @@ void attachments_discard(attachments_t att) {
 
     backend->attachments_destroy(att);
     pool_free(&gfx_ctx.attachments_pool->internal_pool, slot->internal_handle);
+
+    slot->state = GFX_RES_STATE_ALLOC;
 }
 
 void attachments_destroy(attachments_t att) {
@@ -555,6 +577,7 @@ void attachments_destroy(attachments_t att) {
     backend->attachments_destroy(att);
     pool_free(&gfx_ctx.attachments_pool->internal_pool, slot->internal_handle);
     pool_free(&gfx_ctx.attachments_pool->data_pool, slot->data_handle);
+    slot->state = GFX_RES_STATE_FREE;
     gfx_respool_dealloc_slot(gfx_ctx.attachments_pool, att.id);
 }
 
@@ -615,6 +638,7 @@ shader_t shader_alloc() {
     gfx_res_slot_t* slot = gfx_respool_alloc_slot(gfx_ctx.shader_pool, &shader.id);
     shader_data_t* shader_data = pool_push(&gfx_ctx.shader_pool->data_pool, &slot->data_handle);
     mem_clear(shader_data, sizeof(shader_data_t));
+    slot->state = GFX_RES_STATE_ALLOC;
     return shader;
 }
 
@@ -647,6 +671,8 @@ void shader_init(shader_t shader, shader_info_t info) {
 
     pool_push(&gfx_ctx.shader_pool->internal_pool, &slot->internal_handle);
     backend->shader_init(shader, info);
+
+    slot->state = GFX_RES_STATE_INIT;
 }
 
 void shader_discard(shader_t shader) {
@@ -658,6 +684,8 @@ void shader_discard(shader_t shader) {
 
     backend->shader_destroy(shader);
     pool_free(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
+
+    slot->state = GFX_RES_STATE_ALLOC;
 }
 
 void shader_destroy(shader_t shader) {
@@ -670,6 +698,7 @@ void shader_destroy(shader_t shader) {
     backend->shader_destroy(shader);
     pool_free(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
     pool_free(&gfx_ctx.shader_pool->data_pool, slot->data_handle);
+    slot->state = GFX_RES_STATE_FREE;
     gfx_respool_dealloc_slot(gfx_ctx.shader_pool, shader.id);
 }
 
@@ -975,6 +1004,23 @@ static u32 gl_texture_data_type(texture_format_t format) {
     }
 }
 
+static u32 gl_texture_filter(texture_filter_t filter) {
+    switch(filter) {
+        case TEXTURE_FILTER_NEAREST: return GL_NEAREST;
+        case TEXTURE_FILTER_LINEAR: return GL_LINEAR;
+        default: UNREACHABLE; return 0;
+    }
+}
+
+static u32 gl_texture_wrap(texture_wrap_t wrap) {
+    switch(wrap) {
+        case TEXTURE_WRAP_REPEAT: return GL_REPEAT;
+        case TEXTURE_WRAP_MIRRORED_REPEAT: return GL_MIRRORED_REPEAT;
+        case TEXTURE_WRAP_CLAMP_TO_EDGE: return GL_CLAMP_TO_EDGE;
+        default: UNREACHABLE; return 0;
+    }
+}
+
 static void gl_texture_init(texture_t texture, texture_info_t info) {
     gl_texture_internal_t* gltex = texture_get_internal(texture);
     mem_clear(gltex, sizeof(gl_texture_internal_t));
@@ -996,6 +1042,11 @@ static void gl_texture_init(texture_t texture, texture_info_t info) {
         info.data.ptr
     );
 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_texture_filter(info.filter));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_texture_filter(info.filter));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, gl_texture_wrap(info.wrap));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, gl_texture_wrap(info.wrap));
+
     glBindTexture(target, 0);
 }
 
@@ -1005,23 +1056,6 @@ static void gl_texture_destroy(texture_t texture) {
 }
 
 // SAMPLER
-static u32 gl_texture_filter(texture_filter_t filter) {
-    switch(filter) {
-        case TEXTURE_FILTER_NEAREST: return GL_NEAREST;
-        case TEXTURE_FILTER_LINEAR: return GL_LINEAR;
-        default: UNREACHABLE; return 0;
-    }
-}
-
-static u32 gl_texture_wrap(texture_wrap_t wrap) {
-    switch(wrap) {
-        case TEXTURE_WRAP_REPEAT: return GL_REPEAT;
-        case TEXTURE_WRAP_MIRRORED_REPEAT: return GL_MIRRORED_REPEAT;
-        case TEXTURE_WRAP_CLAMP_TO_EDGE: return GL_CLAMP_TO_EDGE;
-        default: UNREACHABLE; return 0;
-    }
-}
-
 static void gl_sampler_init(sampler_t sampler, sampler_info_t info) {
     gl_sampler_internal_t* glsampler = sampler_get_internal(sampler);
     mem_clear(glsampler, sizeof(gl_sampler_internal_t));
