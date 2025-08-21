@@ -1,3 +1,4 @@
+#include "game/entity.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -39,6 +40,16 @@ int main(void) {
     sampler_t sampler = sampler_new((sampler_info_t) {
         .wrap = TEXTURE_WRAP_REPEAT,
         .filter = TEXTURE_FILTER_NEAREST,
+    });
+
+    entity_new((entity_info_t) {
+        .tags = ENT_TAGS_RENDER,
+        .material = {
+            .colour = v4f_new(0.82f, 0.1f, 0.05f, 1.0f),
+        },
+        .transform = {
+            .size = v2f_new(200, 200),
+        },
     });
 
     while(!window_closing()) {

@@ -49,11 +49,16 @@ typedef struct draw_pass_state_t {
     draw_viewport_t viewport;
 } draw_pass_state_t;
 
+typedef struct draw_pass_cache_t {
+    mat4s projView;
+} draw_pass_cache_t;
+
 typedef struct draw_pass_t {
     const char* label;
     draw_pass_type_t type;
     render_pipeline_t pipeline;
     draw_pass_state_t state;
+    draw_pass_cache_t cache;
 } draw_pass_t;
 
 void render_activate_pass(draw_pass_t pass);
@@ -67,6 +72,7 @@ typedef struct draw_call_t {
     v3f rotation;
     v3f scale;
     v4f colour;
+    sampler_slot_t samplers;
 } draw_call_t;
 
 // RENDERER
@@ -74,6 +80,7 @@ typedef struct renderer_t {
     const char* label;
     vector_t batch;
     draw_pass_t pass;
+    void (*construct_uniforms) (void* out, draw_call_t* call);
 } renderer_t;
 
 void render_push_draw_call(draw_call_t call);
@@ -83,9 +90,9 @@ void render_dispatch();
 typedef struct render_ctx_t {
     mesh_t unit_square;
 
-    renderer_t renderer;
-
     draw_pass_t active_pass;
+
+    renderer_t renderer;
 } render_ctx_t;
 
 extern render_ctx_t render_ctx;

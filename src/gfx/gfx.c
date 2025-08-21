@@ -728,6 +728,16 @@ static void* shader_get_internal(shader_t shader) {
     return pool_get(&gfx_ctx.shader_pool->internal_pool, slot->internal_handle);
 }
 
+u32 shader_get_uniforms_size(shader_t shader) {
+    shader_data_t* data = shader_get_data(shader);
+    if(!data) {
+        LOG_ERR_CODE(ERR_GFX_BAD_ID);
+        return 0;
+    }
+
+    return data->uniform_block.bytes;
+}
+
 void shader_update_uniforms(shader_t shader, range_t data) {
     backend->shader_update_uniforms(shader, data);
 }
@@ -1189,6 +1199,7 @@ static void gl_shader_init(shader_t shader, shader_info_t info) {
         if(shader_uniform->glid == (u32)-1) LOG_ERR("couldnt find uniform [%s] in shader [%s]\n", uniform_info.name, info.pretty_name);
         shader_uniform->name = uniform_info.name;
         shader_uniform->type = uniform_info.type;
+        shader_data->uniform_block.bytes += uniform_type_get_bytes(uniform_info.type);
     }
 
     glDetachShader(glshader->program, vs_id);

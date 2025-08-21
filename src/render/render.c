@@ -1,10 +1,27 @@
 #include "render.h"
+#include "memory/memory.h"
 #include "platform/platform.h"
 #include "util/util.h"
 #include "util/math_util.h"
 #include "errors/errors.h"
 
 render_ctx_t render_ctx;
+
+static void renderer_construct_uniforms(void* out, draw_call_t* call) {
+    draw_pass_cache_t cache = render_ctx.active_pass.cache;
+
+    struct {
+        mat4 projViewModel;
+        vec4 col;
+    } uniforms;
+
+    mat4s modelViewProj = glms_mat4_mul(cache.projView, model_matrix_new(call->position, call->rotation, call->scale));
+    glm_mat4_copy(modelViewProj.raw, uniforms.projViewModel);
+
+    memcpy(uniforms.col, call->colour.raw, sizeof(vec4));
+
+    memcpy(out, &uniforms, sizeof(uniforms));
+}
 
 void render_init() {
     // leak ALL the memory
@@ -55,6 +72,7 @@ void render_init() {
             },
         },
         .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+        .construct_uniforms = renderer_construct_uniforms,
     };
 
     f32 vertices[] = {
@@ -89,8 +107,8 @@ void render_init() {
 
     render_ctx = (render_ctx_t) {
         .unit_square = mesh,
-        .renderer = renderer,
         .active_pass = {0},
+        .renderer = renderer,
     };
 }
 
@@ -130,46 +148,46 @@ static mat4s pass_get_proj_view(draw_pass_t pass) {
     return projView;
 }
 
+static void pass_update_cache() {
+    render_ctx.active_pass.cache = (draw_pass_cache_t) {
+        .projView = pass_get_proj_view(render_ctx.active_pass),
+    };
+}
+
 void render_push_draw_call(draw_call_t call) {
     vector_push_data(&render_ctx.renderer.batch, &call);
 }
 
-static void render_flush() {
-    vector_clear(&render_ctx.renderer.batch);
-}
-
-void render_dispatch() {
-    render_activate_pass(render_ctx.renderer.pass);
-
+static void render_batch(renderer_t* renderer) {
     draw_pass_t pass = render_ctx.active_pass;
-    mat4s projView = pass_get_proj_view(pass);
 
-    for(u32 i = 0; i < render_ctx.renderer.batch.size; i ++) {
-        draw_call_t* call = vector_get(&render_ctx.renderer.batch, i);
+    range_t uniforms = range_alloc(shader_get_uniforms_size(pass.pipeline.shader));
+
+    for(u32 i = 0; i < renderer->batch.size; i ++) {
+        draw_call_t* call = vector_get(&renderer->batch, i);
         if(!call) {
             LOG_ERR_CODE(ERR_RENDER_BAD_CALL);
             UNREACHABLE; // bit harsh but just to make sure in dev
         }
 
-        struct {
-            mat4 projViewModel;
-            vec4 col;
-        } uniforms;
-
         gfx_supply_bindings((render_bindings_t) {
             .mesh = render_ctx.unit_square,
         });
 
-        mat4s modelViewProj = glms_mat4_mul(projView, model_matrix_new(call->position, call->rotation, call->scale));
-        glm_mat4_copy(modelViewProj.raw, uniforms.projViewModel);
+        renderer->construct_uniforms(uniforms.ptr, call);
 
-        memcpy(uniforms.col, call->colour.raw, sizeof(vec4));
-
-        shader_update_uniforms(pass.pipeline.shader, range_new(&uniforms, sizeof(uniforms)));
+        shader_update_uniforms(pass.pipeline.shader, uniforms);
         gfx_draw();
+
+        mem_clear(uniforms.ptr, uniforms.size);
     }
 
     render_clear_active_pass();
+}
 
-    render_flush();
+void render_dispatch() {
+    render_activate_pass(render_ctx.renderer.pass);
+    pass_update_cache();
+    render_batch(&render_ctx.renderer);
+    vector_clear(&render_ctx.renderer.batch);
 }

@@ -367,6 +367,7 @@ typedef struct uniform_t {
 
 typedef struct uniform_block_t {
     u32 num;
+    u32 bytes; // size of the corresponding uniform struct in bytes
     uniform_t uniforms[GFX_MAX_UNIFORMS];
 } uniform_block_t;
 
@@ -410,6 +411,7 @@ shader_t shader_new(shader_info_t info);
 
 shader_data_t* shader_get_data(shader_t shader);
 
+u32 shader_get_uniforms_size(shader_t shader);
 // updates the shader's uniforms with the given data
 // all uniforms must be updated at once
 // data struct should be identical to uniform struct in shader
