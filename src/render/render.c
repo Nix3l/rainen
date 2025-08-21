@@ -154,12 +154,16 @@ static void pass_update_cache() {
     };
 }
 
-void render_push_draw_call(draw_call_t call) {
-    vector_push_data(&render_ctx.renderer.batch, &call);
+void render_push_draw_call(renderer_t* renderer, draw_call_t call) {
+    vector_push_data(&renderer->batch, &call);
 }
 
 static void render_batch(renderer_t* renderer) {
     draw_pass_t pass = render_ctx.active_pass;
+    if(pass.type == DRAW_PASS_INVALID) {
+        LOG_ERR_CODE(ERR_RENDER_NO_ACTIVE_PASS);
+        return;
+    }
 
     range_t uniforms = range_alloc(shader_get_uniforms_size(pass.pipeline.shader));
 
@@ -181,13 +185,12 @@ static void render_batch(renderer_t* renderer) {
 
         mem_clear(uniforms.ptr, uniforms.size);
     }
-
-    render_clear_active_pass();
 }
 
-void render_dispatch() {
-    render_activate_pass(render_ctx.renderer.pass);
+void render_dispatch(renderer_t* renderer) {
+    render_activate_pass(renderer->pass);
     pass_update_cache();
-    render_batch(&render_ctx.renderer);
-    vector_clear(&render_ctx.renderer.batch);
+    render_batch(renderer);
+    vector_clear(&renderer->batch);
+    render_clear_active_pass();
 }

@@ -14,6 +14,5 @@ pkgs.clangStdenv.mkDerivation {
         cglm
         assimp
         imgui
-        renderdoc
     ];
 }

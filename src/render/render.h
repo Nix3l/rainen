@@ -72,7 +72,7 @@ typedef struct draw_call_t {
     v3f rotation;
     v3f scale;
     v4f colour;
-    sampler_slot_t samplers;
+    sampler_slot_t sampler;
 } draw_call_t;
 
 // RENDERER
@@ -83,8 +83,8 @@ typedef struct renderer_t {
     void (*construct_uniforms) (void* out, draw_call_t* call);
 } renderer_t;
 
-void render_push_draw_call(draw_call_t call);
-void render_dispatch();
+void render_push_draw_call(renderer_t* renderer, draw_call_t call);
+void render_dispatch(renderer_t* renderer);
 
 // CONTEXT
 typedef struct render_ctx_t {

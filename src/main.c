@@ -45,7 +45,7 @@ int main(void) {
     entity_new((entity_info_t) {
         .tags = ENT_TAGS_RENDER,
         .material = {
-            .colour = v4f_new(0.82f, 0.1f, 0.05f, 1.0f),
+            .colour = v4f_new(0.82f, 1.0f, 0.05f, 1.0f),
         },
         .transform = {
             .size = v2f_new(200, 200),
@@ -60,10 +60,14 @@ int main(void) {
 
         igShowDemoWindow(NULL);
 
-        if(!editor_is_open()) game_update();
-        else editor_update();
+        if(!editor_is_open()) {
+            game_update();
+            render_dispatch(&render_ctx.renderer);
+        } else {
+            editor_update();
+            editor_render();
+        }
 
-        render_dispatch();
         imgui_show();
         window_swap_buffers();
     }

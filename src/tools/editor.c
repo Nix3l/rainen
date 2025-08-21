@@ -2,7 +2,10 @@
 #include "imgui/imgui_manager.h"
 #include "io/io.h"
 #include "memory/memory.h"
+#include "platform/platform.h"
+#include "render/render.h"
 #include "util/util.h"
+#include "util/math_util.h"
 #include "gfx/gfx.h"
 
 // temporary because my cmp keeps auto including this stupid file and its causing errors
@@ -11,10 +14,85 @@
 
 editor_ctx_t editor_ctx = {0};
 
+static void construct_uniforms(void* out, draw_call_t* call) {
+    draw_pass_cache_t cache = render_ctx.active_pass.cache;
+
+    struct {
+        mat4 projViewModel;
+        vec4 col;
+        i32 tex;
+        i32 use_tex;
+    } uniforms;
+
+    mat4s modelViewProj = glms_mat4_mul(cache.projView, model_matrix_new(call->position, call->rotation, call->scale));
+    glm_mat4_copy(modelViewProj.raw, uniforms.projViewModel);
+
+    memcpy(uniforms.col, call->colour.raw, sizeof(vec4));
+    uniforms.tex = 0;
+    uniforms.use_tex = call->sampler.texture.id != GFX_INVALID_ID ? 1 : 0;
+
+    memcpy(out, &uniforms, sizeof(uniforms));
+}
+
 // STATE
 void editor_init() {
+    // leak ALL the memory
+    arena_t shader_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
+    range_t vertex_src = platform_load_file(&shader_code_arena, "shader/editor.vs");
+    range_t fragment_src = platform_load_file(&shader_code_arena, "shader/editor.fs");
+    shader_t shader = shader_new((shader_info_t) {
+        .name = "ed",
+        .pretty_name = "editor shader",
+        .attribs = {
+            { .name = "vs_position" },
+            { .name = "vs_uvs" },
+        },
+        .uniforms = {
+            { .name = "projViewModel", .type = UNIFORM_TYPE_mat4, },
+            { .name = "col", .type = UNIFORM_TYPE_v4f, },
+            { .name = "tex", .type = UNIFORM_TYPE_i32, },
+            { .name = "use_tex", .type = UNIFORM_TYPE_i32, },
+        },
+        .vertex_src = vertex_src,
+        .fragment_src = fragment_src,
+    });
+
+    renderer_t renderer = {
+        .label = "editor renderer",
+        .pass = {
+            .label = "pass1",
+            .type = DRAW_PASS_RENDER,
+            .pipeline = {
+                .clear = {
+                    .depth = true,
+                    .colour = true,
+                    .clear_col = v4f_new(0.0f, 0.0f, 0.0f, 1.0f),
+                },
+                .cull = { .enable = true, },
+                .depth = { .enable = true, },
+                .shader = shader,
+            },
+            .state = {
+                .anchor = { .enable = true, .position = v3f_new(0.0f, 0.0f, 100.0f), },
+                .projection = {
+                    .type = PROJECTION_ORTHO,
+                    .fov = RADIANS(80.0f),
+                    .aspect_ratio = 16.0f/9.0f,
+                    .w = 1600.0f,
+                    .h = 900.0f,
+                    .near = 0.001f,
+                    .far = 1000.0f,
+                },
+            },
+        },
+        .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+        .construct_uniforms = construct_uniforms,
+    };
+
     editor_ctx = (editor_ctx_t) {
         .open = true,
+
+        .renderer = renderer,
 
         .editor = {
             .open = true,
@@ -45,7 +123,7 @@ bool editor_is_open() {
 }
 
 // EDITOR UI
-static void editor_main() {
+static void editor_window_main() {
     if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
         igEnd();
         return;
@@ -54,7 +132,7 @@ static void editor_main() {
     igEnd();
 }
 
-static void editor_resviewer() {
+static void editor_window_resviewer() {
     if(!igBegin("resviewer", &editor_ctx.resviewer.open, ImGuiWindowFlags_None)) {
         igEnd();
         return;
@@ -152,6 +230,14 @@ static void editor_resviewer() {
 }
 
 void editor_update() {
-    editor_main();
-    editor_resviewer();
+    render_push_draw_call(&editor_ctx.renderer, (draw_call_t) {
+        .scale = v3f_new(200.0f, 200.0f, 1.0f),
+        .colour = v4f_new(0.73f, 0.1f, 0.35f, 1.0f),
+    });
+    editor_window_main();
+    editor_window_resviewer();
+}
+
+void editor_render() {
+    render_dispatch(&editor_ctx.renderer);
 }
