@@ -84,12 +84,18 @@ static void editor_resviewer() {
         igBeginChild_Str("textureviewer", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
 
         if(editor_ctx.resviewer.selected_texture > 0) {
+            ImVec2 region;
+            igGetContentRegionAvail(&region);
+
             texture_data_t* texture_data = texture_get_data(editor_ctx.resviewer.texture);
-            imgui_texture_image(editor_ctx.resviewer.texture, v2f_new(256.0f, 256.0f));
+            f32 aspect_ratio = (f32) texture_data->height/ (f32) texture_data->width;
+            f32 w = texture_data->width > region.x ? region.x : texture_data->width;
+            f32 h = w * aspect_ratio;
+            imgui_texture_image(editor_ctx.resviewer.texture, v2f_new(w, h));
             igText("width [%u] height [%u]", texture_data->width, texture_data->height);
 
             // lol
-            const char* format_names[] = {
+            static const char* format_names[] = {
                 STRINGIFY(TEXTURE_FORMAT_UNDEFINED),
                 STRINGIFY(TEXTURE_FORMAT_R8),
                 STRINGIFY(TEXTURE_FORMAT_R8I),
