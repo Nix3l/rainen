@@ -44,6 +44,5 @@ void game_terminate() {
 
 void game_update() {
     entity_update();
-    camera_update();
-    camera_attach();
+    camera_attach(&game_ctx.camera, &render_ctx.renderer.pass);
 }

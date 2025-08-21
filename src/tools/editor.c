@@ -1,4 +1,7 @@
 #include "editor.h"
+#include "base_macros.h"
+#include "base_types.h"
+#include "game/camera.h"
 #include "imgui/imgui_manager.h"
 #include "io/io.h"
 #include "memory/memory.h"
@@ -89,9 +92,19 @@ void editor_init() {
         .construct_uniforms = construct_uniforms,
     };
 
+    camera_t cam = (camera_t) {
+        .transform = {
+            .z = 100,
+        },
+        .near = 0.01f,
+        .far = 200.0f,
+        .pixel_scale = 1.0f,
+    };
+
     editor_ctx = (editor_ctx_t) {
         .open = true,
 
+        .cam = cam,
         .renderer = renderer,
 
         .editor = {
@@ -122,11 +135,36 @@ bool editor_is_open() {
     return editor_ctx.open;
 }
 
-// EDITOR UI
+// CAMERA
+static void editor_camera_update() {
+    camera_t* cam = &editor_ctx.cam;
+
+    f32 scroll = input_get_scroll();
+    cam->pixel_scale -= scroll * 0.066f;
+
+    v2f move = input_mouse_move_absolute();
+    if(input_button_down(BUTTON_LEFT)) {
+        cam->transform.position.x -= move.x;
+        cam->transform.position.y += move.y;
+    }
+}
+
+// EDITOR WINDOWS
 static void editor_window_main() {
     if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
         igEnd();
         return;
+    }
+
+    if(igCollapsingHeader_BoolPtr("camera", NULL, ImGuiTreeNodeFlags_None)) {
+        if(igSmallButton("RESET CAMERA")) {
+            editor_ctx.cam.transform.position = v2f_ZERO;
+            editor_ctx.cam.transform.rotation = 0.0f;
+            editor_ctx.cam.pixel_scale = 1.0f;
+        }
+
+        igDragFloat2("position", editor_ctx.cam.transform.position.raw, 0.1f, -MAX_f32, MAX_f32, "%.2f", ImGuiSliderFlags_None);
+        igDragFloat("zoom", &editor_ctx.cam.pixel_scale, 0.1f, 0.1f, 200.0f, "%.1f", ImGuiSliderFlags_None);
     }
 
     igEnd();
@@ -166,7 +204,7 @@ static void editor_window_resviewer() {
             igGetContentRegionAvail(&region);
 
             texture_data_t* texture_data = texture_get_data(editor_ctx.resviewer.texture);
-            f32 aspect_ratio = (f32) texture_data->height/ (f32) texture_data->width;
+            f32 aspect_ratio = (f32) texture_data->height / (f32) texture_data->width;
             f32 w = texture_data->width > region.x ? region.x : texture_data->width;
             f32 h = w * aspect_ratio;
             imgui_texture_image(editor_ctx.resviewer.texture, v2f_new(w, h));
@@ -234,10 +272,14 @@ void editor_update() {
         .scale = v3f_new(200.0f, 200.0f, 1.0f),
         .colour = v4f_new(0.73f, 0.1f, 0.35f, 1.0f),
     });
+
     editor_window_main();
     editor_window_resviewer();
+
+    editor_camera_update();
 }
 
 void editor_render() {
+    camera_attach(&editor_ctx.cam, &editor_ctx.renderer.pass);
     render_dispatch(&editor_ctx.renderer);
 }

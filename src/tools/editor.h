@@ -4,6 +4,7 @@
 #include "base.h"
 #include "gfx/gfx.h"
 #include "render/render.h"
+#include "game/camera.h"
 
 // TODOs:
 //  => allow multiple cameras, so one can be used in the editor and one outside it
@@ -12,6 +13,7 @@
 typedef struct editor_ctx_t {
     bool open;
 
+    camera_t cam;
     renderer_t renderer;
 
     struct {
