@@ -139,18 +139,40 @@ bool editor_is_open() {
 static void editor_camera_update() {
     camera_t* cam = &editor_ctx.cam;
 
-    f32 scroll = input_get_scroll();
-    cam->pixel_scale -= scroll * 0.066f;
+    if(!editor_ctx.windows_focused) {
+        f32 scroll = input_get_scroll();
+        cam->pixel_scale -= scroll * 0.066f;
 
-    v2f move = input_mouse_move_absolute();
-    if(input_button_down(BUTTON_LEFT)) {
-        cam->transform.position.x -= move.x;
-        cam->transform.position.y += move.y;
+        v2f move = input_mouse_move_absolute();
+        if(input_button_down(BUTTON_LEFT)) {
+            cam->transform.position.x -= move.x * cam->pixel_scale;
+            cam->transform.position.y += move.y * cam->pixel_scale;
+        }
     }
 }
 
 // EDITOR WINDOWS
+static void editor_topbar() {
+    if(igBeginMainMenuBar()) {
+        if(igBeginMenu("editor", true)) {
+            if(igMenuItem_Bool("quit", "F12", false, true))
+                editor_ctx.open = false;
+
+            igEndMenu();
+        }
+
+        if(igBeginMenu("windows", true)) {
+            igMenuItem_BoolPtr("main", NULL, &editor_ctx.editor.open, true);
+            igMenuItem_BoolPtr("resource viewer", NULL, &editor_ctx.resviewer.open, true);
+            igEndMenu();
+        }
+
+        igEndMainMenuBar();
+    }
+}
+
 static void editor_window_main() {
+    if(!editor_ctx.editor.open) return;
     if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
         igEnd();
         return;
@@ -171,6 +193,7 @@ static void editor_window_main() {
 }
 
 static void editor_window_resviewer() {
+    if(!editor_ctx.resviewer.open) return;
     if(!igBegin("resviewer", &editor_ctx.resviewer.open, ImGuiWindowFlags_None)) {
         igEnd();
         return;
@@ -271,10 +294,15 @@ void editor_update() {
     render_push_draw_call(&editor_ctx.renderer, (draw_call_t) {
         .scale = v3f_new(200.0f, 200.0f, 1.0f),
         .colour = v4f_new(0.73f, 0.1f, 0.35f, 1.0f),
+        .sampler = { .texture = editor_ctx.resviewer.texture, },
     });
 
+    editor_topbar();
     editor_window_main();
     editor_window_resviewer();
+
+    struct ImGuiIO* io = igGetIO_Nil();
+    editor_ctx.windows_focused = io->WantCaptureMouse || io->WantCaptureKeyboard;
 
     editor_camera_update();
 }

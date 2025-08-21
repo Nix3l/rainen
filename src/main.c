@@ -58,7 +58,7 @@ int main(void) {
 
         if(input_key_pressed(KEY_F12)) editor_toggle();
 
-        igShowDemoWindow(NULL);
+        // igShowDemoWindow(NULL);
 
         if(!editor_is_open()) {
             game_update();

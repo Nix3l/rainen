@@ -13,6 +13,8 @@
 typedef struct editor_ctx_t {
     bool open;
 
+    bool windows_focused;
+
     camera_t cam;
     renderer_t renderer;
 

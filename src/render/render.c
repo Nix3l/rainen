@@ -83,10 +83,10 @@ void render_init() {
     };
 
     f32 uvs[] = {
-        0.0f, 0.0f,
-        1.0f, 0.0f,
         0.0f, 1.0f,
         1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
     };
 
     u32 indices[] = {
@@ -176,6 +176,9 @@ static void render_batch(renderer_t* renderer) {
 
         gfx_supply_bindings((render_bindings_t) {
             .mesh = render_ctx.unit_square,
+            .texture_samplers = {
+                [0] = call->sampler,
+            },
         });
 
         renderer->construct_uniforms(uniforms.ptr, call);
