@@ -479,7 +479,7 @@ bool pool_iter(pool_t* pool, pool_iter_t* iter) {
     if(!pool || !iter) return false;
     if(pool->num_in_use == 0) return false;
 
-    if(iter->absolute_index >= pool->last_used_element) {
+    if(iter->absolute_index > pool->last_used_element) {
         iter->data = NULL;
         return false;
     }
@@ -489,7 +489,7 @@ bool pool_iter(pool_t* pool, pool_iter_t* iter) {
     if(iter->absolute_index < pool->first_used_element || iter->absolute_index == 0) {
         elem = pool->elements[pool->first_used_element];
         iter->absolute_index = pool->first_used_element;
-    } else {
+    } else if(iter->iteration > 0) {
         for(u32 i = iter->absolute_index + 1; i <= pool->last_used_element; i ++) {
             elem = pool->elements[i];
             if(elem.state == POOL_ELEMENT_IN_USE) {
@@ -500,6 +500,8 @@ bool pool_iter(pool_t* pool, pool_iter_t* iter) {
         }
 
         if(!found_elem) return false;
+    } else {
+        elem = pool->elements[iter->absolute_index];
     }
 
     iter->iteration ++;

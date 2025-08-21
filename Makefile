@@ -17,7 +17,7 @@ LDFLAGS := -lglfw -lassimp -lcglm -lm -Llib -Llib/so -Wl,-rpath,lib/so -lcimgui
 
 DEBUG_FLAGS := -g
 
-all: run clean
+all: run
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	$(CC) $(LDFLAGS) $(OBJS) -o $@

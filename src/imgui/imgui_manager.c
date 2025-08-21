@@ -17,6 +17,8 @@ static struct {
 } state;
 
 void imgui_init() {
+    ASSERT(gfx_backend() == GFX_BACKEND_GL);
+
     state.ctx = igCreateContext(NULL);
     state.io = igGetIO_Nil();
     state.io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -44,4 +46,11 @@ void imgui_start_frame() {
 void imgui_show() {
     igRender();
     ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData());
+}
+
+void imgui_texture_image(texture_t tex, v2f size) {
+    if(tex.id == 0) return;
+    gfx_res_slot_t* slot = pool_get(&gfx_ctx.texture_pool->res_pool, tex.id);
+    struct { u32 id; } *internal = pool_get(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
+    igImage((ImTextureRef) { ._TexData = NULL, ._TexID = internal->id, }, imv2f(size.x, size.y), imv2f(0.0f, 0.0f), imv2f(1.0f, 1.0f));
 }

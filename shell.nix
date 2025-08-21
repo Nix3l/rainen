@@ -4,17 +4,16 @@ pkgs.clangStdenv.mkDerivation {
     src = null;
     nativeBuildInputs = with pkgs; [
         clang-tools
+        gdb
     ];
 
-    # any libraries used go here
-    # so their headers can be recognized by the lsp
     buildInputs = with pkgs; [
-        direnv
         libGL
-        glfw-wayland
+        # glfw-wayland
+        glfw
         cglm
         assimp
-        gdb
         imgui
+        renderdoc
     ];
 }

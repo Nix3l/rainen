@@ -1,7 +1,5 @@
 #include "io.h"
 
-#include "GLFW/glfw3.h"
-#include "base_macros.h"
 #include "util/util.h"
 #include "gfx/gfx.h"
 

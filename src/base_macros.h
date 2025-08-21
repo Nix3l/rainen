@@ -18,6 +18,8 @@
 
 #define UNREACHABLE do { fprintf(stderr, "ERR (%s:[%s]:%u) unreachable branch\n", __FILE__, __PRETTY_FUNCTION__, __LINE__); exit(1); } while(0);
 
+#define STRINGIFY(_m) (#_m)
+
 #define ARRAY_SIZE(_arr) (sizeof((_arr))/(sizeof(*(_arr))))
 
 #define KILOBYTES(_x) (1024*(_x))

@@ -12,6 +12,7 @@
 #include "render/render.h"
 #include "game/game.h"
 #include "imgui/imgui_manager.h"
+#include "tools/editor.h"
 
 int main(void) {
     gfx_init(GFX_BACKEND_GL);
@@ -21,11 +22,12 @@ int main(void) {
     imgui_init();
     render_init();
     game_init();
+    editor_init();
 
     gfx_viewport(0, 0, 1600, 900);
 
     i32 x, y;
-    void* image_data = stbi_load("res/test.png", &x, &y, NULL, 3);
+    void* image_data = stbi_load("res/kingterry.jpg", &x, &y, NULL, 3);
 
     texture_t texture = texture_new((texture_info_t) {
         .width = x,
@@ -39,47 +41,23 @@ int main(void) {
         .filter = TEXTURE_FILTER_NEAREST,
     });
 
-    for(u32 i = 0; i < 500; i ++) {
-        entity_new((entity_info_t) {
-            .tags = ENT_TAGS_RENDER,
-            .material = {
-                .colour = v4f_new(0.1f, 0.8f, 0.5f, 1.0f),
-            },
-            .transform = {
-                .position = v2f_new(-2.0f, 1.0f),
-                .rotation = 120.0f,
-                .size = v2f_new(500.0f, 700.0f),
-                .z = 0,
-            },
-        });
-    }
-
-    entity_t ent = entity_new((entity_info_t) {
-        .tags = ENT_TAGS_RENDER,
-        .material = {
-            .colour = v4f_new(0.8f, 0.3f, 0.5f, 1.0f),
-        },
-        .transform = {
-            .position = v2f_new(0.0f, 0.0f),
-            .size = v2f_new(500.0f, 500.0f),
-            .z = 0,
-        },
-    });
-
     while(!window_closing()) {
         input_start_frame();
         imgui_start_frame();
 
-        if(input_key_pressed(KEY_P)) entity_mark_dirty(ent);
+        if(input_key_pressed(KEY_F12)) editor_toggle();
 
         igShowDemoWindow(NULL);
 
-        game_update();
+        if(!editor_is_open()) game_update();
+        else editor_update();
+
         render_dispatch();
         imgui_show();
         window_swap_buffers();
     }
 
+    editor_terminate();
     game_terminate();
     imgui_terminate();
     render_terminate();
