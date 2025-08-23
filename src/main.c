@@ -1,4 +1,4 @@
-#include "game/entity.h"
+#include "base_macros.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -25,8 +25,6 @@ int main(void) {
     game_init();
     editor_init();
 
-    gfx_viewport(0, 0, 1600, 900);
-
     i32 x, y;
     void* image_data = stbi_load("res/kingterry.jpg", &x, &y, NULL, 3);
 
@@ -35,6 +33,7 @@ int main(void) {
         .height = y,
         .format = TEXTURE_FORMAT_RGB8,
         .data = range_new(image_data, 0),
+        // .filter = TEXTURE_FILTER_LINEAR,
     });
 
     sampler_t sampler = sampler_new((sampler_info_t) {
@@ -58,7 +57,7 @@ int main(void) {
 
         if(input_key_pressed(KEY_F12)) editor_toggle();
 
-        // igShowDemoWindow(NULL);
+        igShowDemoWindow(NULL);
 
         if(!editor_is_open()) {
             game_update();

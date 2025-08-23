@@ -6,6 +6,7 @@
 
 enum {
     RENDER_MAX_CALLS = 4096,
+    RENDER_MAX_GROUPS = 8,
 };
 
 // DRAW PARAMETERS
@@ -61,9 +62,6 @@ typedef struct draw_pass_t {
     draw_pass_cache_t cache;
 } draw_pass_t;
 
-void render_activate_pass(draw_pass_t pass);
-void render_clear_active_pass();
-
 // the omega draw call struct
 // put ALL the things in here (dont be shy)
 // until memory becomes an issue everything goes in here
@@ -75,22 +73,30 @@ typedef struct draw_call_t {
     sampler_slot_t sampler;
 } draw_call_t;
 
-// RENDERER
-typedef struct renderer_t {
-    const char* label;
+typedef struct draw_group_t {
     vector_t batch;
     draw_pass_t pass;
     void (*construct_uniforms) (void* out, draw_call_t* call);
+} draw_group_t;
+
+void render_activate_group(draw_group_t group);
+void render_clear_active_group();
+void render_push_draw_call(draw_group_t* group, draw_call_t call);
+
+// RENDERER
+typedef struct renderer_t {
+    const char* label;
+    u32 num_groups;
+    draw_group_t groups[RENDER_MAX_GROUPS];
 } renderer_t;
 
-void render_push_draw_call(renderer_t* renderer, draw_call_t call);
 void render_dispatch(renderer_t* renderer);
 
 // CONTEXT
 typedef struct render_ctx_t {
     mesh_t unit_square;
 
-    draw_pass_t active_pass;
+    draw_group_t active_group;
 
     renderer_t renderer;
 } render_ctx_t;

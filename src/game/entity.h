@@ -9,7 +9,7 @@
 typedef struct { handle_t id; } entity_t;
 
 typedef enum entity_tags_t {
-    ENT_TAGS_NONE = 0x00,
+    ENT_TAGS_NONE   = 0x00,
     ENT_TAGS_RENDER = 0x01,
 } entity_tags_t;
 

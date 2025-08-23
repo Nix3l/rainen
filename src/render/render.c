@@ -8,7 +8,7 @@
 render_ctx_t render_ctx;
 
 static void renderer_construct_uniforms(void* out, draw_call_t* call) {
-    draw_pass_cache_t cache = render_ctx.active_pass.cache;
+    draw_pass_cache_t cache = render_ctx.active_group.pass.cache;
 
     struct {
         mat4 projViewModel;
@@ -45,34 +45,39 @@ void render_init() {
 
     renderer_t renderer = {
         .label = "renderer",
-        .pass = {
-            .label = "pass",
-            .type = DRAW_PASS_RENDER,
-            .pipeline = {
-                .clear = {
-                    .depth = true,
-                    .colour = true,
-                    .clear_col = v4f_new(0.1f, 0.1f, 0.1f, 1.0f),
+        .num_groups = 1,
+        .groups = {
+            [0] = {
+                .pass = {
+                    .label = "pass",
+                    .type = DRAW_PASS_RENDER,
+                    .pipeline = {
+                        .clear = {
+                            .depth = true,
+                            .colour = true,
+                            .clear_col = v4f_new(0.1f, 0.1f, 0.1f, 1.0f),
+                        },
+                        .cull = { .enable = true, },
+                        .depth = { .enable = true, },
+                        .shader = shader,
+                    },
+                    .state = {
+                        .anchor = { .enable = true, .position = v3f_new(0.0f, 0.0f, 100.0f), },
+                        .projection = {
+                            .type = PROJECTION_ORTHO,
+                            .fov = RADIANS(80.0f),
+                            .aspect_ratio = 16.0f/9.0f,
+                            .w = 1600.0f,
+                            .h = 900.0f,
+                            .near = 0.001f,
+                            .far = 1000.0f,
+                        },
+                    },
                 },
-                .cull = { .enable = true, },
-                .depth = { .enable = true, },
-                .shader = shader,
-            },
-            .state = {
-                .anchor = { .enable = true, .position = v3f_new(0.0f, 0.0f, 100.0f), },
-                .projection = {
-                    .type = PROJECTION_ORTHO,
-                    .fov = RADIANS(80.0f),
-                    .aspect_ratio = 16.0f/9.0f,
-                    .w = 1600.0f,
-                    .h = 900.0f,
-                    .near = 0.001f,
-                    .far = 1000.0f,
-                },
-            },
-        },
-        .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
-        .construct_uniforms = renderer_construct_uniforms,
+                .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+                .construct_uniforms = renderer_construct_uniforms,
+            }
+        }
     };
 
     f32 vertices[] = {
@@ -107,28 +112,32 @@ void render_init() {
 
     render_ctx = (render_ctx_t) {
         .unit_square = mesh,
-        .active_pass = {0},
+        .active_group = {0},
         .renderer = renderer,
     };
 }
 
 void render_terminate() {
-    shader_destroy(render_ctx.renderer.pass.pipeline.shader);
+    shader_destroy(render_ctx.renderer.groups[0].pass.pipeline.shader);
 }
 
-void render_activate_pass(draw_pass_t pass) {
-    if(pass.type == DRAW_PASS_INVALID) {
+void render_activate_group(draw_group_t group) {
+    if(group.pass.type == DRAW_PASS_INVALID) {
         LOG_ERR_CODE(ERR_RENDER_BAD_PASS);
         return;
     }
 
-    render_ctx.active_pass = pass;
+    render_ctx.active_group = group;
 
-    gfx_activate_pipeline(pass.pipeline);
+    gfx_activate_pipeline(group.pass.pipeline);
 }
 
-void render_clear_active_pass() {
-    render_ctx.active_pass = (draw_pass_t) {0};
+void render_clear_active_group() {
+    render_ctx.active_group = (draw_group_t) {0};
+}
+
+void render_push_draw_call(draw_group_t* group, draw_call_t call) {
+    vector_push_data(&group->batch, &call);
 }
 
 static mat4s pass_get_proj_view(draw_pass_t pass) {
@@ -148,27 +157,29 @@ static mat4s pass_get_proj_view(draw_pass_t pass) {
     return projView;
 }
 
-static void pass_update_cache() {
-    render_ctx.active_pass.cache = (draw_pass_cache_t) {
-        .projView = pass_get_proj_view(render_ctx.active_pass),
+static void group_update_cache() {
+    if(render_ctx.active_group.pass.type == DRAW_PASS_INVALID) {
+        LOG_ERR_CODE(ERR_RENDER_NO_ACTIVE_GROUP);
+        return;
+    }
+
+    render_ctx.active_group.pass.cache = (draw_pass_cache_t) {
+        .projView = pass_get_proj_view(render_ctx.active_group.pass),
     };
 }
 
-void render_push_draw_call(renderer_t* renderer, draw_call_t call) {
-    vector_push_data(&renderer->batch, &call);
-}
-
-static void render_batch(renderer_t* renderer) {
-    draw_pass_t pass = render_ctx.active_pass;
+static void render_active_group() {
+    draw_group_t group = render_ctx.active_group;
+    draw_pass_t pass = group.pass;
     if(pass.type == DRAW_PASS_INVALID) {
-        LOG_ERR_CODE(ERR_RENDER_NO_ACTIVE_PASS);
+        LOG_ERR_CODE(ERR_RENDER_NO_ACTIVE_GROUP);
         return;
     }
 
     range_t uniforms = range_alloc(shader_get_uniforms_size(pass.pipeline.shader));
 
-    for(u32 i = 0; i < renderer->batch.size; i ++) {
-        draw_call_t* call = vector_get(&renderer->batch, i);
+    for(u32 i = 0; i < group.batch.size; i ++) {
+        draw_call_t* call = vector_get(&group.batch, i);
         if(!call) {
             LOG_ERR_CODE(ERR_RENDER_BAD_CALL);
             UNREACHABLE; // bit harsh but just to make sure in dev
@@ -181,19 +192,23 @@ static void render_batch(renderer_t* renderer) {
             },
         });
 
-        renderer->construct_uniforms(uniforms.ptr, call);
+        group.construct_uniforms(uniforms.ptr, call);
 
         shader_update_uniforms(pass.pipeline.shader, uniforms);
         gfx_draw();
 
         mem_clear(uniforms.ptr, uniforms.size);
     }
+
+    range_destroy(&uniforms);
 }
 
 void render_dispatch(renderer_t* renderer) {
-    render_activate_pass(renderer->pass);
-    pass_update_cache();
-    render_batch(renderer);
-    vector_clear(&renderer->batch);
-    render_clear_active_pass();
+    for(u32 i = 0; i < renderer->num_groups; i ++) {
+        render_activate_group(renderer->groups[i]);
+        group_update_cache();
+        render_active_group();
+        vector_clear(&renderer->groups[i].batch);
+        render_clear_active_group();
+    }
 }

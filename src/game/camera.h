@@ -9,7 +9,6 @@
 
 typedef struct camera_t {
     transform_t transform;
-
     f32 pixel_scale;
     f32 near, far;
 } camera_t;

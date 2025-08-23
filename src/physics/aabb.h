@@ -3,6 +3,8 @@
 
 #include "base.h"
 
+// TODO(nix3l): redo the intersection functions
+
 typedef struct aabb_t {
     v2f min;
     v2f max;

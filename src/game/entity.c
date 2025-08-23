@@ -94,7 +94,7 @@ static void entity_render_update(entity_t ent) {
     }
 
     render_push_draw_call(
-        &render_ctx.renderer,
+        &render_ctx.renderer.groups[0],
         (draw_call_t) {
             .position = v3f_new(data->transform.position.x, data->transform.position.y, data->transform.z),
             .rotation = v3f_new(0.0f, 0.0f, data->transform.rotation),
