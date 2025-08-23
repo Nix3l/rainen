@@ -1,7 +1,7 @@
 #include "editor.h"
 #include "base_macros.h"
-#include "base_types.h"
 #include "game/camera.h"
+#include "game/room.h"
 #include "imgui/imgui_manager.h"
 #include "io/io.h"
 #include "memory/memory.h"
@@ -17,10 +17,42 @@
 
 editor_ctx_t editor_ctx = {0};
 
-static void construct_uniforms(void* out, draw_call_t* call) {
-    draw_pass_cache_t cache = render_ctx.active_pass.cache;
+static void grid_construct_uniforms(void* out, draw_call_t* call) {
+    struct  __attribute__((packed)) {
+        f32 tw;
+        f32 th;
+        f32 scale;
+        f32 screen_width;
+        f32 screen_height;
+        vec2 cam_offset;
+        vec4 bg_col;
+        vec4 grid_col;
+    } uniforms;
 
-    struct {
+    uniforms.tw = TILE_WIDTH;
+    uniforms.th = TILE_HEIGHT;
+
+    uniforms.screen_width = io_ctx.window.width;
+    uniforms.screen_height = io_ctx.window.height;
+
+    uniforms.scale = editor_ctx.cam.pixel_scale;
+
+    v2f offset = editor_ctx.cam.transform.position;
+    memcpy(uniforms.cam_offset, offset.raw, sizeof(vec2));
+
+    v4f grid_col = v4f_new(0.01f, 0.08f, 0.05f, 0.0f);
+    v4f bg_col   = v4f_new(0.0f, 0.0f, 0.0f, 0.0f);
+
+    memcpy(uniforms.grid_col, grid_col.raw, sizeof(vec4));
+    memcpy(uniforms.bg_col, bg_col.raw, sizeof(vec4));
+
+    memcpy(out, &uniforms, sizeof(uniforms));
+}
+
+static void construct_uniforms(void* out, draw_call_t* call) {
+    draw_pass_cache_t cache = render_ctx.active_group.pass.cache;
+
+    struct  __attribute__((packed)){
         mat4 projViewModel;
         vec4 col;
         i32 tex;
@@ -41,8 +73,8 @@ static void construct_uniforms(void* out, draw_call_t* call) {
 void editor_init() {
     // leak ALL the memory
     arena_t shader_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
-    range_t vertex_src = platform_load_file(&shader_code_arena, "shader/editor.vs");
-    range_t fragment_src = platform_load_file(&shader_code_arena, "shader/editor.fs");
+    range_t vertex_src = platform_load_file(&shader_code_arena, "shader/editor/editor.vs");
+    range_t fragment_src = platform_load_file(&shader_code_arena, "shader/editor/editor.fs");
     shader_t shader = shader_new((shader_info_t) {
         .name = "ed",
         .pretty_name = "editor shader",
@@ -60,42 +92,79 @@ void editor_init() {
         .fragment_src = fragment_src,
     });
 
+    arena_t grid_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
+    range_t grid_vs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.vs");
+    range_t grid_fs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.fs");
+    shader_t grid_shader = shader_new((shader_info_t) {
+        .name = "ed",
+        .pretty_name = "grid shader",
+        .attribs = {
+            { .name = "vs_position" },
+            { .name = "vs_uvs" },
+        },
+        .uniforms = {
+            { .name = "tw", .type = UNIFORM_TYPE_f32, },
+            { .name = "th", .type = UNIFORM_TYPE_f32, },
+            { .name = "scale", .type = UNIFORM_TYPE_f32, },
+            { .name = "screen_width", .type = UNIFORM_TYPE_f32, },
+            { .name = "screen_height", .type = UNIFORM_TYPE_f32, },
+            { .name = "cam_offset", .type = UNIFORM_TYPE_v2f, },
+            { .name = "bg_col", .type = UNIFORM_TYPE_v4f, },
+            { .name = "grid_col", .type = UNIFORM_TYPE_v4f, },
+        },
+        .vertex_src = grid_vs,
+        .fragment_src = grid_fs,
+    });
+
     renderer_t renderer = {
         .label = "editor renderer",
-        .pass = {
-            .label = "pass1",
-            .type = DRAW_PASS_RENDER,
-            .pipeline = {
-                .clear = {
-                    .depth = true,
-                    .colour = true,
-                    .clear_col = v4f_new(0.0f, 0.0f, 0.0f, 1.0f),
+        .num_groups = 2,
+        .groups = {
+            // redo the whole grid thing like you wanted to at first
+            [0] = {
+                .pass = {
+                    .label = "grid pass",
+                    .type = DRAW_PASS_RENDER,
+                    .pipeline = {
+                        .clear = {
+                            .colour = true,
+                            .clear_col = v4f_new(0.0f, 0.0f, 0.0f, 1.0f),
+                        },
+                        .cull = { .enable = true, },
+                        .shader = grid_shader,
+                    },
+                    .state = {
+                        .projection = { .type = PROJECTION_ORTHO, },
+                    },
                 },
-                .cull = { .enable = true, },
-                .depth = { .enable = true, },
-                .shader = shader,
+                .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+                .construct_uniforms = grid_construct_uniforms,
             },
-            .state = {
-                .anchor = { .enable = true, .position = v3f_new(0.0f, 0.0f, 100.0f), },
-                .projection = {
-                    .type = PROJECTION_ORTHO,
-                    .fov = RADIANS(80.0f),
-                    .aspect_ratio = 16.0f/9.0f,
-                    .w = 1600.0f,
-                    .h = 900.0f,
-                    .near = 0.001f,
-                    .far = 1000.0f,
+            [1] = {
+                .pass = {
+                    .label = "pass1",
+                    .type = DRAW_PASS_RENDER,
+                    .pipeline = {
+                        .clear = {
+                            .depth = true,
+                        },
+                        .cull = { .enable = true, },
+                        .depth = { .enable = true, },
+                        .shader = shader,
+                    },
+                    .state = {
+                        .anchor = { .enable = true, },
+                        .projection = { .type = PROJECTION_ORTHO, },
+                    },
                 },
+                .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+                .construct_uniforms = construct_uniforms,
             },
-        },
-        .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
-        .construct_uniforms = construct_uniforms,
+        }
     };
 
     camera_t cam = (camera_t) {
-        .transform = {
-            .z = 100,
-        },
+        .transform = { .z = 100, },
         .near = 0.01f,
         .far = 200.0f,
         .pixel_scale = 1.0f,
@@ -105,6 +174,7 @@ void editor_init() {
         .open = true,
 
         .cam = cam,
+        .max_zoom = 1.1f,
         .renderer = renderer,
 
         .editor = {
@@ -112,7 +182,7 @@ void editor_init() {
         },
 
         .resviewer = {
-            .open = true,
+            .open = false,
             .selected_texture = 0,
             .texture = { 0 },
         },
@@ -135,6 +205,11 @@ bool editor_is_open() {
     return editor_ctx.open;
 }
 
+// GRID
+static void editor_show_grid() {
+    render_push_draw_call(&editor_ctx.renderer.groups[0], (draw_call_t) {});
+}
+
 // CAMERA
 static void editor_camera_update() {
     camera_t* cam = &editor_ctx.cam;
@@ -142,6 +217,8 @@ static void editor_camera_update() {
     if(!editor_ctx.windows_focused) {
         f32 scroll = input_get_scroll();
         cam->pixel_scale -= scroll * 0.066f;
+        cam->pixel_scale = MAX(cam->pixel_scale, 0.05f);
+        cam->pixel_scale = MIN(cam->pixel_scale, editor_ctx.max_zoom);
 
         v2f move = input_mouse_move_absolute();
         if(input_button_down(BUTTON_LEFT)) {
@@ -186,7 +263,7 @@ static void editor_window_main() {
         }
 
         igDragFloat2("position", editor_ctx.cam.transform.position.raw, 0.1f, -MAX_f32, MAX_f32, "%.2f", ImGuiSliderFlags_None);
-        igDragFloat("zoom", &editor_ctx.cam.pixel_scale, 0.1f, 0.1f, 200.0f, "%.1f", ImGuiSliderFlags_None);
+        igDragFloat("zoom", &editor_ctx.cam.pixel_scale, 0.1f, 0.1f, editor_ctx.max_zoom, "%.1f", ImGuiSliderFlags_None);
     }
 
     igEnd();
@@ -278,7 +355,22 @@ static void editor_window_resviewer() {
                 STRINGIFY(TEXTURE_FORMAT_DEPTH_STENCIL),
             };
 
+            static const char* filter_names[] = {
+                STRINGIFY(TEXTURE_FILTER_UNDEFINED),
+                STRINGIFY(TEXTURE_FILTER_NEAREST),
+                STRINGIFY(TEXTURE_FILTER_LINEAR),
+            };
+
+            static const char* wrap_names[] = {
+                STRINGIFY(TEXTURE_WRAP_UNDEFINED),
+                STRINGIFY(TEXTURE_WRAP_REPEAT),
+                STRINGIFY(TEXTURE_WRAP_MIRRORED_REPEAT),
+                STRINGIFY(TEXTURE_WRAP_CLAMP_TO_EDGE),
+            };
+
             igText("format [%s]", format_names[texture_data->format]);
+            igText("filter mode [%s]", filter_names[texture_data->filter]);
+            igText("wrap mode [%s]", wrap_names[texture_data->wrap]);
             igText("mipmaps [%u]", texture_data->mipmaps);
         } else {
             igText("no texture selected");
@@ -291,8 +383,9 @@ static void editor_window_resviewer() {
 }
 
 void editor_update() {
-    render_push_draw_call(&editor_ctx.renderer, (draw_call_t) {
-        .scale = v3f_new(200.0f, 200.0f, 1.0f),
+    render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
+        .position = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 0.0f),
+        .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
         .colour = v4f_new(0.73f, 0.1f, 0.35f, 1.0f),
         .sampler = { .texture = editor_ctx.resviewer.texture, },
     });
@@ -305,9 +398,12 @@ void editor_update() {
     editor_ctx.windows_focused = io->WantCaptureMouse || io->WantCaptureKeyboard;
 
     editor_camera_update();
+    editor_show_grid();
 }
 
 void editor_render() {
-    camera_attach(&editor_ctx.cam, &editor_ctx.renderer.pass);
+    camera_attach(&editor_ctx.cam, &editor_ctx.renderer.groups[0].pass);
+    camera_attach(&editor_ctx.cam, &editor_ctx.renderer.groups[1].pass);
+
     render_dispatch(&editor_ctx.renderer);
 }

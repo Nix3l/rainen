@@ -10,7 +10,7 @@ render_ctx_t render_ctx;
 static void renderer_construct_uniforms(void* out, draw_call_t* call) {
     draw_pass_cache_t cache = render_ctx.active_group.pass.cache;
 
-    struct {
+    struct  __attribute__((packed)) {
         mat4 projViewModel;
         vec4 col;
     } uniforms;
@@ -199,8 +199,6 @@ static void render_active_group() {
 
         mem_clear(uniforms.ptr, uniforms.size);
     }
-
-    range_destroy(&uniforms);
 }
 
 void render_dispatch(renderer_t* renderer) {

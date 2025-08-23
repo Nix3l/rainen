@@ -7,8 +7,7 @@
 #include "game/camera.h"
 
 // TODOs:
-//  => allow multiple cameras, so one can be used in the editor and one outside it
-//  => 
+//  => figure out the room_t architecture
 
 typedef struct editor_ctx_t {
     bool open;
@@ -16,6 +15,7 @@ typedef struct editor_ctx_t {
     bool windows_focused;
 
     camera_t cam;
+    f32 max_zoom;
     renderer_t renderer;
 
     struct {
