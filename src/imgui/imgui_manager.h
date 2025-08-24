@@ -21,5 +21,6 @@ void imgui_start_frame();
 void imgui_show();
 
 void imgui_texture_image(texture_t texture, v2f size);
+void imgui_texture_image_range(texture_t texture, v2f size, v2f uv0, v2f uv1);
 
 #endif

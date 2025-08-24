@@ -4,6 +4,8 @@
 #include "base.h"
 #include "gfx/gfx.h"
 
+// TODO(nix3l): move viewport to pipeline?
+
 enum {
     RENDER_MAX_CALLS = 4096,
     RENDER_MAX_GROUPS = 8,
@@ -32,7 +34,7 @@ typedef struct draw_anchor_t {
 
 typedef struct draw_viewport_t {
     bool enable;
-    u32 x, y, w, h;
+    viewport_t viewport;
 } draw_viewport_t;
 
 // DRAW PASS

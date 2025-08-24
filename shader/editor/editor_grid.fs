@@ -13,7 +13,9 @@ out vec4 out_col;
 
 void main(void) {
     vec2 off = cam_offset / scale;
-    vec2 grid = vec2(abs(gl_FragCoord.x + off.x - screen_width / 2.0), abs(gl_FragCoord.y + off.y - screen_height / 2.0));
+
+    vec2 screen_pos = gl_FragCoord.xy;
+    vec2 grid = vec2(abs(screen_pos.x + off.x - screen_width / 2.0), abs(screen_pos.y + off.y - screen_height / 2.0));
     grid.x = mod(grid.x, tw / scale);
     grid.y = mod(grid.y, th / scale);
 

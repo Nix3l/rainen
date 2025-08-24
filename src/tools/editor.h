@@ -5,6 +5,7 @@
 #include "gfx/gfx.h"
 #include "render/render.h"
 #include "game/camera.h"
+#include "game/room.h"
 
 // TODOs:
 //  => figure out the room_t architecture
@@ -12,11 +13,11 @@
 typedef struct editor_ctx_t {
     bool open;
 
-    bool windows_focused;
-
     camera_t cam;
     f32 max_zoom;
     renderer_t renderer;
+    texture_t render_texture;
+    bool view_focused;
 
     struct {
         bool open;
@@ -27,6 +28,8 @@ typedef struct editor_ctx_t {
         u32 selected_texture;
         texture_t texture;
     } resviewer;
+
+    room_t room;
 } editor_ctx_t;
 
 void editor_init();

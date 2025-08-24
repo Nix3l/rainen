@@ -1,4 +1,5 @@
 #include "editor.h"
+#include "base.h"
 #include "base_macros.h"
 #include "game/camera.h"
 #include "game/room.h"
@@ -40,13 +41,14 @@ static void grid_construct_uniforms(void* out, draw_call_t* call) {
     v2f offset = editor_ctx.cam.transform.position;
     memcpy(uniforms.cam_offset, offset.raw, sizeof(vec2));
 
-    v4f grid_col = v4f_new(0.01f, 0.08f, 0.05f, 0.0f);
-    v4f bg_col   = v4f_new(0.0f, 0.0f, 0.0f, 0.0f);
+    v4f grid_col = v4f_new(0.11f, 0.18f, 0.15f, 1.0f);
+    v4f bg_col   = v4f_new(0.05f, 0.05f, 0.05f, 1.0f);
 
     memcpy(uniforms.grid_col, grid_col.raw, sizeof(vec4));
     memcpy(uniforms.bg_col, bg_col.raw, sizeof(vec4));
 
     memcpy(out, &uniforms, sizeof(uniforms));
+    UNUSED(call);
 }
 
 static void construct_uniforms(void* out, draw_call_t* call) {
@@ -116,11 +118,31 @@ void editor_init() {
         .fragment_src = grid_fs,
     });
 
+    texture_t col_target = texture_new((texture_info_t) {
+        .type = TEXTURE_TYPE_2D,
+        .format = TEXTURE_FORMAT_RGBA8,
+        .width = io_ctx.window.width,
+        .height = io_ctx.window.height,
+    });
+
+    texture_t depth_target = texture_new((texture_info_t) {
+        .type = TEXTURE_TYPE_2D,
+        .format = TEXTURE_FORMAT_DEPTH,
+        .width = io_ctx.window.width,
+        .height = io_ctx.window.height,
+    });
+
+    attachments_t att = attachments_new((attachments_info_t) {
+        .colours = {
+            [0] = col_target,
+        },
+        .depth_stencil = depth_target,
+    });
+
     renderer_t renderer = {
         .label = "editor renderer",
         .num_groups = 2,
         .groups = {
-            // redo the whole grid thing like you wanted to at first
             [0] = {
                 .pass = {
                     .label = "grid pass",
@@ -131,25 +153,28 @@ void editor_init() {
                             .clear_col = v4f_new(0.0f, 0.0f, 0.0f, 1.0f),
                         },
                         .cull = { .enable = true, },
+                        .draw_attachments = att,
+                        .colour_targets = {
+                            [0] = { .enable = true, },
+                        },
                         .shader = grid_shader,
                     },
-                    .state = {
-                        .projection = { .type = PROJECTION_ORTHO, },
-                    },
                 },
-                .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+                .batch = vector_alloc_new(4, sizeof(draw_call_t)),
                 .construct_uniforms = grid_construct_uniforms,
             },
             [1] = {
                 .pass = {
-                    .label = "pass1",
+                    .label = "tile pass",
                     .type = DRAW_PASS_RENDER,
                     .pipeline = {
-                        .clear = {
-                            .depth = true,
-                        },
+                        .clear = { .depth = true, },
                         .cull = { .enable = true, },
                         .depth = { .enable = true, },
+                        .draw_attachments = att,
+                        .colour_targets = {
+                            [0] = { .enable = true, },
+                        },
                         .shader = shader,
                     },
                     .state = {
@@ -174,15 +199,16 @@ void editor_init() {
         .open = true,
 
         .cam = cam,
-        .max_zoom = 1.1f,
+        .max_zoom = 1.6f,
         .renderer = renderer,
+        .render_texture = col_target,
 
         .editor = {
             .open = true,
         },
 
         .resviewer = {
-            .open = false,
+            .open = true,
             .selected_texture = 0,
             .texture = { 0 },
         },
@@ -214,17 +240,17 @@ static void editor_show_grid() {
 static void editor_camera_update() {
     camera_t* cam = &editor_ctx.cam;
 
-    if(!editor_ctx.windows_focused) {
-        f32 scroll = input_get_scroll();
-        cam->pixel_scale -= scroll * 0.066f;
-        cam->pixel_scale = MAX(cam->pixel_scale, 0.05f);
-        cam->pixel_scale = MIN(cam->pixel_scale, editor_ctx.max_zoom);
+    if(!editor_ctx.view_focused) return;
 
-        v2f move = input_mouse_move_absolute();
-        if(input_button_down(BUTTON_LEFT)) {
-            cam->transform.position.x -= move.x * cam->pixel_scale;
-            cam->transform.position.y += move.y * cam->pixel_scale;
-        }
+    f32 scroll = input_get_scroll();
+    cam->pixel_scale -= scroll * 0.066f;
+    cam->pixel_scale = MAX(cam->pixel_scale, 0.05f);
+    cam->pixel_scale = MIN(cam->pixel_scale, editor_ctx.max_zoom);
+
+    v2f move = input_mouse_move_absolute();
+    if(input_button_down(BUTTON_LEFT)) {
+        cam->transform.position.x -= move.x * cam->pixel_scale;
+        cam->transform.position.y += move.y * cam->pixel_scale;
     }
 }
 
@@ -246,6 +272,57 @@ static void editor_topbar() {
 
         igEndMainMenuBar();
     }
+}
+
+static void editor_dockspace() {
+    ImGuiViewport* viewport = igGetMainViewport();
+    igDockSpaceOverViewport(0, viewport, ImGuiDockNodeFlags_None, NULL);
+}
+
+static void editor_window_view() {
+    const ImGuiWindowFlags flags = 
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoBackground |
+        ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_NoInputs |
+        ImGuiWindowFlags_NoNavFocus |
+        ImGuiWindowFlags_NoNavInputs |
+        ImGuiWindowFlags_NoMouseInputs;
+
+    igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, imv2f_ZERO);
+    if(!igBegin("view", NULL, flags)) {
+        igEnd();
+        igPopStyleVar(1);
+        return;
+    }
+
+    ImGuiViewport* viewport = igGetMainViewport();
+    f32 top_margin = viewport->Size.y - viewport->WorkSize.y;
+
+
+    ImVec2 pos, size;
+    igGetWindowPos(&pos);
+    igGetWindowSize(&size);
+
+    imgui_texture_image_range(
+        editor_ctx.render_texture,
+        v2f_new(size.x, size.y - top_margin),
+        v2f_new(pos.x / viewport->Size.x, pos.y / viewport->Size.y),
+        v2f_new((pos.x + size.x) / viewport->Size.x, (pos.y + size.y) / viewport->Size.y)
+    );
+
+    ImVec2 cursor;
+    igGetMousePos(&cursor);
+
+    // used to account for when resizing the other windows
+    const f32 safe_region = 8.0f;
+
+    editor_ctx.view_focused = true;
+    if(cursor.x < (pos.x + safe_region) || cursor.x > (pos.x + size.x - safe_region)) editor_ctx.view_focused = false;
+    if(cursor.y < (pos.y + safe_region) || cursor.y > (pos.y + size.y - safe_region)) editor_ctx.view_focused = false;
+
+    igEnd();
+    igPopStyleVar(1);
 }
 
 static void editor_window_main() {
@@ -387,23 +464,23 @@ void editor_update() {
         .position = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 0.0f),
         .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
         .colour = v4f_new(0.73f, 0.1f, 0.35f, 1.0f),
-        .sampler = { .texture = editor_ctx.resviewer.texture, },
     });
 
     editor_topbar();
+    editor_dockspace();
+    editor_window_view();
     editor_window_main();
     editor_window_resviewer();
 
-    struct ImGuiIO* io = igGetIO_Nil();
-    editor_ctx.windows_focused = io->WantCaptureMouse || io->WantCaptureKeyboard;
-
     editor_camera_update();
     editor_show_grid();
+
+    editor_render();
 }
 
 void editor_render() {
-    camera_attach(&editor_ctx.cam, &editor_ctx.renderer.groups[0].pass);
-    camera_attach(&editor_ctx.cam, &editor_ctx.renderer.groups[1].pass);
+    for(u32 i = 0; i < editor_ctx.renderer.num_groups; i ++)
+        camera_attach(&editor_ctx.cam, &editor_ctx.renderer.groups[i].pass);
 
     render_dispatch(&editor_ctx.renderer);
 }

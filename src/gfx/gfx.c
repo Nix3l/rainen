@@ -28,9 +28,10 @@ gfx_ctx_t gfx_ctx;
     BACKEND_FUNC_XMACRO(shader_destroy, shader_t shader) \
     BACKEND_FUNC_XMACRO(shader_update_uniforms, shader_t shader, range_t uniforms) \
     BACKEND_FUNC_XMACRO(activate_pipeline, render_pipeline_t pipeline) \
+    BACKEND_FUNC_XMACRO(clear_pipeline, void) \
     BACKEND_FUNC_XMACRO(activate_bindings, render_bindings_t bindings) \
     BACKEND_FUNC_XMACRO(draw, mesh_t mesh) \
-    BACKEND_FUNC_XMACRO(viewport, u32 x, u32 y, u32 w, u32 h) \
+    BACKEND_FUNC_XMACRO(viewport, viewport_t view) \
 
 #define BACKEND_FUNC_XMACRO(_name, ...) typedef void (*_name ## _func) (__VA_ARGS__);
 BACKEND_FUNCS_LIST;
@@ -749,6 +750,10 @@ void gfx_activate_pipeline(render_pipeline_t pip) {
     backend->activate_pipeline(gfx_ctx.active_pipeline);
 }
 
+void gfx_clear_active_pipeline() {
+    backend->clear_pipeline();
+}
+
 void gfx_supply_bindings(render_bindings_t bindings) {
     gfx_ctx.active_bindings = bindings;
     backend->activate_bindings(gfx_ctx.active_bindings);
@@ -758,8 +763,8 @@ void gfx_draw() {
     backend->draw(gfx_ctx.active_bindings.mesh);
 }
 
-void gfx_viewport(u32 x, u32 y, u32 w, u32 h) {
-    backend->viewport(x, y, w, h);
+void gfx_viewport(viewport_t view) {
+    backend->viewport(view);
 }
 
 // OPENGL-SPECIFIC
@@ -1358,6 +1363,15 @@ static void gl_activate_pipeline(render_pipeline_t pip) {
     glUseProgram(glshader->program);
 }
 
+static void gl_clear_pipeline(void) {
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDrawBuffer(GL_BACK);
+    glUseProgram(0);
+}
+
 static void gl_activate_bindings(render_bindings_t bindings) {
     mesh_data_t* mesh_data = mesh_get_data(bindings.mesh);
     gl_mesh_internal_t* glmesh = mesh_get_internal(bindings.mesh);
@@ -1392,6 +1406,6 @@ static void gl_draw(mesh_t mesh) {
     }
 }
 
-static void gl_viewport(u32 x, u32 y, u32 w, u32 h) {
-    glViewport(x, y, w, h);
+static void gl_viewport(viewport_t view) {
+    glViewport(view.x, view.y, view.w, view.h);
 }

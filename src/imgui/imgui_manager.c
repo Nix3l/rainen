@@ -23,6 +23,7 @@ void imgui_init() {
     state.io = igGetIO_Nil();
     state.io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     state.io->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    state.io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     static const char* glsl_version = "#version 330 core";
     ImGui_ImplGlfw_InitForOpenGL(io_ctx.window.gl_window.id, true);
@@ -48,9 +49,17 @@ void imgui_show() {
     ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData());
 }
 
+// uvs have to be flipped vertically to align with opengl coords
 void imgui_texture_image(texture_t tex, v2f size) {
     if(tex.id == 0) return;
     gfx_res_slot_t* slot = pool_get(&gfx_ctx.texture_pool->res_pool, tex.id);
     struct { u32 id; } *internal = pool_get(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
-    igImage((ImTextureRef) { ._TexData = NULL, ._TexID = internal->id, }, imv2f(size.x, size.y), imv2f(0.0f, 0.0f), imv2f(1.0f, 1.0f));
+    igImage((ImTextureRef) { ._TexData = NULL, ._TexID = internal->id, }, imv2f(size.x, size.y), imv2f(0.0f, 1.0f), imv2f(1.0f, 0.0f));
+}
+
+void imgui_texture_image_range(texture_t tex, v2f size, v2f uv0, v2f uv1) {
+    if(tex.id == 0) return;
+    gfx_res_slot_t* slot = pool_get(&gfx_ctx.texture_pool->res_pool, tex.id);
+    struct { u32 id; } *internal = pool_get(&gfx_ctx.texture_pool->internal_pool, slot->internal_handle);
+    igImage((ImTextureRef) { ._TexData = NULL, ._TexID = internal->id, }, imv2f(size.x, size.y), imv2f(uv0.x, uv1.y), imv2f(uv1.x, uv0.y));
 }

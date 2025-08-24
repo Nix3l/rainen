@@ -15,7 +15,8 @@
 #define GFX_INVALID_ID (0)
 
 // TODO(nix3l): actually use the mipmaps moron
-// TOOD(nix3l): add texture filters to texture_data_t
+// TODO(nix3l): backend state cache
+// TOOD(nix3l): err code logging
 // TODO(nix3l): more validation
 
 enum {
@@ -384,6 +385,7 @@ typedef struct shader_pass_t {
 } shader_pass_t;
 
 typedef struct shader_data_t {
+    // TODO(nix3l): remove these. no need.
     char name[8];
     char pretty_name[16];
     shader_pass_t vertex_pass;
@@ -502,11 +504,16 @@ typedef struct render_pipeline_t {
 } render_pipeline_t;
 
 void gfx_activate_pipeline(render_pipeline_t pipeline);
+void gfx_clear_active_pipeline();
 void gfx_supply_bindings(render_bindings_t bindings);
 void gfx_draw();
 
 // VIEWPORT
-void gfx_viewport(u32 x, u32 y, u32 w, u32 h);
+typedef struct viewport_t {
+    u32 x, y, w, h;
+} viewport_t;
+
+void gfx_viewport(viewport_t view);
 
 // CONTEXT
 typedef struct gfx_ctx_t {

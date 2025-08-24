@@ -1,4 +1,3 @@
-#include "base_macros.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -25,6 +24,7 @@ int main(void) {
     game_init();
     editor_init();
 
+    stbi_set_flip_vertically_on_load(true);
     i32 x, y;
     void* image_data = stbi_load("res/kingterry.jpg", &x, &y, NULL, 3);
 
@@ -64,7 +64,6 @@ int main(void) {
             render_dispatch(&render_ctx.renderer);
         } else {
             editor_update();
-            editor_render();
         }
 
         imgui_show();

@@ -1,4 +1,5 @@
 #include "render.h"
+#include "gfx/gfx.h"
 #include "memory/memory.h"
 #include "platform/platform.h"
 #include "util/util.h"
@@ -88,10 +89,10 @@ void render_init() {
     };
 
     f32 uvs[] = {
-        0.0f, 1.0f,
-        1.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 0.0f,
+        0.0f, 1.0f,
+        1.0f, 1.0f,
     };
 
     u32 indices[] = {
@@ -208,5 +209,6 @@ void render_dispatch(renderer_t* renderer) {
         render_active_group();
         vector_clear(&renderer->groups[i].batch);
         render_clear_active_group();
+        gfx_clear_active_pipeline();
     }
 }

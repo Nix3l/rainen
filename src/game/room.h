@@ -7,10 +7,10 @@
 #include "physics/aabb.h"
 
 enum {
-    TILE_WIDTH = 16,
-    TILE_HEIGHT = 16,
-    ROOM_MAX_WIDTH = 256,
-    ROOM_MAX_HEIGHT = 64,
+    TILE_WIDTH = 24,
+    TILE_HEIGHT = 24,
+    ROOM_WIDTH = 256,
+    ROOM_HEIGHT = 64,
 };
 
 typedef enum tile_tags_t {
@@ -26,11 +26,11 @@ typedef struct tile_t {
 } tile_t;
 
 typedef struct room_t {
-    arena_t data;
+    tile_t tiles[ROOM_WIDTH][ROOM_HEIGHT];
     aabb_t volume;
 } room_t;
 
-void room_get_tile(room_t room, u32 x, u32 y);
-void room_set_tile(room_t room, tile_t tile);
+tile_t room_get_tile(room_t* room, u32 x, u32 y);
+void room_set_tile(room_t* room, tile_t tile);
 
 #endif
