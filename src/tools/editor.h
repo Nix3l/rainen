@@ -27,6 +27,8 @@ typedef struct editor_ctx_t {
         bool open;
         u32 selected_texture;
         texture_t texture;
+        u32 selected_sampler;
+        sampler_t sampler;
     } resviewer;
 
     room_t room;

@@ -265,7 +265,7 @@ static void editor_topbar() {
         }
 
         if(igBeginMenu("windows", true)) {
-            igMenuItem_BoolPtr("main", NULL, &editor_ctx.editor.open, true);
+            igMenuItem_BoolPtr("editor", NULL, &editor_ctx.editor.open, true);
             igMenuItem_BoolPtr("resource viewer", NULL, &editor_ctx.resviewer.open, true);
             igEndMenu();
         }
@@ -353,107 +353,147 @@ static void editor_window_resviewer() {
         return;
     }
 
-    igSetNextItemOpen(true, ImGuiCond_Once);
-    if(igCollapsingHeader_BoolPtr("textures", NULL, ImGuiTreeNodeFlags_None)) {
-        igBeginChild_Str("texturelist", imv2f(120.0f, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
-        pool_iter_t iter = { .absolute_index = 1, };
-        while(pool_iter(&gfx_ctx.texture_pool->res_pool, &iter)) {
-            char label[32];
-            snprintf(label, 32, "texture %u", iter.absolute_index);
-            if(igSelectable_Bool(label, iter.absolute_index == editor_ctx.resviewer.selected_texture, ImGuiSelectableFlags_SelectOnClick, imv2f_ZERO)) {
-                if(editor_ctx.resviewer.selected_texture == iter.absolute_index) {
-                    editor_ctx.resviewer.selected_texture = 0;
-                    editor_ctx.resviewer.texture = (texture_t) { 0 };
-                } else {
-                    editor_ctx.resviewer.selected_texture = iter.absolute_index;
-                    editor_ctx.resviewer.texture = (texture_t) { iter.handle };
+    // lol
+    static const char* format_names[] = {
+        STRINGIFY(TEXTURE_FORMAT_UNDEFINED),
+        STRINGIFY(TEXTURE_FORMAT_R8),
+        STRINGIFY(TEXTURE_FORMAT_R8I),
+        STRINGIFY(TEXTURE_FORMAT_R8UI),
+        STRINGIFY(TEXTURE_FORMAT_R16),
+        STRINGIFY(TEXTURE_FORMAT_R16F),
+        STRINGIFY(TEXTURE_FORMAT_R16I),
+        STRINGIFY(TEXTURE_FORMAT_R16UI),
+        STRINGIFY(TEXTURE_FORMAT_R32F),
+        STRINGIFY(TEXTURE_FORMAT_R32I),
+        STRINGIFY(TEXTURE_FORMAT_R32UI),
+        STRINGIFY(TEXTURE_FORMAT_RG8),
+        STRINGIFY(TEXTURE_FORMAT_RG8I),
+        STRINGIFY(TEXTURE_FORMAT_RG8UI),
+        STRINGIFY(TEXTURE_FORMAT_RG16),
+        STRINGIFY(TEXTURE_FORMAT_RG16F),
+        STRINGIFY(TEXTURE_FORMAT_RG16I),
+        STRINGIFY(TEXTURE_FORMAT_RG16UI),
+        STRINGIFY(TEXTURE_FORMAT_RG32F),
+        STRINGIFY(TEXTURE_FORMAT_RG32I),
+        STRINGIFY(TEXTURE_FORMAT_RG32UI),
+        STRINGIFY(TEXTURE_FORMAT_RGB8),
+        STRINGIFY(TEXTURE_FORMAT_RGB8I),
+        STRINGIFY(TEXTURE_FORMAT_RGB8UI),
+        STRINGIFY(TEXTURE_FORMAT_RGB16F),
+        STRINGIFY(TEXTURE_FORMAT_RGB16I),
+        STRINGIFY(TEXTURE_FORMAT_RGB16UI),
+        STRINGIFY(TEXTURE_FORMAT_RGB32F),
+        STRINGIFY(TEXTURE_FORMAT_RGB32I),
+        STRINGIFY(TEXTURE_FORMAT_RGB32UI),
+        STRINGIFY(TEXTURE_FORMAT_RGBA8),
+        STRINGIFY(TEXTURE_FORMAT_RGBA8I),
+        STRINGIFY(TEXTURE_FORMAT_RGBA8UI),
+        STRINGIFY(TEXTURE_FORMAT_RGBA16F),
+        STRINGIFY(TEXTURE_FORMAT_RGBA16I),
+        STRINGIFY(TEXTURE_FORMAT_RGBA16UI),
+        STRINGIFY(TEXTURE_FORMAT_RGBA32F),
+        STRINGIFY(TEXTURE_FORMAT_RGBA32I),
+        STRINGIFY(TEXTURE_FORMAT_RGBA32UI),
+        STRINGIFY(TEXTURE_FORMAT_DEPTH),
+        STRINGIFY(TEXTURE_FORMAT_DEPTH_STENCIL),
+    };
+
+    static const char* filter_names[] = {
+        STRINGIFY(TEXTURE_FILTER_UNDEFINED),
+        STRINGIFY(TEXTURE_FILTER_NEAREST),
+        STRINGIFY(TEXTURE_FILTER_LINEAR),
+    };
+
+    static const char* wrap_names[] = {
+        STRINGIFY(TEXTURE_WRAP_UNDEFINED),
+        STRINGIFY(TEXTURE_WRAP_REPEAT),
+        STRINGIFY(TEXTURE_WRAP_MIRRORED_REPEAT),
+        STRINGIFY(TEXTURE_WRAP_CLAMP_TO_EDGE),
+    };
+
+    if(igBeginTabBar("##resviewer_bar", ImGuiTabBarFlags_None)) {
+        if(igBeginTabItem("textures", NULL, ImGuiTabItemFlags_None)) {
+            igBeginChild_Str("##texturelist", imv2f(120.0f, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+            pool_iter_t iter = { .absolute_index = 1, };
+            while(pool_iter(&gfx_ctx.texture_pool->res_pool, &iter)) {
+                char label[32];
+                snprintf(label, 32, "texture %u", iter.absolute_index);
+                if(igSelectable_Bool(label, iter.absolute_index == editor_ctx.resviewer.selected_texture, ImGuiSelectableFlags_SelectOnClick, imv2f_ZERO)) {
+                    if(editor_ctx.resviewer.selected_texture == iter.absolute_index) {
+                        editor_ctx.resviewer.selected_texture = 0;
+                        editor_ctx.resviewer.texture = (texture_t) {0};
+                    } else {
+                        editor_ctx.resviewer.selected_texture = iter.absolute_index;
+                        editor_ctx.resviewer.texture = (texture_t) { iter.handle };
+                    }
                 }
             }
-        }
-        igEndChild();
+            igEndChild();
 
-        igSameLine(120.0f, 12.0f);
+            igSameLine(120.0f, 12.0f);
 
-        igBeginChild_Str("textureviewer", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+            igBeginChild_Str("##textureviewer", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
 
-        if(editor_ctx.resviewer.selected_texture > 0) {
-            ImVec2 region;
-            igGetContentRegionAvail(&region);
+            if(editor_ctx.resviewer.selected_texture > 0) {
+                ImVec2 region;
+                igGetContentRegionAvail(&region);
 
-            texture_data_t* texture_data = texture_get_data(editor_ctx.resviewer.texture);
-            f32 aspect_ratio = (f32) texture_data->height / (f32) texture_data->width;
-            f32 w = texture_data->width > region.x ? region.x : texture_data->width;
-            f32 h = w * aspect_ratio;
-            imgui_texture_image(editor_ctx.resviewer.texture, v2f_new(w, h));
-            igText("width [%u] height [%u]", texture_data->width, texture_data->height);
+                texture_data_t* texture_data = texture_get_data(editor_ctx.resviewer.texture);
+                f32 aspect_ratio = (f32) texture_data->height / (f32) texture_data->width;
+                f32 w = texture_data->width > region.x ? region.x : texture_data->width;
+                f32 h = w * aspect_ratio;
+                imgui_texture_image(editor_ctx.resviewer.texture, v2f_new(w, h));
+                igText("width [%u] height [%u]", texture_data->width, texture_data->height);
 
-            // lol
-            static const char* format_names[] = {
-                STRINGIFY(TEXTURE_FORMAT_UNDEFINED),
-                STRINGIFY(TEXTURE_FORMAT_R8),
-                STRINGIFY(TEXTURE_FORMAT_R8I),
-                STRINGIFY(TEXTURE_FORMAT_R8UI),
-                STRINGIFY(TEXTURE_FORMAT_R16),
-                STRINGIFY(TEXTURE_FORMAT_R16F),
-                STRINGIFY(TEXTURE_FORMAT_R16I),
-                STRINGIFY(TEXTURE_FORMAT_R16UI),
-                STRINGIFY(TEXTURE_FORMAT_R32F),
-                STRINGIFY(TEXTURE_FORMAT_R32I),
-                STRINGIFY(TEXTURE_FORMAT_R32UI),
-                STRINGIFY(TEXTURE_FORMAT_RG8),
-                STRINGIFY(TEXTURE_FORMAT_RG8I),
-                STRINGIFY(TEXTURE_FORMAT_RG8UI),
-                STRINGIFY(TEXTURE_FORMAT_RG16),
-                STRINGIFY(TEXTURE_FORMAT_RG16F),
-                STRINGIFY(TEXTURE_FORMAT_RG16I),
-                STRINGIFY(TEXTURE_FORMAT_RG16UI),
-                STRINGIFY(TEXTURE_FORMAT_RG32F),
-                STRINGIFY(TEXTURE_FORMAT_RG32I),
-                STRINGIFY(TEXTURE_FORMAT_RG32UI),
-                STRINGIFY(TEXTURE_FORMAT_RGB8),
-                STRINGIFY(TEXTURE_FORMAT_RGB8I),
-                STRINGIFY(TEXTURE_FORMAT_RGB8UI),
-                STRINGIFY(TEXTURE_FORMAT_RGB16F),
-                STRINGIFY(TEXTURE_FORMAT_RGB16I),
-                STRINGIFY(TEXTURE_FORMAT_RGB16UI),
-                STRINGIFY(TEXTURE_FORMAT_RGB32F),
-                STRINGIFY(TEXTURE_FORMAT_RGB32I),
-                STRINGIFY(TEXTURE_FORMAT_RGB32UI),
-                STRINGIFY(TEXTURE_FORMAT_RGBA8),
-                STRINGIFY(TEXTURE_FORMAT_RGBA8I),
-                STRINGIFY(TEXTURE_FORMAT_RGBA8UI),
-                STRINGIFY(TEXTURE_FORMAT_RGBA16F),
-                STRINGIFY(TEXTURE_FORMAT_RGBA16I),
-                STRINGIFY(TEXTURE_FORMAT_RGBA16UI),
-                STRINGIFY(TEXTURE_FORMAT_RGBA32F),
-                STRINGIFY(TEXTURE_FORMAT_RGBA32I),
-                STRINGIFY(TEXTURE_FORMAT_RGBA32UI),
-                STRINGIFY(TEXTURE_FORMAT_DEPTH),
-                STRINGIFY(TEXTURE_FORMAT_DEPTH_STENCIL),
-            };
+                igText("format [%s]", format_names[texture_data->format]);
+                igText("filter mode [%s]", filter_names[texture_data->filter]);
+                igText("wrap mode [%s]", wrap_names[texture_data->wrap]);
+                igText("mipmaps [%u]", texture_data->mipmaps);
+            } else {
+                igText("no texture selected");
+            }
 
-            static const char* filter_names[] = {
-                STRINGIFY(TEXTURE_FILTER_UNDEFINED),
-                STRINGIFY(TEXTURE_FILTER_NEAREST),
-                STRINGIFY(TEXTURE_FILTER_LINEAR),
-            };
-
-            static const char* wrap_names[] = {
-                STRINGIFY(TEXTURE_WRAP_UNDEFINED),
-                STRINGIFY(TEXTURE_WRAP_REPEAT),
-                STRINGIFY(TEXTURE_WRAP_MIRRORED_REPEAT),
-                STRINGIFY(TEXTURE_WRAP_CLAMP_TO_EDGE),
-            };
-
-            igText("format [%s]", format_names[texture_data->format]);
-            igText("filter mode [%s]", filter_names[texture_data->filter]);
-            igText("wrap mode [%s]", wrap_names[texture_data->wrap]);
-            igText("mipmaps [%u]", texture_data->mipmaps);
-        } else {
-            igText("no texture selected");
+            igEndChild();
+            igEndTabItem();
         }
 
-        igEndChild();
+        if(igBeginTabItem("samplers", NULL, ImGuiTreeNodeFlags_None)) {
+            igBeginChild_Str("##samplerlist", imv2f(120.0f, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+            pool_iter_t iter = { .absolute_index = 1, };
+            while(pool_iter(&gfx_ctx.sampler_pool->res_pool, &iter)) {
+                char label[32];
+                snprintf(label, 32, "sampler %u", iter.absolute_index);
+                if(igSelectable_Bool(label, iter.absolute_index == editor_ctx.resviewer.selected_sampler, ImGuiSelectableFlags_SelectOnClick, imv2f_ZERO)) {
+                    if(editor_ctx.resviewer.selected_sampler == iter.absolute_index) {
+                        editor_ctx.resviewer.selected_sampler = 0;
+                        editor_ctx.resviewer.sampler = (sampler_t) {0};
+                    } else {
+                        editor_ctx.resviewer.selected_sampler = iter.absolute_index;
+                        editor_ctx.resviewer.sampler = (sampler_t) { iter.handle };
+                    }
+                }
+            }
+            igEndChild();
+
+            igSameLine(120.0f, 12.0f);
+
+            igBeginChild_Str("##samplerviewer", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+
+            if(editor_ctx.resviewer.selected_sampler > 0) {
+                sampler_data_t* sampler_data = sampler_get_data(editor_ctx.resviewer.sampler);
+                igText("min filter [%s]", filter_names[sampler_data->min_filter]);
+                igText("mag filter [%s]", filter_names[sampler_data->mag_filter]);
+                igText("u wrap [%s]", wrap_names[sampler_data->u_wrap]);
+                igText("v wrap [%s]", wrap_names[sampler_data->v_wrap]);
+            } else {
+                igText("no sampler selected");
+            }
+
+            igEndChild();
+            igEndTabItem();
+        }
+
+        igEndTabBar();
     }
 
     igEnd();

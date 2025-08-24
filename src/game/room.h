@@ -7,9 +7,9 @@
 #include "physics/aabb.h"
 
 enum {
-    TILE_WIDTH = 24,
+    TILE_WIDTH  = 24,
     TILE_HEIGHT = 24,
-    ROOM_WIDTH = 256,
+    ROOM_WIDTH  = 256,
     ROOM_HEIGHT = 64,
 };
 
