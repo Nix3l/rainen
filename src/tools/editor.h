@@ -10,6 +10,14 @@
 // TODOs:
 //  => figure out the room_t architecture
 
+typedef enum editor_tool_t {
+    EDITOR_TOOL_NONE = 0,
+    EDITOR_TOOL_PLACE,
+    EDITOR_TOOL_SELECT,
+    EDITOR_TOOL_DELETE,
+    _EDITOR_TOOLS_NUM,
+} editor_tool_t;
+
 typedef struct editor_ctx_t {
     bool open;
 
@@ -47,6 +55,11 @@ typedef struct editor_ctx_t {
     } resviewer;
 
     v2i hovered_tile;
+
+    struct {
+        bool open;
+        editor_tool_t active_tool;
+    } tools;
 
     struct {
         tile_t tile;

@@ -138,6 +138,11 @@ void render_clear_active_group() {
 }
 
 void render_push_draw_call(draw_group_t* group, draw_call_t call) {
+    if(group->batch.size == group->batch.capacity) {
+        LOG_ERR_CODE(ERR_RENDER_CALL_LIMIT_REACHED);
+        return;
+    }
+
     vector_push_data(&group->batch, &call);
 }
 

@@ -97,6 +97,13 @@ static const char* uniform_type_names[] = {
     STRINGIFY(mat4),
 };
 
+static const char* tool_names[] = {
+    STRINGIFY(NONE),
+    STRINGIFY(PLACE),
+    STRINGIFY(SELECT),
+    STRINGIFY(DELETE),
+};
+
 static void grid_construct_uniforms(void* out, draw_call_t* call) {
     struct  __attribute__((packed)) {
         f32 tw;
@@ -231,7 +238,7 @@ void editor_init() {
                         .shader = grid_shader,
                     },
                 },
-                .batch = vector_alloc_new(4, sizeof(draw_call_t)),
+                .batch = vector_alloc_new(1, sizeof(draw_call_t)),
                 .construct_uniforms = grid_construct_uniforms,
             },
             [1] = {
@@ -244,8 +251,8 @@ void editor_init() {
                         .depth = { .enable = true, },
                         .blend = {
                             .enable = true,
+                            .dst_func = BLEND_FUNC_SRC_ONE_MINUS_ALPHA,
                             .src_func = BLEND_FUNC_SRC_ALPHA,
-                            .dst_func = BLEND_FUNC_DST_ALPHA,
                         },
                         .draw_attachments = att,
                         .colour_targets = {
@@ -341,6 +348,7 @@ static void editor_dockspace() {
     igDockSpaceOverViewport(0, viewport, ImGuiDockNodeFlags_None, NULL);
 }
 
+// VIEW
 static void editor_window_view() {
     const ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoCollapse |
@@ -391,6 +399,7 @@ static void editor_window_view() {
     igPopStyleVar(1);
 }
 
+// MAIN
 static void editor_window_main() {
     if(!editor_ctx.editor.open) return;
     if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
@@ -412,6 +421,7 @@ static void editor_window_main() {
     igEnd();
 }
 
+// RESOURCE VIEWER
 static void resviewer_show_texture_contents(texture_t texture, bool show_image) {
     ImVec2 region;
     igGetContentRegionAvail(&region);
@@ -668,6 +678,20 @@ static void editor_window_resviewer() {
     igEnd();
 }
 
+static void editor_window_tools() {
+    if(!igBegin("tools", &editor_ctx.tools.open, ImGuiWindowFlags_None)) {
+        igEnd();
+        return;
+    }
+
+    for(u32 i = 1; i < _EDITOR_TOOLS_NUM; i ++) {
+        if(igSelectable_Bool(tool_names[i], editor_ctx.tools.active_tool == i, ImGuiSelectableFlags_SelectOnClick, imv2f_ZERO))
+            editor_ctx.tools.active_tool = editor_ctx.tools.active_tool == i ? 0 : i;
+    }
+
+    igEnd();
+}
+
 // CAMERA
 static void editor_camera_update() {
     camera_t* cam = &editor_ctx.cam;
@@ -714,15 +738,13 @@ static void editor_hovered_tile_update() {
         floor(pos.y / TILE_HEIGHT)
     );
 
-    if(editor_ctx.hovered_tile.x >= ROOM_WIDTH) tile.x = -1;
-    if(editor_ctx.hovered_tile.y >= ROOM_HEIGHT) tile.x = -1;
+    if(tile.x >= ROOM_WIDTH) tile.x = -1;
+    if(tile.y >= ROOM_HEIGHT) tile.x = -1;
 
     editor_ctx.hovered_tile = tile;
 }
 
 static void editor_tool_place() {
-    if(!editor_ctx.view.focused) return;
-    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
     if(!input_button_down(BUTTON_LEFT)) return;
 
     room_set_tile(&editor_ctx.room, (tile_t) {
@@ -731,6 +753,49 @@ static void editor_tool_place() {
 
         .tags = TILE_TAGS_RENDER,
         .col = v4f_new(0.2f, 0.84f, 0.55f, 1.0f),
+    });
+}
+
+static void editor_tool_delete() {
+    if(!input_button_down(BUTTON_LEFT)) return;
+
+    room_set_tile(&editor_ctx.room, (tile_t) {
+        .x = editor_ctx.hovered_tile.x,
+        .y = editor_ctx.hovered_tile.y,
+    });
+}
+
+static void editor_tool_update() {
+    for(u32 i = 1; i < _EDITOR_TOOLS_NUM; i ++) {
+        if(input_key_pressed(KEY_0 + i)) {
+            editor_ctx.tools.active_tool = i;
+            break;
+        }
+    }
+
+    if(input_key_pressed(KEY_BACKSPACE)) editor_ctx.tools.active_tool = EDITOR_TOOL_NONE;
+
+    if(!editor_ctx.view.focused) return;
+    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
+
+    switch(editor_ctx.tools.active_tool) {
+        case EDITOR_TOOL_PLACE: editor_tool_place(); break;
+        case EDITOR_TOOL_DELETE: editor_tool_delete(); break;
+        default: break;
+    }
+
+    const v4f hover_colours[_EDITOR_TOOLS_NUM] = {
+        [EDITOR_TOOL_NONE]   = v4f_ZERO,
+        [EDITOR_TOOL_PLACE]  = v4f_new(1.0, 1.0f, 1.0f, 0.1f),
+        [EDITOR_TOOL_SELECT] = v4f_ZERO,
+        [EDITOR_TOOL_DELETE] = v4f_new(0.9f, 0.04f, 0.12f, 0.2f),
+    };
+
+    v2f pos = tile_get_world_pos((tile_t) { .x = editor_ctx.hovered_tile.x, .y = editor_ctx.hovered_tile.y });
+    render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
+        .position = v3f_new(pos.x, pos.y, 1),
+        .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
+        .colour = hover_colours[editor_ctx.tools.active_tool],
     });
 }
 
@@ -757,14 +822,6 @@ static void editor_show_room() {
             }
         }
     }
-
-    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
-    v2f pos = tile_get_world_pos((tile_t) { .x = editor_ctx.hovered_tile.x, .y = editor_ctx.hovered_tile.y });
-    render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
-        .position = v3f_new(pos.x, pos.y, 1),
-        .scale = scale,
-        .colour = v4f_new(1.0, 1.0f, 1.0f, 0.1f),
-    });
 }
 
 void editor_update() {
@@ -774,11 +831,12 @@ void editor_update() {
     editor_window_view();
     editor_window_main();
     editor_window_resviewer();
+    editor_window_tools();
     igPopStyleVar(1);
 
     editor_camera_update();
     editor_hovered_tile_update();
-    editor_tool_place();
+    editor_tool_update();
 
     editor_show_grid();
     editor_show_room();

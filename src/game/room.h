@@ -8,7 +8,7 @@
 enum {
     TILE_WIDTH  = 16,
     TILE_HEIGHT = 16,
-    ROOM_WIDTH  = 64,
+    ROOM_WIDTH  = 128,
     ROOM_HEIGHT = 64,
 };
 
