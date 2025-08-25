@@ -11,341 +11,12 @@
 #include "util/util.h"
 #include "util/math_util.h"
 #include "gfx/gfx.h"
-#include <stdio.h>
 
 // temporary because my cmp keeps auto including this stupid file and its causing errors
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "cimgui.h"
 
 editor_ctx_t editor_ctx = {0};
-
-static void grid_construct_uniforms(void* out, draw_call_t* call) {
-    struct  __attribute__((packed)) {
-        f32 tw;
-        f32 th;
-        f32 scale;
-        f32 screen_width;
-        f32 screen_height;
-        vec2 cam_offset;
-        vec4 bg_col;
-        vec4 grid_col;
-    } uniforms;
-
-    uniforms.tw = TILE_WIDTH;
-    uniforms.th = TILE_HEIGHT;
-
-    uniforms.screen_width = io_ctx.window.width;
-    uniforms.screen_height = io_ctx.window.height;
-
-    uniforms.scale = editor_ctx.cam.pixel_scale;
-
-    v2f offset = editor_ctx.cam.transform.position;
-    memcpy(uniforms.cam_offset, offset.raw, sizeof(vec2));
-
-    v4f grid_col = v4f_new(0.11f, 0.18f, 0.15f, 1.0f);
-    v4f bg_col   = v4f_new(0.05f, 0.05f, 0.05f, 1.0f);
-
-    memcpy(uniforms.grid_col, grid_col.raw, sizeof(vec4));
-    memcpy(uniforms.bg_col, bg_col.raw, sizeof(vec4));
-
-    memcpy(out, &uniforms, sizeof(uniforms));
-    UNUSED(call);
-}
-
-static void construct_uniforms(void* out, draw_call_t* call) {
-    draw_pass_cache_t cache = render_ctx.active_group.pass.cache;
-
-    struct  __attribute__((packed)){
-        mat4 projViewModel;
-        vec4 col;
-        i32 tex;
-        i32 use_tex;
-    } uniforms;
-
-    mat4s modelViewProj = glms_mat4_mul(cache.projView, model_matrix_new(call->position, call->rotation, call->scale));
-    glm_mat4_copy(modelViewProj.raw, uniforms.projViewModel);
-
-    memcpy(uniforms.col, call->colour.raw, sizeof(vec4));
-    uniforms.tex = 0;
-    uniforms.use_tex = call->sampler.texture.id != GFX_INVALID_ID ? 1 : 0;
-
-    memcpy(out, &uniforms, sizeof(uniforms));
-}
-
-// STATE
-void editor_init() {
-    // leak ALL the memory
-    arena_t grid_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
-    range_t grid_vs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.vs");
-    range_t grid_fs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.fs");
-    shader_t grid_shader = shader_new((shader_info_t) {
-        .pretty_name = "grid shader",
-        .attribs = {
-            { .name = "vs_position" },
-            { .name = "vs_uvs" },
-        },
-        .uniforms = {
-            { .name = "tw", .type = UNIFORM_TYPE_f32, },
-            { .name = "th", .type = UNIFORM_TYPE_f32, },
-            { .name = "scale", .type = UNIFORM_TYPE_f32, },
-            { .name = "screen_width", .type = UNIFORM_TYPE_f32, },
-            { .name = "screen_height", .type = UNIFORM_TYPE_f32, },
-            { .name = "cam_offset", .type = UNIFORM_TYPE_v2f, },
-            { .name = "bg_col", .type = UNIFORM_TYPE_v4f, },
-            { .name = "grid_col", .type = UNIFORM_TYPE_v4f, },
-        },
-        .vertex_src = grid_vs,
-        .fragment_src = grid_fs,
-    });
-
-    arena_t room_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
-    range_t room_vs = platform_load_file(&room_code_arena, "shader/editor/editor.vs");
-    range_t room_fs = platform_load_file(&room_code_arena, "shader/editor/editor.fs");
-    shader_t room_shader = shader_new((shader_info_t) {
-        .pretty_name = "room shader",
-        .attribs = {
-            { .name = "vs_position" },
-            { .name = "vs_uvs" },
-        },
-        .uniforms = {
-            { .name = "projViewModel", .type = UNIFORM_TYPE_mat4, },
-            { .name = "col", .type = UNIFORM_TYPE_v4f, },
-            { .name = "tex", .type = UNIFORM_TYPE_i32, },
-            { .name = "use_tex", .type = UNIFORM_TYPE_i32, },
-        },
-        .vertex_src = room_vs,
-        .fragment_src = room_fs,
-    });
-
-    texture_t col_target = texture_new((texture_info_t) {
-        .type = TEXTURE_TYPE_2D,
-        .format = TEXTURE_FORMAT_RGBA8,
-        .width = io_ctx.window.width,
-        .height = io_ctx.window.height,
-    });
-
-    texture_t depth_target = texture_new((texture_info_t) {
-        .type = TEXTURE_TYPE_2D,
-        .format = TEXTURE_FORMAT_DEPTH,
-        .width = io_ctx.window.width,
-        .height = io_ctx.window.height,
-    });
-
-    attachments_t att = attachments_new((attachments_info_t) {
-        .colours = {
-            [0] = col_target,
-        },
-        .depth_stencil = depth_target,
-    });
-
-    renderer_t renderer = {
-        .label = "editor renderer",
-        .num_groups = 2,
-        .groups = {
-            [0] = {
-                .pass = {
-                    .label = "grid pass",
-                    .type = DRAW_PASS_RENDER,
-                    .pipeline = {
-                        .clear = {
-                            .colour = true,
-                            .clear_col = v4f_new(0.0f, 0.0f, 0.0f, 1.0f),
-                        },
-                        .cull = { .enable = true, },
-                        .draw_attachments = att,
-                        .colour_targets = {
-                            [0] = { .enable = true, },
-                        },
-                        .shader = grid_shader,
-                    },
-                },
-                .batch = vector_alloc_new(4, sizeof(draw_call_t)),
-                .construct_uniforms = grid_construct_uniforms,
-            },
-            [1] = {
-                .pass = {
-                    .label = "tile pass",
-                    .type = DRAW_PASS_RENDER,
-                    .pipeline = {
-                        .clear = { .depth = true, },
-                        .cull = { .enable = true, },
-                        .depth = { .enable = true, },
-                        .draw_attachments = att,
-                        .colour_targets = {
-                            [0] = { .enable = true, },
-                        },
-                        .shader = room_shader,
-                    },
-                    .state = {
-                        .anchor = { .enable = true, },
-                        .projection = { .type = PROJECTION_ORTHO, },
-                    },
-                },
-                .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
-                .construct_uniforms = construct_uniforms,
-            },
-        }
-    };
-
-    camera_t cam = (camera_t) {
-        .transform = { .z = 100, },
-        .near = 0.01f,
-        .far = 200.0f,
-        .pixel_scale = 1.0f,
-    };
-
-    room_t room = room_new();
-
-    editor_ctx = (editor_ctx_t) {
-        .open = true,
-
-        .cam = cam,
-        .max_zoom = 1.6f,
-        .renderer = renderer,
-        .render_texture = col_target,
-
-        .editor = {
-            .open = true,
-        },
-
-        .resviewer = {
-            .open = true,
-        },
-
-        .room = room,
-    };
-}
-
-void editor_terminate() {
-    // do stuff
-}
-
-void editor_set_open(bool open) {
-    editor_ctx.open = open;
-}
-
-void editor_toggle() {
-    editor_ctx.open = !editor_ctx.open;
-}
-
-bool editor_is_open() {
-    return editor_ctx.open;
-}
-
-// GRID
-static void editor_show_grid() {
-    render_push_draw_call(&editor_ctx.renderer.groups[0], (draw_call_t) {});
-}
-
-// CAMERA
-static void editor_camera_update() {
-    camera_t* cam = &editor_ctx.cam;
-
-    if(!editor_ctx.view_focused) return;
-
-    f32 scroll = input_get_scroll();
-    cam->pixel_scale -= scroll * 0.066f;
-    cam->pixel_scale = MAX(cam->pixel_scale, 0.05f);
-    cam->pixel_scale = MIN(cam->pixel_scale, editor_ctx.max_zoom);
-
-    v2f move = input_mouse_move_absolute();
-    if(input_button_down(BUTTON_LEFT)) {
-        cam->transform.position.x -= move.x * cam->pixel_scale;
-        cam->transform.position.y += move.y * cam->pixel_scale;
-    }
-}
-
-// EDITOR WINDOWS
-static void editor_topbar() {
-    if(igBeginMainMenuBar()) {
-        if(igBeginMenu("editor", true)) {
-            if(igMenuItem_Bool("quit", "F10", false, true))
-                editor_ctx.open = false;
-
-            igEndMenu();
-        }
-
-        if(igBeginMenu("windows", true)) {
-            igMenuItem_BoolPtr("editor", NULL, &editor_ctx.editor.open, true);
-            igMenuItem_BoolPtr("resource viewer", NULL, &editor_ctx.resviewer.open, true);
-            igEndMenu();
-        }
-
-        igEndMainMenuBar();
-    }
-}
-
-static void editor_dockspace() {
-    ImGuiViewport* viewport = igGetMainViewport();
-    igDockSpaceOverViewport(0, viewport, ImGuiDockNodeFlags_None, NULL);
-}
-
-static void editor_window_view() {
-    const ImGuiWindowFlags flags = 
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoBackground |
-        ImGuiWindowFlags_NoDecoration |
-        ImGuiWindowFlags_NoInputs |
-        ImGuiWindowFlags_NoNavFocus |
-        ImGuiWindowFlags_NoNavInputs |
-        ImGuiWindowFlags_NoMouseInputs;
-
-    igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, imv2f_ZERO);
-    if(!igBegin("view", NULL, flags)) {
-        igEnd();
-        igPopStyleVar(1);
-        return;
-    }
-
-    ImGuiViewport* viewport = igGetMainViewport();
-    f32 top_margin = viewport->Size.y - viewport->WorkSize.y;
-
-
-    ImVec2 pos, size;
-    igGetWindowPos(&pos);
-    igGetWindowSize(&size);
-
-    imgui_texture_image_range(
-        editor_ctx.render_texture,
-        v2f_new(size.x, size.y - top_margin),
-        v2f_new(pos.x / viewport->Size.x, pos.y / viewport->Size.y),
-        v2f_new((pos.x + size.x) / viewport->Size.x, (pos.y + size.y) / viewport->Size.y)
-    );
-
-    ImVec2 cursor;
-    igGetMousePos(&cursor);
-
-    // used to account for when resizing the other windows
-    const f32 safe_region = 8.0f;
-
-    editor_ctx.view_focused = true;
-    if(cursor.x < (pos.x + safe_region) || cursor.x > (pos.x + size.x - safe_region)) editor_ctx.view_focused = false;
-    if(cursor.y < (pos.y + safe_region) || cursor.y > (pos.y + size.y - safe_region)) editor_ctx.view_focused = false;
-
-    igEnd();
-    igPopStyleVar(1);
-}
-
-static void editor_window_main() {
-    if(!editor_ctx.editor.open) return;
-    if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
-        igEnd();
-        return;
-    }
-
-    if(igCollapsingHeader_BoolPtr("camera", NULL, ImGuiTreeNodeFlags_None)) {
-        if(igSmallButton("RESET CAMERA")) {
-            editor_ctx.cam.transform.position = v2f_ZERO;
-            editor_ctx.cam.transform.rotation = 0.0f;
-            editor_ctx.cam.pixel_scale = 1.0f;
-        }
-
-        igDragFloat2("position", editor_ctx.cam.transform.position.raw, 0.1f, -MAX_f32, MAX_f32, "%.2f", ImGuiSliderFlags_None);
-        igDragFloat("zoom", &editor_ctx.cam.pixel_scale, 0.1f, 0.1f, editor_ctx.max_zoom, "%.1f", ImGuiSliderFlags_None);
-    }
-
-    igEnd();
-}
 
 // lol
 static const char* format_names[] = {
@@ -425,6 +96,321 @@ static const char* uniform_type_names[] = {
     STRINGIFY(v4i),
     STRINGIFY(mat4),
 };
+
+static void grid_construct_uniforms(void* out, draw_call_t* call) {
+    struct  __attribute__((packed)) {
+        f32 tw;
+        f32 th;
+        f32 scale;
+        f32 screen_width;
+        f32 screen_height;
+        vec2 cam_offset;
+        vec4 bg_col;
+        vec4 grid_col;
+    } uniforms;
+
+    uniforms.tw = TILE_WIDTH;
+    uniforms.th = TILE_HEIGHT;
+
+    uniforms.screen_width = io_ctx.window.width;
+    uniforms.screen_height = io_ctx.window.height;
+
+    uniforms.scale = editor_ctx.cam.pixel_scale;
+
+    v2f offset = editor_ctx.cam.transform.position;
+    memcpy(uniforms.cam_offset, offset.raw, sizeof(vec2));
+
+    v4f grid_col = v4f_new(0.11f, 0.18f, 0.15f, 1.0f);
+    v4f bg_col   = v4f_new(0.05f, 0.05f, 0.05f, 1.0f);
+
+    memcpy(uniforms.grid_col, grid_col.raw, sizeof(vec4));
+    memcpy(uniforms.bg_col, bg_col.raw, sizeof(vec4));
+
+    memcpy(out, &uniforms, sizeof(uniforms));
+    UNUSED(call);
+}
+
+static void room_construct_uniforms(void* out, draw_call_t* call) {
+    draw_pass_cache_t cache = render_ctx.active_group.pass.cache;
+
+    struct  __attribute__((packed)){
+        mat4 projViewModel;
+        vec4 col;
+    } uniforms;
+
+    mat4s modelViewProj = glms_mat4_mul(cache.projView, model_matrix_new(call->position, call->rotation, call->scale));
+    glm_mat4_copy(modelViewProj.raw, uniforms.projViewModel);
+
+    memcpy(uniforms.col, call->colour.raw, sizeof(vec4));
+
+    memcpy(out, &uniforms, sizeof(uniforms));
+}
+
+// STATE
+void editor_init() {
+    // leak ALL the memory
+    arena_t grid_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
+    range_t grid_vs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.vs");
+    range_t grid_fs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.fs");
+    shader_t grid_shader = shader_new((shader_info_t) {
+        .pretty_name = "grid shader",
+        .attribs = {
+            { .name = "vs_position" },
+            { .name = "vs_uvs" },
+        },
+        .uniforms = {
+            { .name = "tw", .type = UNIFORM_TYPE_f32, },
+            { .name = "th", .type = UNIFORM_TYPE_f32, },
+            { .name = "scale", .type = UNIFORM_TYPE_f32, },
+            { .name = "screen_width", .type = UNIFORM_TYPE_f32, },
+            { .name = "screen_height", .type = UNIFORM_TYPE_f32, },
+            { .name = "cam_offset", .type = UNIFORM_TYPE_v2f, },
+            { .name = "bg_col", .type = UNIFORM_TYPE_v4f, },
+            { .name = "grid_col", .type = UNIFORM_TYPE_v4f, },
+        },
+        .vertex_src = grid_vs,
+        .fragment_src = grid_fs,
+    });
+
+    arena_t room_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
+    range_t room_vs = platform_load_file(&room_code_arena, "shader/editor/editor_room.vs");
+    range_t room_fs = platform_load_file(&room_code_arena, "shader/editor/editor_room.fs");
+    shader_t room_shader = shader_new((shader_info_t) {
+        .pretty_name = "room shader",
+        .attribs = {
+            { .name = "vs_position" },
+            { .name = "vs_uvs" },
+        },
+        .uniforms = {
+            { .name = "projViewModel", .type = UNIFORM_TYPE_mat4, },
+            { .name = "col", .type = UNIFORM_TYPE_v4f, },
+        },
+        .vertex_src = room_vs,
+        .fragment_src = room_fs,
+    });
+
+    texture_t col_target = texture_new((texture_info_t) {
+        .type = TEXTURE_TYPE_2D,
+        .format = TEXTURE_FORMAT_RGBA8,
+        .width = io_ctx.window.width,
+        .height = io_ctx.window.height,
+    });
+
+    texture_t depth_target = texture_new((texture_info_t) {
+        .type = TEXTURE_TYPE_2D,
+        .format = TEXTURE_FORMAT_DEPTH,
+        .width = io_ctx.window.width,
+        .height = io_ctx.window.height,
+    });
+
+    attachments_t att = attachments_new((attachments_info_t) {
+        .colours = {
+            [0] = col_target,
+        },
+        .depth_stencil = depth_target,
+    });
+
+    renderer_t renderer = {
+        .label = "editor renderer",
+        .num_groups = 2,
+        .groups = {
+            [0] = {
+                .pass = {
+                    .label = "grid pass",
+                    .type = DRAW_PASS_RENDER,
+                    .pipeline = {
+                        .clear = {
+                            .colour = true,
+                            .clear_col = v4f_new(0.0f, 0.0f, 0.0f, 1.0f),
+                        },
+                        .cull = { .enable = true, },
+                        .draw_attachments = att,
+                        .colour_targets = {
+                            [0] = { .enable = true, },
+                        },
+                        .shader = grid_shader,
+                    },
+                },
+                .batch = vector_alloc_new(4, sizeof(draw_call_t)),
+                .construct_uniforms = grid_construct_uniforms,
+            },
+            [1] = {
+                .pass = {
+                    .label = "tile pass",
+                    .type = DRAW_PASS_RENDER,
+                    .pipeline = {
+                        .clear = { .depth = true, },
+                        .cull = { .enable = true, },
+                        .depth = { .enable = true, },
+                        .blend = {
+                            .enable = true,
+                            .src_func = BLEND_FUNC_SRC_ALPHA,
+                            .dst_func = BLEND_FUNC_DST_ALPHA,
+                        },
+                        .draw_attachments = att,
+                        .colour_targets = {
+                            [0] = { .enable = true, },
+                        },
+                        .shader = room_shader,
+                    },
+                    .state = {
+                        .anchor = { .enable = true, },
+                        .projection = { .type = PROJECTION_ORTHO, },
+                    },
+                },
+                .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+                .construct_uniforms = room_construct_uniforms,
+            },
+        }
+    };
+
+    camera_t cam = (camera_t) {
+        .transform = { .z = 100, },
+        .near = 0.01f,
+        .far = 200.0f,
+        .pixel_scale = 1.0f,
+    };
+
+    room_t room = room_new();
+
+    room_set_tile(&room, (tile_t) {
+        .tags = TILE_TAGS_RENDER,
+        .x = 4,
+        .y = 4,
+        .col = v4f_ONE,
+    });
+
+    editor_ctx = (editor_ctx_t) {
+        .open = true,
+
+        .cam = cam,
+        .max_zoom = 1.6f,
+        .renderer = renderer,
+        .render_texture = col_target,
+
+        .editor = {
+            .open = true,
+        },
+
+        .resviewer = {
+            .open = true,
+        },
+
+        .room = room,
+    };
+}
+
+void editor_terminate() {
+    // do stuff
+}
+
+void editor_set_open(bool open) {
+    editor_ctx.open = open;
+}
+
+void editor_toggle() {
+    editor_ctx.open = !editor_ctx.open;
+}
+
+bool editor_is_open() {
+    return editor_ctx.open;
+}
+
+// EDITOR WINDOWS
+static void editor_topbar() {
+    if(igBeginMainMenuBar()) {
+        if(igBeginMenu("editor", true)) {
+            if(igMenuItem_Bool("quit", "F10", false, true))
+                editor_ctx.open = false;
+
+            igEndMenu();
+        }
+
+        if(igBeginMenu("windows", true)) {
+            igMenuItem_BoolPtr("editor", NULL, &editor_ctx.editor.open, true);
+            igMenuItem_BoolPtr("resource viewer", NULL, &editor_ctx.resviewer.open, true);
+            igEndMenu();
+        }
+
+        igEndMainMenuBar();
+    }
+}
+
+static void editor_dockspace() {
+    ImGuiViewport* viewport = igGetMainViewport();
+    igDockSpaceOverViewport(0, viewport, ImGuiDockNodeFlags_None, NULL);
+}
+
+static void editor_window_view() {
+    const ImGuiWindowFlags flags = 
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoBackground |
+        ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_NoInputs |
+        ImGuiWindowFlags_NoNavFocus |
+        ImGuiWindowFlags_NoNavInputs |
+        ImGuiWindowFlags_NoMouseInputs |
+        ImGuiWindowFlags_NoTitleBar;
+
+    igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, imv2f_ZERO);
+    if(!igBegin("view", NULL, flags)) {
+        igEnd();
+        igPopStyleVar(1);
+        return;
+    }
+
+    ImGuiViewport* viewport = igGetMainViewport();
+    f32 top_margin = viewport->Size.y - viewport->WorkSize.y;
+
+    ImVec2 pos, size;
+    igGetWindowPos(&pos);
+    igGetWindowSize(&size);
+
+    ImGuiViewport* wview = igGetMainViewport();
+    editor_ctx.view.pos = v2f_new(wview->WorkPos.x, wview->WorkPos.y);
+    editor_ctx.view.size = v2f_new(wview->WorkSize.x, wview->WorkSize.y);
+
+    imgui_texture_image_range(
+        editor_ctx.render_texture,
+        v2f_new(size.x, size.y - top_margin),
+        v2f_new(pos.x / viewport->Size.x, pos.y / viewport->Size.y),
+        v2f_new((pos.x + size.x) / viewport->Size.x, (pos.y + size.y) / viewport->Size.y)
+    );
+
+    ImVec2 cursor;
+    igGetMousePos(&cursor);
+
+    // used to account for when resizing the other windows
+    const f32 safe_region = 8.0f;
+
+    editor_ctx.view.focused = true;
+    if(cursor.x < (pos.x + safe_region) || cursor.x > (pos.x + size.x - safe_region)) editor_ctx.view.focused = false;
+    if(cursor.y < (pos.y + safe_region) || cursor.y > (pos.y + size.y - safe_region)) editor_ctx.view.focused = false;
+
+    igEnd();
+    igPopStyleVar(1);
+}
+
+static void editor_window_main() {
+    if(!editor_ctx.editor.open) return;
+    if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
+        igEnd();
+        return;
+    }
+
+    if(igCollapsingHeader_BoolPtr("camera", NULL, ImGuiTreeNodeFlags_None)) {
+        if(igSmallButton("RESET CAMERA")) {
+            editor_ctx.cam.transform.position = v2f_ZERO;
+            editor_ctx.cam.transform.rotation = 0.0f;
+            editor_ctx.cam.pixel_scale = 1.0f;
+        }
+
+        igDragFloat2("position", editor_ctx.cam.transform.position.raw, 0.1f, -MAX_f32, MAX_f32, "%.2f", ImGuiSliderFlags_None);
+        igDragFloat("zoom", &editor_ctx.cam.pixel_scale, 0.1f, 0.1f, editor_ctx.max_zoom, "%.1f", ImGuiSliderFlags_None);
+    }
+
+    igEnd();
+}
 
 static void resviewer_show_texture_contents(texture_t texture, bool show_image) {
     ImVec2 region;
@@ -682,13 +668,106 @@ static void editor_window_resviewer() {
     igEnd();
 }
 
-void editor_update() {
-    render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
-        .position = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 0.0f),
-        .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
-        .colour = v4f_new(0.73f, 0.1f, 0.35f, 1.0f),
-    });
+// CAMERA
+static void editor_camera_update() {
+    camera_t* cam = &editor_ctx.cam;
 
+    if(!editor_ctx.view.focused) return;
+
+    f32 scroll = input_get_scroll();
+    cam->pixel_scale -= scroll * 0.066f;
+    cam->pixel_scale = MAX(cam->pixel_scale, 0.05f);
+    cam->pixel_scale = MIN(cam->pixel_scale, editor_ctx.max_zoom);
+
+    if(input_button_down(BUTTON_MIDDLE)) {
+        v2f move = input_mouse_move_absolute();
+        cam->transform.position.x -= move.x * cam->pixel_scale;
+        cam->transform.position.y += move.y * cam->pixel_scale;
+    }
+}
+
+// TOOLS
+static void editor_hovered_tile_update() {
+    if(!editor_ctx.view.focused) {
+        editor_ctx.hovered_tile = v2i_new(-1, -1);
+        return;
+    }
+
+    v2f view_pos = editor_ctx.view.pos;
+    v2f view_size = editor_ctx.view.size;
+    f32 scale = editor_ctx.cam.pixel_scale;
+
+    f32 hw = io_ctx.window.width / 2.0f;
+    f32 hh = io_ctx.window.height / 2.0f;
+
+    v2f offset = input_mouse_pos();
+    offset.x = remapf(offset.x, view_pos.x, view_pos.x + view_size.x, -hw, hw);
+    offset.y = remapf(offset.y, view_pos.y + view_size.y, view_pos.y, -hh, hh);
+    offset = v2f_add(offset, v2f_new(view_pos.x, view_pos.y));
+    offset = v2f_scale(offset, scale);
+
+    v2f pos = editor_ctx.cam.transform.position;
+    pos = v2f_add(pos, offset);
+
+    v2i tile = v2i_new(
+        floor(pos.x / TILE_WIDTH),
+        floor(pos.y / TILE_HEIGHT)
+    );
+
+    if(editor_ctx.hovered_tile.x >= ROOM_WIDTH) tile.x = -1;
+    if(editor_ctx.hovered_tile.y >= ROOM_HEIGHT) tile.x = -1;
+
+    editor_ctx.hovered_tile = tile;
+}
+
+static void editor_tool_place() {
+    if(!editor_ctx.view.focused) return;
+    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
+    if(!input_button_down(BUTTON_LEFT)) return;
+
+    room_set_tile(&editor_ctx.room, (tile_t) {
+        .x = editor_ctx.hovered_tile.x,
+        .y = editor_ctx.hovered_tile.y,
+
+        .tags = TILE_TAGS_RENDER,
+        .col = v4f_new(1.0f, 0.0f, 0.0f, 1.0f),
+    });
+}
+
+// GRID
+static void editor_show_grid() {
+    render_push_draw_call(&editor_ctx.renderer.groups[0], (draw_call_t) {});
+}
+
+// ROOM
+static void editor_show_room() {
+    room_t room = editor_ctx.room;
+    v3f scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f);
+    for(u32 y = 0; y < ROOM_HEIGHT; y ++) {
+        for(u32 x = 0; x < ROOM_WIDTH; x ++) {
+            tile_t tile = room.tiles[y][x];
+            v2f pos = tile_get_world_pos(tile);
+
+            if(tile.tags & TILE_TAGS_RENDER) {
+                render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
+                    .position = v3f_new(pos.x, pos.y, 0),
+                    .scale = scale,
+                    .colour = tile.col,
+                });
+            }
+        }
+    }
+
+    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
+    v2f pos = tile_get_world_pos((tile_t) { .x = editor_ctx.hovered_tile.x, .y = editor_ctx.hovered_tile.y });
+    render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
+        .position = v3f_new(pos.x, pos.y, 1),
+        .scale = scale,
+        .colour = v4f_new(1.0, 1.0f, 1.0f, 0.1f),
+    });
+}
+
+void editor_update() {
     igPushStyleVar_Float(ImGuiStyleVar_TabRounding, 0.0f);
     editor_topbar();
     editor_dockspace();
@@ -697,9 +776,12 @@ void editor_update() {
     editor_window_resviewer();
     igPopStyleVar(1);
 
-    // technically these should be before the imgui functions but eh
     editor_camera_update();
+    editor_hovered_tile_update();
+    editor_tool_place();
+
     editor_show_grid();
+    editor_show_room();
 
     editor_render();
 }

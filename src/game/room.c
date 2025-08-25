@@ -1,4 +1,12 @@
 #include "room.h"
+#include "util/math_util.h"
+
+v2f tile_get_world_pos(tile_t tile) {
+    return v2f_new(
+        tile.x * TILE_WIDTH + TILE_WIDTH / 2.0f,
+        tile.y * TILE_WIDTH + TILE_WIDTH / 2.0f
+    );
+}
 
 room_t room_new() {
     room_t room = {0};

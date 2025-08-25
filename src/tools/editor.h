@@ -15,9 +15,15 @@ typedef struct editor_ctx_t {
 
     camera_t cam;
     f32 max_zoom;
+
     renderer_t renderer;
     texture_t render_texture;
-    bool view_focused;
+
+    struct {
+        bool focused;
+        v2f pos;
+        v2f size;
+    } view;
 
     struct {
         bool open;
@@ -39,6 +45,12 @@ typedef struct editor_ctx_t {
         u32 selected_shader;
         shader_t shader;
     } resviewer;
+
+    v2i hovered_tile;
+
+    struct {
+        tile_t tile;
+    } place_tool;
 
     room_t room;
 } editor_ctx_t;

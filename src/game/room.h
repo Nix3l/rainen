@@ -6,9 +6,9 @@
 #include "gfx/gfx.h"
 
 enum {
-    TILE_WIDTH  = 24,
-    TILE_HEIGHT = 24,
-    ROOM_WIDTH  = 256,
+    TILE_WIDTH  = 16,
+    TILE_HEIGHT = 16,
+    ROOM_WIDTH  = 64,
     ROOM_HEIGHT = 64,
 };
 
@@ -25,7 +25,6 @@ typedef struct tile_t {
 } tile_t;
 
 v2f tile_get_world_pos(tile_t tile);
-mat4s tile_get_model_mat(tile_t tile);
 
 typedef struct room_t {
     tile_t tiles[ROOM_HEIGHT][ROOM_WIDTH];
