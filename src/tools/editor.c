@@ -485,7 +485,7 @@ static void resviewer_show_att_contents(attachments_t att) {
 
 static void resviewer_show_shader_pass_contents(shader_pass_t pass) {
     igText("type [%s]", shader_pass_names[pass.type]);
-    igBeginChild_Str("##pass_content", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+    igBeginChild_Str("##pass_content", imv2f(0.0f, 400.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
     if(pass.src.ptr) igTextWrapped("%s", pass.src.ptr);
     else igText("couldnt fetch contents of pass");
     igEndChild();
@@ -701,9 +701,9 @@ static void editor_hovered_tile_update() {
     f32 hh = io_ctx.window.height / 2.0f;
 
     v2f offset = input_mouse_pos();
-    offset.x = remapf(offset.x, view_pos.x, view_pos.x + view_size.x, -hw, hw);
-    offset.y = remapf(offset.y, view_pos.y + view_size.y, view_pos.y, -hh, hh);
-    offset = v2f_add(offset, v2f_new(view_pos.x, view_pos.y));
+    offset.x = remapf(offset.x, view_pos.x, view_pos.x + view_size.x, -hw,  hw);
+    offset.y = remapf(offset.y, view_pos.y, view_pos.y + view_size.y,  hh, -hh); // flipped out range to make up +ve
+    offset = v2f_add(offset, view_pos);
     offset = v2f_scale(offset, scale);
 
     v2f pos = editor_ctx.cam.transform.position;
@@ -730,7 +730,7 @@ static void editor_tool_place() {
         .y = editor_ctx.hovered_tile.y,
 
         .tags = TILE_TAGS_RENDER,
-        .col = v4f_new(1.0f, 0.0f, 0.0f, 1.0f),
+        .col = v4f_new(0.2f, 0.84f, 0.55f, 1.0f),
     });
 }
 
