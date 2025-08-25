@@ -1,0 +1,24 @@
+#include "room.h"
+
+room_t room_new() {
+    room_t room = {0};
+
+    for(u32 y = 0; y < ROOM_HEIGHT; y ++) {
+        for(u32 x = 0; x < ROOM_WIDTH; x ++) {
+            room.tiles[y][x] = (tile_t) {
+                .x = x,
+                .y = y,
+            };
+        }
+    }
+
+    return room;
+}
+
+tile_t room_get_tile(room_t* room, u32 x, u32 y) {
+    return room->tiles[y][x];
+}
+
+void room_set_tile(room_t* room, tile_t tile) {
+    room->tiles[tile.y][tile.x] = tile;
+}

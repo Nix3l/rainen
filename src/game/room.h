@@ -4,7 +4,6 @@
 #include "base.h"
 #include "memory/memory.h"
 #include "gfx/gfx.h"
-#include "physics/aabb.h"
 
 enum {
     TILE_WIDTH  = 24,
@@ -26,9 +25,10 @@ typedef struct tile_t {
 } tile_t;
 
 typedef struct room_t {
-    tile_t tiles[ROOM_WIDTH][ROOM_HEIGHT];
-    aabb_t volume;
+    tile_t tiles[ROOM_HEIGHT][ROOM_WIDTH];
 } room_t;
+
+room_t room_new();
 
 tile_t room_get_tile(room_t* room, u32 x, u32 y);
 void room_set_tile(room_t* room, tile_t tile);

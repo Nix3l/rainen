@@ -11,6 +11,7 @@
 #include "util/util.h"
 #include "util/math_util.h"
 #include "gfx/gfx.h"
+#include <stdio.h>
 
 // temporary because my cmp keeps auto including this stupid file and its causing errors
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
@@ -195,6 +196,8 @@ void editor_init() {
         .pixel_scale = 1.0f,
     };
 
+    room_t room = room_new();
+
     editor_ctx = (editor_ctx_t) {
         .open = true,
 
@@ -209,9 +212,9 @@ void editor_init() {
 
         .resviewer = {
             .open = true,
-            .selected_texture = 0,
-            .texture = { 0 },
         },
+
+        .room = room,
     };
 }
 
@@ -258,7 +261,7 @@ static void editor_camera_update() {
 static void editor_topbar() {
     if(igBeginMainMenuBar()) {
         if(igBeginMenu("editor", true)) {
-            if(igMenuItem_Bool("quit", "F12", false, true))
+            if(igMenuItem_Bool("quit", "F10", false, true))
                 editor_ctx.open = false;
 
             igEndMenu();
@@ -346,6 +349,196 @@ static void editor_window_main() {
     igEnd();
 }
 
+// lol
+static const char* format_names[] = {
+    STRINGIFY(TEXTURE_FORMAT_UNDEFINED),
+    STRINGIFY(R8),
+    STRINGIFY(R8I),
+    STRINGIFY(R8UI),
+    STRINGIFY(R16),
+    STRINGIFY(R16F),
+    STRINGIFY(R16I),
+    STRINGIFY(R16UI),
+    STRINGIFY(R32F),
+    STRINGIFY(R32I),
+    STRINGIFY(R32UI),
+    STRINGIFY(RG8),
+    STRINGIFY(RG8I),
+    STRINGIFY(RG8UI),
+    STRINGIFY(RG16),
+    STRINGIFY(RG16F),
+    STRINGIFY(RG16I),
+    STRINGIFY(RG16UI),
+    STRINGIFY(RG32F),
+    STRINGIFY(RG32I),
+    STRINGIFY(RG32UI),
+    STRINGIFY(RGB8),
+    STRINGIFY(RGB8I),
+    STRINGIFY(RGB8UI),
+    STRINGIFY(RGB16F),
+    STRINGIFY(RGB16I),
+    STRINGIFY(RGB16UI),
+    STRINGIFY(RGB32F),
+    STRINGIFY(RGB32I),
+    STRINGIFY(RGB32UI),
+    STRINGIFY(RGBA8),
+    STRINGIFY(RGBA8I),
+    STRINGIFY(RGBA8UI),
+    STRINGIFY(RGBA16F),
+    STRINGIFY(RGBA16I),
+    STRINGIFY(RGBA16UI),
+    STRINGIFY(RGBA32F),
+    STRINGIFY(RGBA32I),
+    STRINGIFY(RGBA32UI),
+    STRINGIFY(DEPTH),
+    STRINGIFY(DEPTH_STENCIL),
+};
+
+static const char* filter_names[] = {
+    STRINGIFY(TEXTURE_FILTER_UNDEFINED),
+    STRINGIFY(NEAREST),
+    STRINGIFY(LINEAR),
+};
+
+static const char* wrap_names[] = {
+    STRINGIFY(TEXTURE_WRAP_UNDEFINED),
+    STRINGIFY(REPEAT),
+    STRINGIFY(MIRRORED_REPEAT),
+    STRINGIFY(CLAMP_TO_EDGE),
+};
+
+static const char* shader_pass_names[] = {
+    STRINGIFY(SHADER_PASS_INVALID),
+    STRINGIFY(VERTEX),
+    STRINGIFY(FRAGMENT),
+    STRINGIFY(COMPUTE),
+};
+
+static const char* uniform_type_names[] = {
+    STRINGIFY(UNIFORM_TYPE_INVALID),
+    STRINGIFY(i32),
+    STRINGIFY(u32),
+    STRINGIFY(f32),
+    STRINGIFY(v2f),
+    STRINGIFY(v3f),
+    STRINGIFY(v4f),
+    STRINGIFY(v2i),
+    STRINGIFY(v3i),
+    STRINGIFY(v4i),
+    STRINGIFY(mat4),
+};
+
+static void resviewer_show_texture_contents(texture_t texture, bool show_image) {
+    ImVec2 region;
+    igGetContentRegionAvail(&region);
+
+    texture_data_t* texture_data = texture_get_data(texture);
+    if(!texture_data) {
+        igText("couldnt find texture data for texture [%u]. wtf?", texture.id);
+        return;
+    }
+
+    if(show_image) {
+        f32 aspect_ratio = (f32) texture_data->height / (f32) texture_data->width;
+        f32 w = texture_data->width > region.x ? region.x : texture_data->width;
+        f32 h = w * aspect_ratio;
+        imgui_texture_image(texture, v2f_new(w, h));
+    }
+
+    igText("width [%u] height [%u]", texture_data->width, texture_data->height);
+
+    igText("format [%s]", format_names[texture_data->format]);
+    igText("filter mode [%s]", filter_names[texture_data->filter]);
+    igText("wrap mode [%s]", wrap_names[texture_data->wrap]);
+    igText("mipmaps [%u]", texture_data->mipmaps);
+}
+
+static void resviewer_show_sampler_contents(sampler_t sampler) {
+    sampler_data_t* sampler_data = sampler_get_data(sampler);
+    if(!sampler_data) {
+        igText("couldnt find sampler data for sampler [%u]. wtf?", sampler.id);
+        return;
+    }
+
+    igText("min filter [%s]", filter_names[sampler_data->min_filter]);
+    igText("mag filter [%s]", filter_names[sampler_data->mag_filter]);
+    igText("u wrap [%s]", wrap_names[sampler_data->u_wrap]);
+    igText("v wrap [%s]", wrap_names[sampler_data->v_wrap]);
+}
+
+static void resviewer_show_att_contents(attachments_t att) {
+    attachments_data_t* att_data = attachments_get_data(att);
+    if(!att_data) {
+        igText("couldnt find att data for att [%u]. wtf?", att.id);
+        return;
+    }
+
+    char label[32];
+    snprintf(label, sizeof(label), "colour attachments [%u]", att_data->num_colours);
+    if(igTreeNode_Str(label)) {
+        for(u32 i = 0; i < GFX_MAX_COLOUR_ATTACHMENTS; i ++) {
+            texture_t col = att_data->colours[i];
+            if(col.id == GFX_INVALID_ID) continue;
+            mem_clear(label, sizeof(label));
+            snprintf(label, sizeof(label), "colour att %u", i);
+            if(igTreeNode_Str(label)) {
+                igText("texture [%u] (index %u)", col.id, handle_index(col.id));
+                resviewer_show_texture_contents(col, editor_ctx.resviewer.att_preview_contents);
+                igTreePop();
+            }
+        }
+
+        igTreePop();
+    }
+
+    if(att_data->depth_stencil.id != GFX_INVALID_ID) {
+        if(igTreeNode_Str("depth-stencil attachment")) {
+            resviewer_show_texture_contents(att_data->depth_stencil, editor_ctx.resviewer.att_preview_contents);
+            igTreePop();
+        }
+    }
+}
+
+static void resviewer_show_shader_pass_contents(shader_pass_t pass) {
+    igText("type [%s]", pass.type);
+    igBeginChild_Str("##pass_content", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+    if(pass.src.ptr) igTextWrapped("%s", pass.src.ptr);
+    else igText("couldnt fetch contents of pass");
+    igEndChild();
+}
+
+static void resviewer_show_shader_contents(shader_t shader) {
+    shader_data_t* shader_data = shader_get_data(shader);
+    if(!shader_data) {
+        igText("couldnt find shader data for shader [%u]. wtf?", shader.id);
+        return;
+    }
+
+    igText("label [%s]", shader_data->pretty_name);
+
+    char label[32];
+    snprintf(label, sizeof(label), "uniforms [%u]", shader_data->uniform_block.num);
+    if(igTreeNode_Str(label)) {
+        igText("packed size [%u bytes]", shader_data->uniform_block.bytes);
+        for(u32 i = 0; i < shader_data->uniform_block.num; i ++) {
+            uniform_t uniform = shader_data->uniform_block.uniforms[i];
+            igText("%s [%s]", uniform.name, uniform_type_names[uniform.type]);
+        }
+
+        igTreePop();
+    }
+
+    if(igTreeNode_Str("vertex shader")) {
+        resviewer_show_shader_pass_contents(shader_data->vertex_pass);
+        igTreePop();
+    }
+
+    if(igTreeNode_Str("fragment shader")) {
+        resviewer_show_shader_pass_contents(shader_data->fragment_pass);
+        igTreePop();
+    }
+}
+
 static void editor_window_resviewer() {
     if(!editor_ctx.resviewer.open) return;
     if(!igBegin("resviewer", &editor_ctx.resviewer.open, ImGuiWindowFlags_None)) {
@@ -353,71 +546,13 @@ static void editor_window_resviewer() {
         return;
     }
 
-    // lol
-    static const char* format_names[] = {
-        STRINGIFY(TEXTURE_FORMAT_UNDEFINED),
-        STRINGIFY(TEXTURE_FORMAT_R8),
-        STRINGIFY(TEXTURE_FORMAT_R8I),
-        STRINGIFY(TEXTURE_FORMAT_R8UI),
-        STRINGIFY(TEXTURE_FORMAT_R16),
-        STRINGIFY(TEXTURE_FORMAT_R16F),
-        STRINGIFY(TEXTURE_FORMAT_R16I),
-        STRINGIFY(TEXTURE_FORMAT_R16UI),
-        STRINGIFY(TEXTURE_FORMAT_R32F),
-        STRINGIFY(TEXTURE_FORMAT_R32I),
-        STRINGIFY(TEXTURE_FORMAT_R32UI),
-        STRINGIFY(TEXTURE_FORMAT_RG8),
-        STRINGIFY(TEXTURE_FORMAT_RG8I),
-        STRINGIFY(TEXTURE_FORMAT_RG8UI),
-        STRINGIFY(TEXTURE_FORMAT_RG16),
-        STRINGIFY(TEXTURE_FORMAT_RG16F),
-        STRINGIFY(TEXTURE_FORMAT_RG16I),
-        STRINGIFY(TEXTURE_FORMAT_RG16UI),
-        STRINGIFY(TEXTURE_FORMAT_RG32F),
-        STRINGIFY(TEXTURE_FORMAT_RG32I),
-        STRINGIFY(TEXTURE_FORMAT_RG32UI),
-        STRINGIFY(TEXTURE_FORMAT_RGB8),
-        STRINGIFY(TEXTURE_FORMAT_RGB8I),
-        STRINGIFY(TEXTURE_FORMAT_RGB8UI),
-        STRINGIFY(TEXTURE_FORMAT_RGB16F),
-        STRINGIFY(TEXTURE_FORMAT_RGB16I),
-        STRINGIFY(TEXTURE_FORMAT_RGB16UI),
-        STRINGIFY(TEXTURE_FORMAT_RGB32F),
-        STRINGIFY(TEXTURE_FORMAT_RGB32I),
-        STRINGIFY(TEXTURE_FORMAT_RGB32UI),
-        STRINGIFY(TEXTURE_FORMAT_RGBA8),
-        STRINGIFY(TEXTURE_FORMAT_RGBA8I),
-        STRINGIFY(TEXTURE_FORMAT_RGBA8UI),
-        STRINGIFY(TEXTURE_FORMAT_RGBA16F),
-        STRINGIFY(TEXTURE_FORMAT_RGBA16I),
-        STRINGIFY(TEXTURE_FORMAT_RGBA16UI),
-        STRINGIFY(TEXTURE_FORMAT_RGBA32F),
-        STRINGIFY(TEXTURE_FORMAT_RGBA32I),
-        STRINGIFY(TEXTURE_FORMAT_RGBA32UI),
-        STRINGIFY(TEXTURE_FORMAT_DEPTH),
-        STRINGIFY(TEXTURE_FORMAT_DEPTH_STENCIL),
-    };
-
-    static const char* filter_names[] = {
-        STRINGIFY(TEXTURE_FILTER_UNDEFINED),
-        STRINGIFY(TEXTURE_FILTER_NEAREST),
-        STRINGIFY(TEXTURE_FILTER_LINEAR),
-    };
-
-    static const char* wrap_names[] = {
-        STRINGIFY(TEXTURE_WRAP_UNDEFINED),
-        STRINGIFY(TEXTURE_WRAP_REPEAT),
-        STRINGIFY(TEXTURE_WRAP_MIRRORED_REPEAT),
-        STRINGIFY(TEXTURE_WRAP_CLAMP_TO_EDGE),
-    };
-
     if(igBeginTabBar("##resviewer_bar", ImGuiTabBarFlags_None)) {
         if(igBeginTabItem("textures", NULL, ImGuiTabItemFlags_None)) {
             igBeginChild_Str("##texturelist", imv2f(120.0f, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
             pool_iter_t iter = { .absolute_index = 1, };
             while(pool_iter(&gfx_ctx.texture_pool->res_pool, &iter)) {
                 char label[32];
-                snprintf(label, 32, "texture %u", iter.absolute_index);
+                snprintf(label, sizeof(label), "texture %u", iter.absolute_index);
                 if(igSelectable_Bool(label, iter.absolute_index == editor_ctx.resviewer.selected_texture, ImGuiSelectableFlags_SelectOnClick, imv2f_ZERO)) {
                     if(editor_ctx.resviewer.selected_texture == iter.absolute_index) {
                         editor_ctx.resviewer.selected_texture = 0;
@@ -428,27 +563,14 @@ static void editor_window_resviewer() {
                     }
                 }
             }
-            igEndChild();
 
+            igEndChild();
             igSameLine(120.0f, 12.0f);
 
             igBeginChild_Str("##textureviewer", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
 
             if(editor_ctx.resviewer.selected_texture > 0) {
-                ImVec2 region;
-                igGetContentRegionAvail(&region);
-
-                texture_data_t* texture_data = texture_get_data(editor_ctx.resviewer.texture);
-                f32 aspect_ratio = (f32) texture_data->height / (f32) texture_data->width;
-                f32 w = texture_data->width > region.x ? region.x : texture_data->width;
-                f32 h = w * aspect_ratio;
-                imgui_texture_image(editor_ctx.resviewer.texture, v2f_new(w, h));
-                igText("width [%u] height [%u]", texture_data->width, texture_data->height);
-
-                igText("format [%s]", format_names[texture_data->format]);
-                igText("filter mode [%s]", filter_names[texture_data->filter]);
-                igText("wrap mode [%s]", wrap_names[texture_data->wrap]);
-                igText("mipmaps [%u]", texture_data->mipmaps);
+                resviewer_show_texture_contents(editor_ctx.resviewer.texture, true);
             } else {
                 igText("no texture selected");
             }
@@ -462,7 +584,7 @@ static void editor_window_resviewer() {
             pool_iter_t iter = { .absolute_index = 1, };
             while(pool_iter(&gfx_ctx.sampler_pool->res_pool, &iter)) {
                 char label[32];
-                snprintf(label, 32, "sampler %u", iter.absolute_index);
+                snprintf(label, sizeof(label), "sampler %u", iter.absolute_index);
                 if(igSelectable_Bool(label, iter.absolute_index == editor_ctx.resviewer.selected_sampler, ImGuiSelectableFlags_SelectOnClick, imv2f_ZERO)) {
                     if(editor_ctx.resviewer.selected_sampler == iter.absolute_index) {
                         editor_ctx.resviewer.selected_sampler = 0;
@@ -473,20 +595,81 @@ static void editor_window_resviewer() {
                     }
                 }
             }
-            igEndChild();
 
+            igEndChild();
             igSameLine(120.0f, 12.0f);
 
             igBeginChild_Str("##samplerviewer", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
 
             if(editor_ctx.resviewer.selected_sampler > 0) {
-                sampler_data_t* sampler_data = sampler_get_data(editor_ctx.resviewer.sampler);
-                igText("min filter [%s]", filter_names[sampler_data->min_filter]);
-                igText("mag filter [%s]", filter_names[sampler_data->mag_filter]);
-                igText("u wrap [%s]", wrap_names[sampler_data->u_wrap]);
-                igText("v wrap [%s]", wrap_names[sampler_data->v_wrap]);
+                resviewer_show_sampler_contents(editor_ctx.resviewer.sampler);
             } else {
                 igText("no sampler selected");
+            }
+
+            igEndChild();
+            igEndTabItem();
+        }
+
+        if(igBeginTabItem("attachments", NULL, ImGuiTreeNodeFlags_None)) {
+            igBeginChild_Str("##attlist", imv2f(120.0f, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+            igCheckbox("preview", &editor_ctx.resviewer.att_preview_contents);
+            pool_iter_t iter = { .absolute_index = 1, };
+            while(pool_iter(&gfx_ctx.attachments_pool->res_pool, &iter)) {
+                char label[32];
+                snprintf(label, 32, "att obj %u", iter.absolute_index);
+                if(igSelectable_Bool(label, iter.absolute_index == editor_ctx.resviewer.selected_att, ImGuiSelectableFlags_SelectOnClick, imv2f_ZERO)) {
+                    if(editor_ctx.resviewer.selected_att == iter.absolute_index) {
+                        editor_ctx.resviewer.selected_att = 0;
+                        editor_ctx.resviewer.att = (attachments_t) {0};
+                    } else {
+                        editor_ctx.resviewer.selected_att = iter.absolute_index;
+                        editor_ctx.resviewer.att = (attachments_t) { iter.handle };
+                    }
+                }
+            }
+
+            igEndChild();
+            igSameLine(120.0f, 12.0f);
+
+            igBeginChild_Str("##attviewer", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+
+            if(editor_ctx.resviewer.selected_att > 0) {
+                resviewer_show_att_contents(editor_ctx.resviewer.att);
+            } else {
+                igText("no att obj selected");
+            }
+
+            igEndChild();
+            igEndTabItem();
+        }
+
+        if(igBeginTabItem("shaders", NULL, ImGuiTreeNodeFlags_None)) {
+            igBeginChild_Str("##shaderlist", imv2f(120.0f, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+            pool_iter_t iter = { .absolute_index = 1, };
+            while(pool_iter(&gfx_ctx.shader_pool->res_pool, &iter)) {
+                char label[32];
+                snprintf(label, 32, "shader %u", iter.absolute_index);
+                if(igSelectable_Bool(label, iter.absolute_index == editor_ctx.resviewer.selected_shader, ImGuiSelectableFlags_SelectOnClick, imv2f_ZERO)) {
+                    if(editor_ctx.resviewer.selected_shader == iter.absolute_index) {
+                        editor_ctx.resviewer.selected_shader = 0;
+                        editor_ctx.resviewer.shader = (shader_t) {0};
+                    } else {
+                        editor_ctx.resviewer.selected_shader = iter.absolute_index;
+                        editor_ctx.resviewer.shader = (shader_t) { iter.handle };
+                    }
+                }
+            }
+
+            igEndChild();
+            igSameLine(120.0f, 12.0f);
+
+            igBeginChild_Str("##shaderviewer", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
+
+            if(editor_ctx.resviewer.selected_shader > 0) {
+                resviewer_show_shader_contents(editor_ctx.resviewer.shader);
+            } else {
+                igText("no shader program selected");
             }
 
             igEndChild();

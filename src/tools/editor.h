@@ -25,13 +25,23 @@ typedef struct editor_ctx_t {
 
     struct {
         bool open;
+
         u32 selected_texture;
         texture_t texture;
+
         u32 selected_sampler;
         sampler_t sampler;
+
+        bool att_preview_contents;
+        u32 selected_att;
+        attachments_t att;
+
+        u32 selected_shader;
+        shader_t shader;
     } resviewer;
 
     room_t room;
+    renderer_t room_renderer;
 } editor_ctx_t;
 
 void editor_init();

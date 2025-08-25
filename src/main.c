@@ -55,7 +55,7 @@ int main(void) {
         input_start_frame();
         imgui_start_frame();
 
-        if(input_key_pressed(KEY_F12)) editor_toggle();
+        if(input_key_pressed(KEY_F10)) editor_toggle();
 
         // igShowDemoWindow(NULL);
 
