@@ -24,6 +24,9 @@ typedef struct tile_t {
     v4f col;
 } tile_t;
 
+v2f tile_get_world_pos(tile_t tile);
+mat4s tile_get_model_mat(tile_t tile);
+
 typedef struct room_t {
     tile_t tiles[ROOM_HEIGHT][ROOM_WIDTH];
 } room_t;

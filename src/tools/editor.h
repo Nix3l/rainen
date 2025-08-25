@@ -41,7 +41,6 @@ typedef struct editor_ctx_t {
     } resviewer;
 
     room_t room;
-    renderer_t room_renderer;
 } editor_ctx_t;
 
 void editor_init();

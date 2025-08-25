@@ -14,6 +14,7 @@
 
 #define GFX_INVALID_ID (0)
 
+// TODO(nix3l): optional labels for gfx objects
 // TODO(nix3l): actually use the mipmaps moron
 // TODO(nix3l): backend state cache
 // TOOD(nix3l): err code logging

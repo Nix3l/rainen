@@ -75,31 +75,10 @@ static void construct_uniforms(void* out, draw_call_t* call) {
 // STATE
 void editor_init() {
     // leak ALL the memory
-    arena_t shader_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
-    range_t vertex_src = platform_load_file(&shader_code_arena, "shader/editor/editor.vs");
-    range_t fragment_src = platform_load_file(&shader_code_arena, "shader/editor/editor.fs");
-    shader_t shader = shader_new((shader_info_t) {
-        .name = "ed",
-        .pretty_name = "editor shader",
-        .attribs = {
-            { .name = "vs_position" },
-            { .name = "vs_uvs" },
-        },
-        .uniforms = {
-            { .name = "projViewModel", .type = UNIFORM_TYPE_mat4, },
-            { .name = "col", .type = UNIFORM_TYPE_v4f, },
-            { .name = "tex", .type = UNIFORM_TYPE_i32, },
-            { .name = "use_tex", .type = UNIFORM_TYPE_i32, },
-        },
-        .vertex_src = vertex_src,
-        .fragment_src = fragment_src,
-    });
-
     arena_t grid_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
     range_t grid_vs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.vs");
     range_t grid_fs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.fs");
     shader_t grid_shader = shader_new((shader_info_t) {
-        .name = "ed",
         .pretty_name = "grid shader",
         .attribs = {
             { .name = "vs_position" },
@@ -117,6 +96,25 @@ void editor_init() {
         },
         .vertex_src = grid_vs,
         .fragment_src = grid_fs,
+    });
+
+    arena_t room_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
+    range_t room_vs = platform_load_file(&room_code_arena, "shader/editor/editor.vs");
+    range_t room_fs = platform_load_file(&room_code_arena, "shader/editor/editor.fs");
+    shader_t room_shader = shader_new((shader_info_t) {
+        .pretty_name = "room shader",
+        .attribs = {
+            { .name = "vs_position" },
+            { .name = "vs_uvs" },
+        },
+        .uniforms = {
+            { .name = "projViewModel", .type = UNIFORM_TYPE_mat4, },
+            { .name = "col", .type = UNIFORM_TYPE_v4f, },
+            { .name = "tex", .type = UNIFORM_TYPE_i32, },
+            { .name = "use_tex", .type = UNIFORM_TYPE_i32, },
+        },
+        .vertex_src = room_vs,
+        .fragment_src = room_fs,
     });
 
     texture_t col_target = texture_new((texture_info_t) {
@@ -176,7 +174,7 @@ void editor_init() {
                         .colour_targets = {
                             [0] = { .enable = true, },
                         },
-                        .shader = shader,
+                        .shader = room_shader,
                     },
                     .state = {
                         .anchor = { .enable = true, },
@@ -500,7 +498,7 @@ static void resviewer_show_att_contents(attachments_t att) {
 }
 
 static void resviewer_show_shader_pass_contents(shader_pass_t pass) {
-    igText("type [%s]", pass.type);
+    igText("type [%s]", shader_pass_names[pass.type]);
     igBeginChild_Str("##pass_content", imv2f_ZERO, ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
     if(pass.src.ptr) igTextWrapped("%s", pass.src.ptr);
     else igText("couldnt fetch contents of pass");
@@ -546,6 +544,8 @@ static void editor_window_resviewer() {
         return;
     }
 
+    // these should be made into functions but like
+    // who cares. it works.
     if(igBeginTabBar("##resviewer_bar", ImGuiTabBarFlags_None)) {
         if(igBeginTabItem("textures", NULL, ImGuiTabItemFlags_None)) {
             igBeginChild_Str("##texturelist", imv2f(120.0f, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_None);
@@ -689,12 +689,15 @@ void editor_update() {
         .colour = v4f_new(0.73f, 0.1f, 0.35f, 1.0f),
     });
 
+    igPushStyleVar_Float(ImGuiStyleVar_TabRounding, 0.0f);
     editor_topbar();
     editor_dockspace();
     editor_window_view();
     editor_window_main();
     editor_window_resviewer();
+    igPopStyleVar(1);
 
+    // technically these should be before the imgui functions but eh
     editor_camera_update();
     editor_show_grid();
 
