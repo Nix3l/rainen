@@ -1,5 +1,7 @@
 #include "io.h"
 
+#include "base_macros.h"
+#include "errors/errors.h"
 #include "util/util.h"
 #include "gfx/gfx.h"
 
@@ -130,7 +132,7 @@ static keycode_t gl_keycode(int key) {
     }
 }
 
-static mousebutton_t gl_mousebutton(int button) {
+static button_t gl_button(int button) {
     switch (button) {
         case GLFW_MOUSE_BUTTON_1: return BUTTON_0;
         case GLFW_MOUSE_BUTTON_2: return BUTTON_1;
@@ -188,7 +190,7 @@ static void gl_scroll_callback(GLFWwindow* window, double xoffset, double yoffse
 }
 
 static void gl_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-    mousebutton_t buttoncode = gl_mousebutton(button);
+    button_t buttoncode = gl_button(button);
     hitmode_t hit = io_ctx.state.buttons[buttoncode];
     hitmode_t new_mode = hit;
 
@@ -204,7 +206,7 @@ static void gl_mouse_button_callback(GLFWwindow* window, int button, int action,
 
 static void gl_mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {
     io_ctx.state.mouse_pos.x = (f32) xpos;
-    io_ctx.state.mouse_pos.y = (f32) ypos;
+    io_ctx.state.mouse_pos.y = io_ctx.window.height - (f32) ypos;
 
     UNUSED(window);
 }
@@ -234,6 +236,7 @@ static void gl_detect_monitors() {
             mode->b_bits = gl_vidmode.blueBits;
             mode->refresh_rate = gl_vidmode.refreshRate;
 
+            // i could probably use memcmp but eh
             bool is_active = true;
             if(gl_vidmode.width != active_mode->width) is_active = false;
             if(gl_vidmode.height != active_mode->height) is_active = false;
@@ -482,19 +485,19 @@ bool input_key_released(keycode_t key) {
     return io_ctx.state.keys[key] == HITMODE_RELEASED;
 }
 
-bool input_button_down(mousebutton_t button) {
+bool input_button_down(button_t button) {
     return io_ctx.state.buttons[button] == HITMODE_PRESSED || io_ctx.state.buttons[button] == HITMODE_HELD;
 }
 
-bool input_button_pressed(mousebutton_t button) {
+bool input_button_pressed(button_t button) {
     return io_ctx.state.buttons[button] == HITMODE_PRESSED;
 }
 
-bool input_button_held(mousebutton_t button) {
+bool input_button_held(button_t button) {
     return io_ctx.state.buttons[button] == HITMODE_HELD;
 }
 
-bool input_button_released(mousebutton_t button) {
+bool input_button_released(button_t button) {
     return io_ctx.state.buttons[button] == HITMODE_RELEASED;
 }
 
@@ -516,4 +519,45 @@ v2f input_mouse_move_raw() {
 
 v2f input_mouse_move_absolute() {
     return io_ctx.state.mouse_move_absolute;
+}
+
+// DRAG
+void input_drag_mouse(mouse_drag_t* drag) {
+    switch(drag->state) {
+        case DRAG_STATE_IDLE:
+            if(drag->drag_button == BUTTON_UNKNOWN) drag->drag_button = BUTTON_LEFT;
+            if(input_button_pressed(drag->drag_button)) {
+                drag->state = DRAG_STATE_DRAGGING;
+                drag->start = input_mouse_pos();
+            }
+        break;
+
+        case DRAG_STATE_DRAGGING:
+            if(drag->cancel_key != KEY_UNKNOWN && input_key_pressed(drag->cancel_key)) {
+                drag->state = DRAG_STATE_CANCELLED;
+                drag->start = v2f_ZERO;
+                drag->end = v2f_ZERO;
+                drag->min = v2f_ZERO;
+                drag->max = v2f_ZERO;
+                drag->amount = 0.0f;
+                break;
+            }
+
+            drag->end = input_mouse_pos();
+            drag->min = v2f_new(MIN(drag->start.x, drag->end.x), MIN(drag->start.y, drag->end.y));
+            drag->max = v2f_new(MAX(drag->start.x, drag->end.x), MAX(drag->start.y, drag->end.y));
+
+            v2f diff = v2f_sub(drag->end, drag->start);
+            drag->amount = v2f_dot(diff, diff);
+
+            if(!input_button_down(drag->drag_button)) drag->state = DRAG_STATE_ACCEPTED;
+        break;
+
+        case DRAG_STATE_ACCEPTED:
+        case DRAG_STATE_CANCELLED:
+            drag->state = DRAG_STATE_IDLE;
+        break;
+
+        default: LOG_ERR_CODE(ERR_IO_UNKNOWN_DRAG_STATE); return;
+    }
 }

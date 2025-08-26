@@ -128,7 +128,7 @@ typedef enum keycode_t {
     KEYS_NUM,
 } keycode_t;
 
-typedef enum mousebutton_t {
+typedef enum button_t {
     BUTTON_UNKNOWN = 0,
     BUTTON_0,
     BUTTON_1,
@@ -142,7 +142,7 @@ typedef enum mousebutton_t {
     BUTTON_RIGHT = BUTTON_1,
     BUTTON_MIDDLE = BUTTON_2,
     BUTTONS_NUM,
-} mousebutton_t;
+} button_t;
 
 typedef enum hitmode_t {
     HITMODE_NONE = 0,
@@ -231,17 +231,41 @@ bool input_key_pressed(keycode_t key);
 bool input_key_held(keycode_t key);
 bool input_key_released(keycode_t key);
 
-bool input_button_down(mousebutton_t button);
-bool input_button_pressed(mousebutton_t button);
-bool input_button_held(mousebutton_t button);
-bool input_button_released(mousebutton_t button);
+bool input_button_down(button_t button);
+bool input_button_pressed(button_t button);
+bool input_button_held(button_t button);
+bool input_button_released(button_t button);
 
 f32 input_get_scroll();
 
+// bottom left is [0, 0]
 v2f input_mouse_pos();
 v2f input_mouse_move();
 v2f input_mouse_move_raw();
 v2f input_mouse_move_absolute();
+
+// MOUSE DRAG
+typedef enum drag_state_t {
+    DRAG_STATE_IDLE = 0,
+    DRAG_STATE_DRAGGING,
+    DRAG_STATE_ACCEPTED,
+    DRAG_STATE_CANCELLED,
+} drag_state_t;
+
+typedef struct mouse_drag_t {
+    drag_state_t state;
+
+    keycode_t cancel_key;
+    button_t drag_button;
+
+    v2f start;
+    v2f end;
+    v2f min;
+    v2f max;
+    f32 amount;
+} mouse_drag_t;
+
+void input_drag_mouse(mouse_drag_t* drag);
 
 typedef struct io_ctx_t {
     vector_t monitors;
