@@ -265,7 +265,8 @@ typedef struct mouse_drag_t {
     f32 amount;
 } mouse_drag_t;
 
-void input_drag_mouse(mouse_drag_t* drag);
+void input_drag(mouse_drag_t* drag);
+void input_drag_interrupt(mouse_drag_t* drag);
 
 typedef struct io_ctx_t {
     vector_t monitors;

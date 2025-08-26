@@ -561,3 +561,12 @@ void input_drag_mouse(mouse_drag_t* drag) {
         default: LOG_ERR_CODE(ERR_IO_UNKNOWN_DRAG_STATE); return;
     }
 }
+
+void input_drag_interrupt(mouse_drag_t* drag) {
+    drag->state = DRAG_STATE_CANCELLED;
+    drag->start = v2f_ZERO;
+    drag->end = v2f_ZERO;
+    drag->min = v2f_ZERO;
+    drag->max = v2f_ZERO;
+    drag->amount = 0.0f;
+}
