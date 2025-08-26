@@ -522,7 +522,7 @@ v2f input_mouse_move_absolute() {
 }
 
 // DRAG
-void input_drag_mouse(mouse_drag_t* drag) {
+void input_drag(mouse_drag_t* drag) {
     switch(drag->state) {
         case DRAG_STATE_IDLE:
             if(drag->drag_button == BUTTON_UNKNOWN) drag->drag_button = BUTTON_LEFT;
