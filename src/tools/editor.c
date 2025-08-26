@@ -11,6 +11,7 @@
 #include "util/util.h"
 #include "util/math_util.h"
 #include "gfx/gfx.h"
+#include <stdio.h>
 
 // temporary because my cmp keeps auto including this stupid file and its causing errors
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
@@ -198,7 +199,7 @@ void editor_init() {
 
     texture_t col_target = texture_new((texture_info_t) {
         .type = TEXTURE_TYPE_2D,
-        .format = TEXTURE_FORMAT_RGBA8,
+        .format = TEXTURE_FORMAT_RGBA32F,
         .width = io_ctx.window.width,
         .height = io_ctx.window.height,
     });
@@ -351,14 +352,16 @@ static void editor_dockspace() {
 // VIEW
 static void editor_window_view() {
     const ImGuiWindowFlags flags = 
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoBackground |
-        ImGuiWindowFlags_NoDecoration |
-        ImGuiWindowFlags_NoInputs |
-        ImGuiWindowFlags_NoNavFocus |
-        ImGuiWindowFlags_NoNavInputs |
-        ImGuiWindowFlags_NoMouseInputs |
-        ImGuiWindowFlags_NoTitleBar;
+        ImGuiWindowFlags_NoCollapse     |
+        ImGuiWindowFlags_NoBackground   |
+        ImGuiWindowFlags_NoDecoration   |
+        ImGuiWindowFlags_NoInputs       |
+        ImGuiWindowFlags_NoNavFocus     |
+        ImGuiWindowFlags_NoNavInputs    |
+        ImGuiWindowFlags_NoMouseInputs  |
+        ImGuiWindowFlags_NoTitleBar     |
+        ImGuiWindowFlags_NoScrollbar    |
+        ImGuiWindowFlags_NoScrollWithMouse;
 
     igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, imv2f_ZERO);
     if(!igBegin("view", NULL, flags)) {
@@ -367,22 +370,22 @@ static void editor_window_view() {
         return;
     }
 
-    ImGuiViewport* viewport = igGetMainViewport();
-    f32 top_margin = viewport->Size.y - viewport->WorkSize.y;
-
-    ImVec2 pos, size;
+    ImVec2 pos, size, content;
     igGetWindowPos(&pos);
     igGetWindowSize(&size);
+    igGetContentRegionAvail(&content);
 
-    ImGuiViewport* wview = igGetMainViewport();
-    editor_ctx.view.pos = v2f_new(wview->WorkPos.x, wview->WorkPos.y);
-    editor_ctx.view.size = v2f_new(wview->WorkSize.x, wview->WorkSize.y);
+    pos.y += size.y - content.y;
+    pos.x -= size.x - content.x; // ???
+
+    f32 w = io_ctx.window.width;
+    f32 h = io_ctx.window.height;
 
     imgui_texture_image_range(
         editor_ctx.render_texture,
-        v2f_new(size.x, size.y - top_margin),
-        v2f_new(pos.x / viewport->Size.x, pos.y / viewport->Size.y),
-        v2f_new((pos.x + size.x) / viewport->Size.x, (pos.y + size.y) / viewport->Size.y)
+        v2f_new(content.x, content.y),
+        v2f_new(pos.x / w, (h - (pos.y + content.y)) / h),
+        v2f_new((pos.x + content.x) / w, (h - pos.y) / h)
     );
 
     ImVec2 cursor;
@@ -400,6 +403,26 @@ static void editor_window_view() {
 }
 
 // MAIN
+static void editor_show_tile_info(tile_t tile) {
+    const ImGuiColorEditFlags col_flags = ImGuiColorEditFlags_None;
+
+    char label[32];
+    snprintf(label, sizeof(label), "tile [%d, %d]", v2f_expand(editor_ctx.hovered_tile));
+    igSetNextItemOpen(true, ImGuiCond_Appearing);
+    if(igTreeNode_Str(label)) {
+        igSetNextItemOpen(true, ImGuiCond_Appearing);
+        if(igTreeNode_Str("tags")) {
+            if(tile.tags == TILE_TAGS_NONE) igText("none");
+            if(tile.tags & TILE_TAGS_RENDER) igText("render");
+            if(tile.tags & TILE_TAGS_SOLID) igText("solid");
+            igTreePop();
+        }
+
+        igColorEdit4("colour", tile.col.raw, col_flags);
+        igTreePop();
+    }
+}
+
 static void editor_window_main() {
     if(!editor_ctx.editor.open) return;
     if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
@@ -692,6 +715,17 @@ static void editor_window_tools() {
     igEnd();
 }
 
+static void editor_tooltip_tile_info() {
+    if(!input_key_down(KEY_LEFT_CONTROL)) return;
+    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
+
+    if(igBeginTooltip()) {
+        tile_t hovered = room_get_tile(&editor_ctx.room, editor_ctx.hovered_tile.x, editor_ctx.hovered_tile.y);
+        editor_show_tile_info(hovered);
+        igEndTooltip();
+    }
+}
+
 // CAMERA
 static void editor_camera_update() {
     camera_t* cam = &editor_ctx.cam;
@@ -699,7 +733,7 @@ static void editor_camera_update() {
     if(!editor_ctx.view.focused) return;
 
     f32 scroll = input_get_scroll();
-    cam->pixel_scale -= scroll * 0.066f;
+    cam->pixel_scale -= scroll * 0.05f;
     cam->pixel_scale = MAX(cam->pixel_scale, 0.05f);
     cam->pixel_scale = MIN(cam->pixel_scale, editor_ctx.max_zoom);
 
@@ -717,17 +751,16 @@ static void editor_hovered_tile_update() {
         return;
     }
 
-    v2f view_pos = editor_ctx.view.pos;
-    v2f view_size = editor_ctx.view.size;
     f32 scale = editor_ctx.cam.pixel_scale;
 
-    f32 hw = io_ctx.window.width / 2.0f;
-    f32 hh = io_ctx.window.height / 2.0f;
+    f32 w = io_ctx.window.width;
+    f32 h = io_ctx.window.height;
+    f32 hw = w / 2.0f;
+    f32 hh = h / 2.0f;
 
     v2f offset = input_mouse_pos();
-    offset.x = remapf(offset.x, view_pos.x, view_pos.x + view_size.x, -hw,  hw);
-    offset.y = remapf(offset.y, view_pos.y, view_pos.y + view_size.y,  hh, -hh); // flipped out range to make up +ve
-    offset = v2f_add(offset, view_pos);
+    offset.x = remapf(offset.x, 0.0f, w, -hw,  hw);
+    offset.y = remapf(offset.y, 0.0f, h,  hh, -hh); // flipped out range to make up +ve
     offset = v2f_scale(offset, scale);
 
     v2f pos = editor_ctx.cam.transform.position;
@@ -792,6 +825,8 @@ static void editor_tool_update() {
     };
 
     v2f pos = tile_get_world_pos((tile_t) { .x = editor_ctx.hovered_tile.x, .y = editor_ctx.hovered_tile.y });
+    v4f col = hover_colours[editor_ctx.tools.active_tool];
+    if(col.a == 0.0f) return;
     render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
         .position = v3f_new(pos.x, pos.y, 1),
         .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
@@ -828,10 +863,11 @@ void editor_update() {
     igPushStyleVar_Float(ImGuiStyleVar_TabRounding, 0.0f);
     editor_topbar();
     editor_dockspace();
-    editor_window_view();
     editor_window_main();
     editor_window_resviewer();
     editor_window_tools();
+    editor_window_view();
+    editor_tooltip_tile_info();
     igPopStyleVar(1);
 
     editor_camera_update();

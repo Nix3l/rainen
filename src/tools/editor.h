@@ -29,8 +29,6 @@ typedef struct editor_ctx_t {
 
     struct {
         bool focused;
-        v2f pos;
-        v2f size;
     } view;
 
     struct {

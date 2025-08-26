@@ -9,8 +9,8 @@ pkgs.clangStdenv.mkDerivation {
 
     buildInputs = with pkgs; [
         libGL
-        # glfw-wayland
-        glfw
+        glfw-wayland
+        # glfw
         cglm
         assimp
         imgui
