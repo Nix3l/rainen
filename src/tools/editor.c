@@ -21,6 +21,18 @@
 
 editor_ctx_t editor_ctx = {0};
 
+// KEYBINDS:
+//  => GLOBAL
+//      - clear active tool [BACKSPACE]
+//      - place tool        [1]
+//      - select tool       [2]
+//      - delete tool       [3]
+//      - move view         [MIDDLE MOUSE]
+//      - enable alt mode   [LEFT ALT]
+//  => SELECT TOOL
+//      - cancel selection  [ESC]
+//      - delete selection  [CTRL+D]
+
 static void editor_tile_delete(v2i pos);
 static bool editor_tile_selected(v2i pos);
 static v2i editor_tile_at_screen_pos(v2f offset);
@@ -1059,7 +1071,14 @@ static void editor_tool_select() {
     if(drag->state == DRAG_STATE_ACCEPTED) {
         v2i min = editor_tile_at_screen_pos(drag->min);
         v2i max = editor_tile_at_screen_pos(drag->max);
-        editor_select_range(min, max);
+
+        if((min.x >= 0 || max.x >= 0) && (min.y >= 0 || max.y >= 0)) {
+            if(min.x < 0) min.x = 0;
+            if(min.y < 0) min.y = 0;
+            if(max.x < 0) max.x = 0;
+            if(max.y < 0) max.y = 0;
+            editor_select_range(min, max);
+        }
     }
 
     if(drag->state != DRAG_STATE_DRAGGING)
