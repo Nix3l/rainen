@@ -182,7 +182,7 @@ static void render_active_group() {
         return;
     }
 
-    range_t uniforms = range_alloc(shader_get_uniforms_size(pass.pipeline.shader));
+    range_t uniforms = range_alloc_new(shader_get_uniforms_size(pass.pipeline.shader));
 
     for(u32 i = 0; i < group.batch.size; i ++) {
         draw_call_t* call = vector_get(&group.batch, i);
@@ -205,6 +205,8 @@ static void render_active_group() {
 
         mem_clear(uniforms.ptr, uniforms.size);
     }
+
+    range_destroy(&uniforms);
 }
 
 void render_dispatch(renderer_t* renderer) {

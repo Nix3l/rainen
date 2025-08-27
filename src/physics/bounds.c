@@ -1,6 +1,4 @@
-#include "aabb.h"
-#include "base_macros.h"
-#include <math.h>
+#include "bounds.h"
 
 aabb_t aabb_new(v2f min, v2f max) {
     return (aabb_t) {

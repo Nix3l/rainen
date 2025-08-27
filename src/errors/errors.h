@@ -9,6 +9,7 @@
 typedef enum error_code_t {
     ERR_UNKNOWN = 0,
     ERR_BAD_POINTER,
+    ERR_IO_UNKNOWN_DRAG_STATE,
     ERR_GFX_BAD_ID,
     ERR_GFX_BAD_SLOT,
     ERR_GFX_INIT_BEFORE_ALLOC,

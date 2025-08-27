@@ -27,7 +27,7 @@ typedef struct range_t {
 #define RANGE_EMPTY ((range_t) { .size = 0, .ptr = NULL })
 
 range_t range_new(void* data, usize bytes);
-range_t range_alloc(usize bytes);
+range_t range_alloc_new(usize bytes);
 
 // frees the range
 void range_destroy(range_t* range);
@@ -174,6 +174,6 @@ typedef struct pool_iter_t {
 
 bool pool_iter(pool_t* pool, pool_iter_t* iter);
 
-// TODO(nix3l): linked lists
+// TODO(nix3l): LINKED LISTS
 
 #endif /* ifndef _MEMORY_H */

@@ -556,6 +556,11 @@ void input_drag(mouse_drag_t* drag) {
         case DRAG_STATE_ACCEPTED:
         case DRAG_STATE_CANCELLED:
             drag->state = DRAG_STATE_IDLE;
+            drag->start = v2f_ZERO;
+            drag->end = v2f_ZERO;
+            drag->min = v2f_ZERO;
+            drag->max = v2f_ZERO;
+            drag->amount = 0.0f;
         break;
 
         default: LOG_ERR_CODE(ERR_IO_UNKNOWN_DRAG_STATE); return;

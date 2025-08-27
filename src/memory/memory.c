@@ -4,7 +4,7 @@ void mem_clear(void* ptr, usize size) {
     memset(ptr, 0, size);
 }
 
-// ARRAYS/RANGES
+// RANGE
 range_t range_new(void* data, usize size) {
     return (range_t) {
         .size = size,
@@ -12,7 +12,7 @@ range_t range_new(void* data, usize size) {
     };
 }
 
-range_t range_alloc(usize size) {
+range_t range_alloc_new(usize size) {
     void* data = mem_calloc(size);
     if(!data) PANIC("couldnt allocate range\n");
 
@@ -28,6 +28,7 @@ void range_destroy(range_t* range) {
     range->ptr = NULL;
 }
 
+// VECTORS
 vector_t vector_new(void* data, u32 capacity, u32 element_size) {
     return (vector_t) {
         .size = 0,
@@ -128,7 +129,7 @@ void arena_resize(arena_t* arena, usize new_capacity) {
     arena->capacity = new_capacity;
     arena->data = mem_realloc(arena->data, new_capacity);
 
-    if(!arena->data) PANIC("couldnt resize for arena\n");
+    if(!arena->data) PANIC("couldnt resize arena\n");
 }
 
 void arena_prepare(arena_t* arena, usize bytes) {
@@ -227,7 +228,7 @@ void arena_destroy(arena_t* arena) {
 
 // POOLS
 #define HANDLE_INDEX_MASK (0x00FFFFFF)
-#define HANDLE_GEN_MASK (0xFF000000)
+#define HANDLE_GEN_MASK   (0xFF000000)
 
 handle_t handle_new(u32 index, u32 generation) {
     return (generation << 24) | (index & HANDLE_INDEX_MASK);

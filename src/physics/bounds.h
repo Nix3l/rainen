@@ -1,5 +1,5 @@
-#ifndef _AABB_H
-#define _AABB_H
+#ifndef _BOUNDS_H
+#define _BOUNDS_H
 
 #include "base.h"
 
