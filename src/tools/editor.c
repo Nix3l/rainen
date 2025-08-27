@@ -29,9 +29,9 @@ editor_ctx_t editor_ctx = {0};
 //      - delete tool       [3]
 //      - move view         [MIDDLE MOUSE]
 //      - enable alt mode   [LEFT ALT]
-//  => SELECT TOOL
 //      - cancel selection  [ESC]
 //      - delete selection  [CTRL+D]
+//      - select all        [CTRL+A]
 
 static void editor_tile_delete(v2i pos);
 static bool editor_tile_selected(v2i pos);
@@ -584,6 +584,10 @@ static void editor_select_range(v2i min, v2i max) {
 }
 
 static void editor_selection_update() {
+    if(input_key_pressed(KEY_ESCAPE)) editor_selection_clear();
+    if(input_key_down(KEY_LEFT_CONTROL) && input_key_pressed(KEY_D)) editor_selection_delete();
+    if(input_key_down(KEY_LEFT_CONTROL) && input_key_pressed(KEY_A)) editor_select_range(v2i_ZERO, v2i_new(ROOM_WIDTH - 1, ROOM_HEIGHT - 1));
+
     if(!editor_ctx.selection.selected) return;
 
     bool edge_tile_removed = false;
@@ -1057,9 +1061,6 @@ static void editor_tool_place() {
 }
 
 static void editor_tool_select() {
-    if(input_key_pressed(KEY_ESCAPE)) editor_selection_clear();
-    if(input_key_down(KEY_LEFT_CONTROL) && input_key_pressed(KEY_D)) editor_selection_delete();
-
     mouse_drag_t* drag = &editor_ctx.select_tool.drag; 
     input_drag(drag);
 
