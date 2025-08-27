@@ -13,7 +13,6 @@
 #include "util/util.h"
 #include "util/math_util.h"
 #include "gfx/gfx.h"
-#include <stdio.h>
 
 // temporary because my cmp keeps auto including this stupid file and its causing errors
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
@@ -33,11 +32,16 @@ editor_ctx_t editor_ctx = {0};
 //      - delete selection  [CTRL+D] [DEL]
 //      - select all        [CTRL+A]
 
+static void editor_render_to_grid_pass(draw_call_t call);
+static void editor_render_to_room_pass(draw_call_t call);
+static void editor_render_to_selection_pass(draw_call_t call);
+
 static void editor_tile_delete(v2i pos);
 static bool editor_tile_selected(v2i pos);
 static v2i editor_tile_at_screen_pos(v2f offset);
 static v2f editor_tile_get_screen_pos(v2i tile);
 static void editor_tile_show_info(tile_t tile);
+static void editor_tile_show_settings(tile_t tile);
 
 static void editor_selection_clear();
 static void editor_selection_delete();
@@ -157,6 +161,7 @@ static const char* tool_names[] = {
     STRINGIFY(DELETE),
 };
 
+// UNIFORMS
 static void grid_construct_uniforms(void* out, draw_call_t* call) {
     struct  __attribute__((packed)) {
         f32 tw;
@@ -433,6 +438,19 @@ bool editor_is_open() {
     return editor_ctx.open;
 }
 
+// RENDERING
+static void editor_render_to_grid_pass(draw_call_t call) {
+    render_push_draw_call(&editor_ctx.renderer.groups[0], call);
+}
+
+static void editor_render_to_room_pass(draw_call_t call) {
+    render_push_draw_call(&editor_ctx.renderer.groups[1], call);
+}
+
+static void editor_render_to_selection_pass(draw_call_t call) {
+    render_push_draw_call(&editor_ctx.renderer.groups[2], call);
+}
+
 // TILES
 static void editor_tile_delete(v2i pos) {
     if(pos.x < 0 || pos.x >= ROOM_WIDTH || pos.y < 0 || pos.y >= ROOM_HEIGHT) {
@@ -515,6 +533,28 @@ static void editor_tile_show_info(tile_t tile) {
         igText("selected [%s]", editor_tile_selected(v2i_new(tile.x, tile.y)) ? "yes" : "no");
         igTreePop();
     }
+}
+
+static void editor_tile_show_settings(tile_t tile) {
+    const ImGuiColorEditFlags col_flags = ImGuiColorEditFlags_None;
+
+    char label[32];
+    snprintf(label, sizeof(label), "tile [%d, %d]", v2f_expand(editor_ctx.hovered_tile));
+    igSetNextItemOpen(true, ImGuiCond_Appearing);
+    if(igTreeNode_Str(label)) {
+        igSetNextItemOpen(true, ImGuiCond_Appearing);
+        if(igTreeNode_Str("tags")) {
+            if(tile.tags == TILE_TAGS_NONE) igBulletText("none");
+            if(tile.tags & TILE_TAGS_RENDER) igBulletText("render");
+            if(tile.tags & TILE_TAGS_SOLID) igBulletText("solid");
+            igTreePop();
+        }
+
+        igColorEdit4("colour", tile.col.raw, col_flags);
+        igTreePop();
+    }
+
+    room_set_tile(&editor_ctx.room, tile);
 }
 
 // SELECTION
@@ -631,7 +671,7 @@ static void editor_selection_update() {
         v2f min = editor_tile_get_screen_pos(editor_ctx.selection.min);
         v2f max = editor_tile_get_screen_pos(v2i_add(editor_ctx.selection.max, v2i_ONE));
 
-        render_push_draw_call(&editor_ctx.renderer.groups[2], (draw_call_t) {
+        editor_render_to_selection_pass((draw_call_t) {
             .min = min,
             .max = max,
             .stroke = 2.0f,
@@ -644,9 +684,15 @@ static void editor_selection_update() {
 static void editor_selection_show_info() {
     if(!editor_ctx.selection.selected) return;
 
-    igSeparatorText("SELECTION");
-    igText("selected region: [%i, %i] to [%i, %i]", v2f_expand(editor_ctx.selection.min), v2f_expand(editor_ctx.selection.max));
-    igText("number of selected tiles: [%u]", editor_ctx.selection.tiles.size);
+    if(editor_ctx.selection.tiles.size > 1) {
+        igSeparatorText("SELECTION");
+        igText("selected region: [%i, %i] to [%i, %i]", v2f_expand(editor_ctx.selection.min), v2f_expand(editor_ctx.selection.max));
+        igText("number of selected tiles: [%u]", editor_ctx.selection.tiles.size);
+    } else {
+        v2i* pos = vector_get(&editor_ctx.selection.tiles, 0);
+        if(!pos) return;
+        editor_tile_show_settings(room_get_tile(&editor_ctx.room, pos->x, pos->y));
+    }
 }
 
 // EDITOR WINDOWS
@@ -1107,7 +1153,7 @@ static void editor_tool_select() {
         editor_ctx.select_tool.selecting = false;
 
     if(editor_ctx.select_tool.selecting) {
-        render_push_draw_call(&editor_ctx.renderer.groups[2], (draw_call_t) {
+        editor_render_to_selection_pass((draw_call_t) {
             .min = drag->min,
             .max = drag->max,
             .stroke = 2.0f,
@@ -1159,7 +1205,7 @@ static void editor_tool_update() {
 
     v2f pos = tile_get_world_pos((tile_t) { .x = editor_ctx.hovered_tile.x, .y = editor_ctx.hovered_tile.y });
     v4f col = hover_colours[editor_ctx.tools.active_tool];
-    render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
+    editor_render_to_room_pass((draw_call_t) {
         .position = v3f_new(pos.x, pos.y, 1),
         .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
         .colour = col,
@@ -1168,7 +1214,7 @@ static void editor_tool_update() {
 
 // GRID
 static void editor_show_grid() {
-    render_push_draw_call(&editor_ctx.renderer.groups[0], (draw_call_t) {});
+    editor_render_to_grid_pass((draw_call_t) {});
 }
 
 // ROOM
@@ -1181,14 +1227,14 @@ static void editor_show_room() {
             v2f pos = tile_get_world_pos(tile);
 
             if(!(tile.tags & TILE_TAGS_RENDER)) continue;
-            render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
+            editor_render_to_room_pass((draw_call_t) {
                 .position = v3f_new(pos.x, pos.y, 0),
                 .scale = scale,
                 .colour = tile.col,
             });
 
             if(editor_tile_selected(v2i_new(tile.x, tile.y))) {
-                render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
+                editor_render_to_room_pass((draw_call_t) {
                     .position = v3f_new(pos.x, pos.y, 1),
                     .scale = scale,
                     .colour = v4f_new(0.0f, 1.0f, 0.0f, 0.4f),

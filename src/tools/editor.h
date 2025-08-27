@@ -9,8 +9,8 @@
 #include "game/room.h"
 
 // TODOs:
+//  => more robust tile data editing
 //  => room_t architecture
-//  => select tool
 
 typedef enum editor_tool_t {
     EDITOR_TOOL_NONE = 0,
