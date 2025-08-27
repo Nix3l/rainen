@@ -22,8 +22,10 @@ typedef enum error_code_t {
     ERR_ENT_BAD_SLOT,
     ERR_ENT_BAD_MANAGER,
     ERR_ENT_GARBAGE_COLLECTION_MISMATCH,
+    ERR_EDITOR_TILE_OUTSIDE_BOUNDS,
+    ERR_EDITOR_SELECTION_OUTSIDE_BOUNDS,
 } error_code_t;
 
-#define LOG_ERR_CODE(_c) do { LOG_ERR("%s - code [%u]\n", #_c, _c); } while(0)
+#define LOG_ERR_CODE(_c) do { LOG_ERR("%s - code [%x]\n", #_c, _c); } while(0)
 
 #endif

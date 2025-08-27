@@ -4,11 +4,12 @@
 #include "base.h"
 #include "memory/memory.h"
 #include "gfx/gfx.h"
+#include "physics/bounds.h"
 
 enum {
     TILE_WIDTH  = 16,
     TILE_HEIGHT = 16,
-    ROOM_WIDTH  = 128,
+    ROOM_WIDTH  = 64,
     ROOM_HEIGHT = 64,
 };
 
@@ -25,6 +26,7 @@ typedef struct tile_t {
 } tile_t;
 
 v2f tile_get_world_pos(tile_t tile);
+aabb_t tile_get_aabb(tile_t tile);
 
 typedef struct room_t {
     tile_t tiles[ROOM_HEIGHT][ROOM_WIDTH];

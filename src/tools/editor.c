@@ -1,11 +1,13 @@
 #include "editor.h"
 #include "base.h"
 #include "base_macros.h"
+#include "errors/errors.h"
 #include "game/camera.h"
 #include "game/room.h"
 #include "imgui/imgui_manager.h"
 #include "io/io.h"
 #include "memory/memory.h"
+#include "physics/bounds.h"
 #include "platform/platform.h"
 #include "render/render.h"
 #include "util/util.h"
@@ -18,6 +20,43 @@
 #include "cimgui.h"
 
 editor_ctx_t editor_ctx = {0};
+
+static void editor_tile_delete(v2i pos);
+static bool editor_tile_selected(v2i pos);
+static v2i editor_tile_at_screen_pos(v2f offset);
+static void editor_tile_show_info(tile_t tile);
+
+static void editor_selection_clear();
+static void editor_selection_delete();
+static void editor_select_range(v2i min, v2i max);
+static void editor_selection_update();
+static void editor_selection_show_info();
+
+static void editor_topbar();
+static void editor_dockspace();
+static void editor_window_view();
+static void editor_window_resviewer();
+static void editor_window_tools();
+static void editor_tooltip_tile_info();
+
+static void resviewer_show_texture_contents(texture_t texture, bool show_image);
+static void resviewer_show_sampler_contents(sampler_t sampler);
+static void resviewer_show_att_contents(attachments_t att);
+static void resviewer_show_shader_pass_contents(shader_pass_t pass);
+static void resviewer_show_shader_contents(shader_t shader);
+
+static void editor_tool_place();
+static void editor_tool_select();
+static void editor_tool_delete();
+static void editor_tool_update();
+
+static void editor_show_grid();
+static void editor_show_room();
+
+static void editor_camera_update();
+static void editor_hovered_tile_update();
+
+static void editor_render();
 
 // lol
 static const char* format_names[] = {
@@ -154,12 +193,44 @@ static void room_construct_uniforms(void* out, draw_call_t* call) {
     memcpy(out, &uniforms, sizeof(uniforms));
 }
 
+static void selection_construct_uniforms(void* out, draw_call_t* call) {
+    struct __attribute__((packed)) {
+        vec2 start;
+        vec2 end;
+        vec4 outline;
+        vec4 inside;
+    } uniforms;
+
+    v2f min = editor_ctx.select_tool.drag.min;
+    v2f max = editor_ctx.select_tool.drag.max;
+
+    f32 w = io_ctx.window.width;
+    f32 h = io_ctx.window.height;
+
+    min.x /= w;
+    min.y /= h;
+    max.x /= w;
+    max.y /= h;
+
+    memcpy(uniforms.start, min.raw, sizeof(vec2));
+    memcpy(uniforms.end, max.raw, sizeof(vec2));
+
+    v4f outline_col = v4f_new(0.0f, 1.0f, 0.0f, 0.9f);
+    v4f inside_col  = v4f_new(1.0f, 1.0f, 1.0f, 0.2f);
+
+    memcpy(uniforms.outline, outline_col.raw, sizeof(vec4));
+    memcpy(uniforms.inside, inside_col.raw, sizeof(vec4));
+
+    memcpy(out, &uniforms, sizeof(uniforms));
+    UNUSED(call);
+}
+
 // STATE
 void editor_init() {
     // leak ALL the memory
-    arena_t grid_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
-    range_t grid_vs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.vs");
-    range_t grid_fs = platform_load_file(&grid_code_arena, "shader/editor/editor_grid.fs");
+    arena_t code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
+    range_t grid_vs = platform_load_file(&code_arena, "shader/editor/grid.vs");
+    range_t grid_fs = platform_load_file(&code_arena, "shader/editor/grid.fs");
     shader_t grid_shader = shader_new((shader_info_t) {
         .pretty_name = "grid shader",
         .attribs = {
@@ -180,9 +251,8 @@ void editor_init() {
         .fragment_src = grid_fs,
     });
 
-    arena_t room_code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
-    range_t room_vs = platform_load_file(&room_code_arena, "shader/editor/editor_room.vs");
-    range_t room_fs = platform_load_file(&room_code_arena, "shader/editor/editor_room.fs");
+    range_t room_vs = platform_load_file(&code_arena, "shader/editor/room.vs");
+    range_t room_fs = platform_load_file(&code_arena, "shader/editor/room.fs");
     shader_t room_shader = shader_new((shader_info_t) {
         .pretty_name = "room shader",
         .attribs = {
@@ -195,6 +265,24 @@ void editor_init() {
         },
         .vertex_src = room_vs,
         .fragment_src = room_fs,
+    });
+
+    range_t sel_vs = platform_load_file(&code_arena, "shader/editor/selection.vs");
+    range_t sel_fs = platform_load_file(&code_arena, "shader/editor/selection.fs");
+    shader_t sel_shader = shader_new((shader_info_t) {
+        .pretty_name = "selection shader",
+        .attribs = {
+            { .name = "vs_position" },
+            { .name = "vs_uvs" },
+        },
+        .uniforms = {
+            { .name = "start", .type = UNIFORM_TYPE_v2f, },
+            { .name = "end", .type = UNIFORM_TYPE_v2f, },
+            { .name = "outline_col", .type = UNIFORM_TYPE_v4f, },
+            { .name = "inside_col", .type = UNIFORM_TYPE_v4f, },
+        },
+        .vertex_src = sel_vs,
+        .fragment_src = sel_fs,
     });
 
     texture_t col_target = texture_new((texture_info_t) {
@@ -220,7 +308,7 @@ void editor_init() {
 
     renderer_t renderer = {
         .label = "editor renderer",
-        .num_groups = 2,
+        .num_groups = 3,
         .groups = {
             [0] = {
                 .pass = {
@@ -269,6 +357,27 @@ void editor_init() {
                 .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
                 .construct_uniforms = room_construct_uniforms,
             },
+            [2] = {
+                .pass = {
+                    .label = "select pass",
+                    .type = DRAW_PASS_RENDER,
+                    .pipeline = {
+                        .cull = { .enable = true, },
+                        .blend = {
+                            .enable = true,
+                            .dst_func = BLEND_FUNC_SRC_ONE_MINUS_ALPHA,
+                            .src_func = BLEND_FUNC_SRC_ALPHA,
+                        },
+                        .draw_attachments = att,
+                        .colour_targets = {
+                            [0] = { .enable = true, },
+                        },
+                        .shader = sel_shader,
+                    },
+                },
+                .batch = vector_alloc_new(1, sizeof(draw_call_t)),
+                .construct_uniforms = selection_construct_uniforms,
+            },
         }
     };
 
@@ -281,18 +390,11 @@ void editor_init() {
 
     room_t room = room_new();
 
-    room_set_tile(&room, (tile_t) {
-        .tags = TILE_TAGS_RENDER,
-        .x = 4,
-        .y = 4,
-        .col = v4f_ONE,
-    });
-
     editor_ctx = (editor_ctx_t) {
         .open = true,
 
         .cam = cam,
-        .max_zoom = 1.6f,
+        .max_zoom = 2.0f,
         .renderer = renderer,
         .render_texture = col_target,
 
@@ -302,6 +404,11 @@ void editor_init() {
 
         .resviewer = {
             .open = true,
+        },
+
+        .select_tool.drag.cancel_key = KEY_ESCAPE,
+        .selection = {
+            .tiles = {0},
         },
 
         .room = room,
@@ -324,12 +431,197 @@ bool editor_is_open() {
     return editor_ctx.open;
 }
 
+// TILES
+static void editor_tile_delete(v2i pos) {
+    if(pos.x < 0 || pos.x >= ROOM_WIDTH || pos.y < 0 || pos.y >= ROOM_HEIGHT) {
+        LOG_ERR_CODE(ERR_EDITOR_SELECTION_OUTSIDE_BOUNDS);
+        return;
+    }
+
+    room_set_tile(&editor_ctx.room, (tile_t) {
+        .x = pos.x,
+        .y = pos.y,
+    });
+}
+
+static bool editor_tile_selected(v2i pos) {
+    if(!editor_ctx.selection.selected) return false;
+    if(pos.x < editor_ctx.selection.min.x || pos.x > editor_ctx.selection.max.x) return false;
+    if(pos.y < editor_ctx.selection.min.y || pos.y > editor_ctx.selection.max.y) return false;
+
+    vector_t* tiles = &editor_ctx.selection.tiles;
+    for(u32 i = 0; i < tiles->size; i ++) {
+        v2i* tile = vector_get(tiles, i);
+        if(!tile) continue;
+        if(tile->x == pos.x && tile->y == pos.y) return true;
+    }
+
+    return false;
+}
+
+static v2i editor_tile_at_screen_pos(v2f offset) {
+    f32 scale = editor_ctx.cam.pixel_scale;
+
+    f32 w = io_ctx.window.width;
+    f32 h = io_ctx.window.height;
+    f32 hw = w / 2.0f;
+    f32 hh = h / 2.0f;
+
+    offset.x = remapf(offset.x, 0.0f, w, -hw, hw);
+    offset.y = remapf(offset.y, 0.0f, h, -hh, hh);
+    offset = v2f_scale(offset, scale);
+
+    v2f pos = editor_ctx.cam.transform.position;
+    pos = v2f_add(pos, offset);
+
+    v2i tile = v2i_new(
+        floor(pos.x / TILE_WIDTH),
+        floor(pos.y / TILE_HEIGHT)
+    );
+
+    if(tile.x >= ROOM_WIDTH) tile.x = -1;
+    if(tile.y >= ROOM_HEIGHT) tile.x = -1;
+
+    return tile;
+}
+
+static void editor_tile_show_info(tile_t tile) {
+    const ImGuiColorEditFlags col_flags = ImGuiColorEditFlags_None;
+
+    char label[32];
+    snprintf(label, sizeof(label), "tile [%d, %d]", v2f_expand(editor_ctx.hovered_tile));
+    igSetNextItemOpen(true, ImGuiCond_Appearing);
+    if(igTreeNode_Str(label)) {
+        igSetNextItemOpen(true, ImGuiCond_Appearing);
+        if(igTreeNode_Str("tags")) {
+            if(tile.tags == TILE_TAGS_NONE) igText("none");
+            if(tile.tags & TILE_TAGS_RENDER) igText("render");
+            if(tile.tags & TILE_TAGS_SOLID) igText("solid");
+            igTreePop();
+        }
+
+        igColorEdit4("colour", tile.col.raw, col_flags);
+        igText("selected [%s]", editor_tile_selected(v2i_new(tile.x, tile.y)) ? "yes" : "no");
+        igTreePop();
+    }
+}
+
+// SELECTION
+static void editor_selection_clear() {
+    editor_ctx.selection.selected = false;
+    editor_ctx.selection.min = v2i_new(-1, -1);
+    editor_ctx.selection.max = v2i_new(-1, -1);
+    vector_destroy(&editor_ctx.selection.tiles);
+}
+
+static void editor_selection_delete() {
+    if(!editor_ctx.selection.selected) return;
+
+    vector_t* tiles = &editor_ctx.selection.tiles;
+    for(u32 i = 0; i < tiles->size; i ++) {
+        v2i* tile = vector_get(tiles, i);
+        if(!tile) continue;
+        editor_tile_delete(*tile);
+    }
+
+    editor_selection_clear();
+}
+
+static void editor_select_range(v2i min, v2i max) {
+    bool in_range = true;
+    if(min.x < 0 || max.x < 0 || min.x >= ROOM_WIDTH || max.x >= ROOM_WIDTH) in_range = false;
+    if(min.y < 0 || max.y < 0 || min.y >= ROOM_HEIGHT || max.y >= ROOM_HEIGHT) in_range = false;
+    if(!in_range) {
+        LOG_ERR_CODE(ERR_EDITOR_SELECTION_OUTSIDE_BOUNDS);
+        return;
+    }
+
+    editor_selection_clear();
+
+    u32 num_tiles = 0;
+    for(i32 y = min.y; y <= max.y; y ++) {
+        for(i32 x = min.x; x <= max.x; x ++) {
+            tile_t tile = room_get_tile(&editor_ctx.room, x, y);
+            if(tile.tags != TILE_TAGS_NONE) num_tiles ++;
+        }
+    }
+
+    if(num_tiles == 0) return;
+
+    editor_ctx.selection.tiles = vector_alloc_new(num_tiles, sizeof(v2i));
+
+    v2i range_min = max;
+    v2i range_max = min;
+
+    for(i32 y = min.y; y <= max.y; y ++) {
+        for(i32 x = min.x; x <= max.x; x ++) {
+            tile_t tile = room_get_tile(&editor_ctx.room, x, y);
+            if(tile.tags != TILE_TAGS_NONE) {
+                vector_push_data(&editor_ctx.selection.tiles, &v2i_new(x, y));
+                range_min.x = MIN(range_min.x, x);
+                range_min.y = MIN(range_min.y, y);
+                range_max.x = MAX(range_max.x, x);
+                range_max.y = MAX(range_max.y, y);
+            }
+        }
+    }
+
+    editor_ctx.selection.selected = true;
+    editor_ctx.selection.min = range_min;
+    editor_ctx.selection.max = range_max;
+}
+
+static void editor_selection_update() {
+    if(!editor_ctx.selection.selected) return;
+
+    bool edge_tile_removed = false;
+    vector_t* tiles = &editor_ctx.selection.tiles;
+    for(i32 i = tiles->size - 1; i >= 0; i --) {
+        v2i* pos = vector_get(tiles, i);
+        if(!pos) continue;
+
+        tile_t tile = room_get_tile(&editor_ctx.room, pos->x, pos->y);
+        if(tile.tags == TILE_TAGS_NONE) {
+            if(pos->x == editor_ctx.selection.min.x) edge_tile_removed = true;
+            if(pos->x == editor_ctx.selection.max.x) edge_tile_removed = true;
+            if(pos->y == editor_ctx.selection.min.y) edge_tile_removed = true;
+            if(pos->y == editor_ctx.selection.max.y) edge_tile_removed = true;
+
+            vector_remove(tiles, i);
+        }
+    }
+
+    if(edge_tile_removed) {
+        v2i range_min = editor_ctx.selection.max;
+        v2i range_max = editor_ctx.selection.min;
+        for(u32 i = 0; i < tiles->size; i ++) {
+            v2i* pos = vector_get(tiles, i);
+            if(!pos) continue;
+            range_min.x = MIN(range_min.x, pos->x);
+            range_min.y = MIN(range_min.y, pos->y);
+            range_max.x = MAX(range_max.x, pos->x);
+            range_max.y = MAX(range_max.y, pos->y);
+        }
+
+        editor_ctx.selection.min = range_min;
+        editor_ctx.selection.max = range_max;
+    }
+}
+
+static void editor_selection_show_info() {
+    if(!editor_ctx.selection.selected) return;
+
+    igSeparatorText("SELECTION");
+    igText("selected region: [%i, %i] to [%i, %i]", v2f_expand(editor_ctx.selection.min), v2f_expand(editor_ctx.selection.max));
+    igText("number of selected tiles: [%u]", editor_ctx.selection.tiles.size);
+}
+
 // EDITOR WINDOWS
 static void editor_topbar() {
     if(igBeginMainMenuBar()) {
         if(igBeginMenu("editor", true)) {
             if(igMenuItem_Bool("quit", "F10", false, true))
-                editor_ctx.open = false;
+                editor_toggle();
 
             igEndMenu();
         }
@@ -403,26 +695,6 @@ static void editor_window_view() {
 }
 
 // MAIN
-static void editor_show_tile_info(tile_t tile) {
-    const ImGuiColorEditFlags col_flags = ImGuiColorEditFlags_None;
-
-    char label[32];
-    snprintf(label, sizeof(label), "tile [%d, %d]", v2f_expand(editor_ctx.hovered_tile));
-    igSetNextItemOpen(true, ImGuiCond_Appearing);
-    if(igTreeNode_Str(label)) {
-        igSetNextItemOpen(true, ImGuiCond_Appearing);
-        if(igTreeNode_Str("tags")) {
-            if(tile.tags == TILE_TAGS_NONE) igText("none");
-            if(tile.tags & TILE_TAGS_RENDER) igText("render");
-            if(tile.tags & TILE_TAGS_SOLID) igText("solid");
-            igTreePop();
-        }
-
-        igColorEdit4("colour", tile.col.raw, col_flags);
-        igTreePop();
-    }
-}
-
 static void editor_window_main() {
     if(!editor_ctx.editor.open) return;
     if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
@@ -440,6 +712,8 @@ static void editor_window_main() {
         igDragFloat2("position", editor_ctx.cam.transform.position.raw, 0.1f, -MAX_f32, MAX_f32, "%.2f", ImGuiSliderFlags_None);
         igDragFloat("zoom", &editor_ctx.cam.pixel_scale, 0.1f, 0.1f, editor_ctx.max_zoom, "%.1f", ImGuiSliderFlags_None);
     }
+
+    editor_selection_show_info();
 
     igEnd();
 }
@@ -716,12 +990,14 @@ static void editor_window_tools() {
 }
 
 static void editor_tooltip_tile_info() {
-    if(!input_key_down(KEY_LEFT_CONTROL)) return;
+    if(!editor_ctx.alt_mode) return;
     if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
 
+    tile_t hovered = room_get_tile(&editor_ctx.room, editor_ctx.hovered_tile.x, editor_ctx.hovered_tile.y);
+    if(hovered.tags == TILE_TAGS_NONE) return;
+
     if(igBeginTooltip()) {
-        tile_t hovered = room_get_tile(&editor_ctx.room, editor_ctx.hovered_tile.x, editor_ctx.hovered_tile.y);
-        editor_show_tile_info(hovered);
+        editor_tile_show_info(hovered);
         igEndTooltip();
     }
 }
@@ -731,6 +1007,7 @@ static void editor_camera_update() {
     camera_t* cam = &editor_ctx.cam;
 
     if(!editor_ctx.view.focused) return;
+    if(editor_ctx.select_tool.selecting) return;
 
     f32 scroll = input_get_scroll();
     cam->pixel_scale -= scroll * 0.05f;
@@ -740,7 +1017,7 @@ static void editor_camera_update() {
     if(input_button_down(BUTTON_MIDDLE)) {
         v2f move = input_mouse_move_absolute();
         cam->transform.position.x -= move.x * cam->pixel_scale;
-        cam->transform.position.y += move.y * cam->pixel_scale;
+        cam->transform.position.y -= move.y * cam->pixel_scale;
     }
 }
 
@@ -751,34 +1028,12 @@ static void editor_hovered_tile_update() {
         return;
     }
 
-    f32 scale = editor_ctx.cam.pixel_scale;
-
-    f32 w = io_ctx.window.width;
-    f32 h = io_ctx.window.height;
-    f32 hw = w / 2.0f;
-    f32 hh = h / 2.0f;
-
-    v2f offset = input_mouse_pos();
-    offset.x = remapf(offset.x, 0.0f, w, -hw,  hw);
-    offset.y = remapf(offset.y, 0.0f, h,  hh, -hh); // flipped out range to make up +ve
-    offset = v2f_scale(offset, scale);
-
-    v2f pos = editor_ctx.cam.transform.position;
-    pos = v2f_add(pos, offset);
-
-    v2i tile = v2i_new(
-        floor(pos.x / TILE_WIDTH),
-        floor(pos.y / TILE_HEIGHT)
-    );
-
-    if(tile.x >= ROOM_WIDTH) tile.x = -1;
-    if(tile.y >= ROOM_HEIGHT) tile.x = -1;
-
-    editor_ctx.hovered_tile = tile;
+    editor_ctx.hovered_tile = editor_tile_at_screen_pos(input_mouse_pos());
 }
 
 static void editor_tool_place() {
     if(!input_button_down(BUTTON_LEFT)) return;
+    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
 
     room_set_tile(&editor_ctx.room, (tile_t) {
         .x = editor_ctx.hovered_tile.x,
@@ -789,48 +1044,77 @@ static void editor_tool_place() {
     });
 }
 
+static void editor_tool_select() {
+    if(input_key_pressed(KEY_ESCAPE)) editor_selection_clear();
+    if(input_key_down(KEY_LEFT_CONTROL) && input_key_pressed(KEY_D)) editor_selection_delete();
+
+    mouse_drag_t* drag = &editor_ctx.select_tool.drag; 
+    input_drag(drag);
+
+    if(!editor_ctx.select_tool.selecting && drag->state == DRAG_STATE_DRAGGING) {
+        editor_ctx.select_tool.selecting = true;
+        editor_selection_clear();
+    }
+
+    if(drag->state == DRAG_STATE_ACCEPTED) {
+        v2i min = editor_tile_at_screen_pos(drag->min);
+        v2i max = editor_tile_at_screen_pos(drag->max);
+        editor_select_range(min, max);
+    }
+
+    if(drag->state != DRAG_STATE_DRAGGING)
+        editor_ctx.select_tool.selecting = false;
+
+    if(editor_ctx.select_tool.selecting)
+        render_push_draw_call(&editor_ctx.renderer.groups[2], (draw_call_t) {});
+}
+
 static void editor_tool_delete() {
     if(!input_button_down(BUTTON_LEFT)) return;
-
-    room_set_tile(&editor_ctx.room, (tile_t) {
-        .x = editor_ctx.hovered_tile.x,
-        .y = editor_ctx.hovered_tile.y,
-    });
+    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
+    editor_tile_delete(editor_ctx.hovered_tile);
 }
 
 static void editor_tool_update() {
-    for(u32 i = 1; i < _EDITOR_TOOLS_NUM; i ++) {
-        if(input_key_pressed(KEY_0 + i)) {
-            editor_ctx.tools.active_tool = i;
-            break;
+    if(!editor_ctx.select_tool.selecting) {
+        for(u32 i = 1; i < _EDITOR_TOOLS_NUM; i ++) {
+            if(input_key_pressed(KEY_0 + i)) {
+                editor_ctx.tools.active_tool = i;
+                break;
+            }
         }
+
+        if(input_key_pressed(KEY_BACKSPACE)) editor_ctx.tools.active_tool = EDITOR_TOOL_NONE;
     }
 
-    if(input_key_pressed(KEY_BACKSPACE)) editor_ctx.tools.active_tool = EDITOR_TOOL_NONE;
+    if(!editor_ctx.view.focused) {
+        if(editor_ctx.select_tool.selecting) {
+            input_drag_interrupt(&editor_ctx.select_tool.drag);
+        }
 
-    if(!editor_ctx.view.focused) return;
-    if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
+        return;
+    }
 
     switch(editor_ctx.tools.active_tool) {
         case EDITOR_TOOL_PLACE: editor_tool_place(); break;
+        case EDITOR_TOOL_SELECT: editor_tool_select(); break;
         case EDITOR_TOOL_DELETE: editor_tool_delete(); break;
         default: break;
     }
 
     const v4f hover_colours[_EDITOR_TOOLS_NUM] = {
         [EDITOR_TOOL_NONE]   = v4f_ZERO,
-        [EDITOR_TOOL_PLACE]  = v4f_new(1.0, 1.0f, 1.0f, 0.1f),
+        [EDITOR_TOOL_PLACE]  = v4f_new(1.0, 1.0f, 1.0f, 0.6f),
         [EDITOR_TOOL_SELECT] = v4f_ZERO,
-        [EDITOR_TOOL_DELETE] = v4f_new(0.9f, 0.04f, 0.12f, 0.2f),
+        [EDITOR_TOOL_DELETE] = v4f_new(0.92f, 0.04f, 0.12f, 0.6f),
     };
 
     v2f pos = tile_get_world_pos((tile_t) { .x = editor_ctx.hovered_tile.x, .y = editor_ctx.hovered_tile.y });
     v4f col = hover_colours[editor_ctx.tools.active_tool];
-    if(col.a == 0.0f) return;
     render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
         .position = v3f_new(pos.x, pos.y, 1),
         .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
-        .colour = hover_colours[editor_ctx.tools.active_tool],
+        .colour = col,
     });
 }
 
@@ -845,21 +1129,36 @@ static void editor_show_room() {
     v3f scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f);
     for(u32 y = 0; y < ROOM_HEIGHT; y ++) {
         for(u32 x = 0; x < ROOM_WIDTH; x ++) {
-            tile_t tile = room.tiles[y][x];
+            tile_t tile = room_get_tile(&room, x, y);
             v2f pos = tile_get_world_pos(tile);
 
-            if(tile.tags & TILE_TAGS_RENDER) {
+            if(!(tile.tags & TILE_TAGS_RENDER)) continue;
+            render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
+                .position = v3f_new(pos.x, pos.y, 0),
+                .scale = scale,
+                .colour = tile.col,
+            });
+
+            if(editor_tile_selected(v2i_new(tile.x, tile.y))) {
                 render_push_draw_call(&editor_ctx.renderer.groups[1], (draw_call_t) {
-                    .position = v3f_new(pos.x, pos.y, 0),
+                    .position = v3f_new(pos.x, pos.y, 1),
                     .scale = scale,
-                    .colour = tile.col,
+                    .colour = v4f_new(0.0f, 1.0f, 0.0f, 0.4f),
                 });
             }
         }
     }
 }
 
+static void editor_render() {
+    for(u32 i = 0; i < editor_ctx.renderer.num_groups; i ++)
+        camera_attach(&editor_ctx.cam, &editor_ctx.renderer.groups[i].pass);
+
+    render_dispatch(&editor_ctx.renderer);
+}
+
 void editor_update() {
+    editor_ctx.alt_mode = input_key_down(KEY_LEFT_ALT);
     igPushStyleVar_Float(ImGuiStyleVar_TabRounding, 0.0f);
     editor_topbar();
     editor_dockspace();
@@ -868,21 +1167,21 @@ void editor_update() {
     editor_window_tools();
     editor_window_view();
     editor_tooltip_tile_info();
+
     igPopStyleVar(1);
 
     editor_camera_update();
-    editor_hovered_tile_update();
-    editor_tool_update();
-
     editor_show_grid();
     editor_show_room();
 
+    // these should be before the functions that draw stuff
+    // but since i dont sort by z-layer before rendering,
+    // it messes up blending
+    // so for now keep it here
+    editor_hovered_tile_update();
+    editor_tool_update();
+
+    editor_selection_update();
+
     editor_render();
-}
-
-void editor_render() {
-    for(u32 i = 0; i < editor_ctx.renderer.num_groups; i ++)
-        camera_attach(&editor_ctx.cam, &editor_ctx.renderer.groups[i].pass);
-
-    render_dispatch(&editor_ctx.renderer);
 }

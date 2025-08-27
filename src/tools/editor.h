@@ -3,12 +3,14 @@
 
 #include "base.h"
 #include "gfx/gfx.h"
+#include "io/io.h"
 #include "render/render.h"
 #include "game/camera.h"
 #include "game/room.h"
 
 // TODOs:
-//  => figure out the room_t architecture
+//  => room_t architecture
+//  => select tool
 
 typedef enum editor_tool_t {
     EDITOR_TOOL_NONE = 0,
@@ -20,6 +22,7 @@ typedef enum editor_tool_t {
 
 typedef struct editor_ctx_t {
     bool open;
+    bool alt_mode;
 
     camera_t cam;
     f32 max_zoom;
@@ -63,6 +66,22 @@ typedef struct editor_ctx_t {
         tile_t tile;
     } place_tool;
 
+    struct {
+        bool selecting;
+        mouse_drag_t drag;
+    } select_tool;
+
+    struct {
+        bool selected;
+
+        // inclusive
+        v2i min;
+        v2i max;
+
+        // holds tile grid v2i positions [x, y]
+        vector_t tiles;
+    } selection;
+
     room_t room;
 } editor_ctx_t;
 
@@ -74,7 +93,6 @@ void editor_toggle();
 bool editor_is_open();
 
 void editor_update();
-void editor_render();
 
 extern editor_ctx_t editor_ctx;
 
