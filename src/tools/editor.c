@@ -30,12 +30,13 @@ editor_ctx_t editor_ctx = {0};
 //      - move view         [MIDDLE MOUSE]
 //      - enable alt mode   [LEFT ALT]
 //      - cancel selection  [ESC]
-//      - delete selection  [CTRL+D]
+//      - delete selection  [CTRL+D] [DEL]
 //      - select all        [CTRL+A]
 
 static void editor_tile_delete(v2i pos);
 static bool editor_tile_selected(v2i pos);
 static v2i editor_tile_at_screen_pos(v2f offset);
+static v2f editor_tile_get_screen_pos(v2i tile);
 static void editor_tile_show_info(tile_t tile);
 
 static void editor_selection_clear();
@@ -209,32 +210,20 @@ static void selection_construct_uniforms(void* out, draw_call_t* call) {
     struct __attribute__((packed)) {
         vec2 start;
         vec2 end;
+        f32 outline_width;
         vec4 outline;
         vec4 inside;
     } uniforms;
 
-    v2f min = editor_ctx.select_tool.drag.min;
-    v2f max = editor_ctx.select_tool.drag.max;
+    memcpy(uniforms.start, call->min.raw, sizeof(vec2));
+    memcpy(uniforms.end, call->max.raw, sizeof(vec2));
 
-    f32 w = io_ctx.window.width;
-    f32 h = io_ctx.window.height;
+    uniforms.outline_width = call->stroke;
 
-    min.x /= w;
-    min.y /= h;
-    max.x /= w;
-    max.y /= h;
-
-    memcpy(uniforms.start, min.raw, sizeof(vec2));
-    memcpy(uniforms.end, max.raw, sizeof(vec2));
-
-    v4f outline_col = v4f_new(0.0f, 1.0f, 0.0f, 0.9f);
-    v4f inside_col  = v4f_new(1.0f, 1.0f, 1.0f, 0.2f);
-
-    memcpy(uniforms.outline, outline_col.raw, sizeof(vec4));
-    memcpy(uniforms.inside, inside_col.raw, sizeof(vec4));
+    memcpy(uniforms.outline, call->colour.raw, sizeof(vec4));
+    memcpy(uniforms.inside, call->bg.raw, sizeof(vec4));
 
     memcpy(out, &uniforms, sizeof(uniforms));
-    UNUSED(call);
 }
 
 // STATE
@@ -290,6 +279,7 @@ void editor_init() {
         .uniforms = {
             { .name = "start", .type = UNIFORM_TYPE_v2f, },
             { .name = "end", .type = UNIFORM_TYPE_v2f, },
+            { .name = "outline_width", .type = UNIFORM_TYPE_f32, },
             { .name = "outline_col", .type = UNIFORM_TYPE_v4f, },
             { .name = "inside_col", .type = UNIFORM_TYPE_v4f, },
         },
@@ -387,7 +377,7 @@ void editor_init() {
                         .shader = sel_shader,
                     },
                 },
-                .batch = vector_alloc_new(1, sizeof(draw_call_t)),
+                .batch = vector_alloc_new(8, sizeof(draw_call_t)),
                 .construct_uniforms = selection_construct_uniforms,
             },
         }
@@ -497,6 +487,15 @@ static v2i editor_tile_at_screen_pos(v2f offset) {
     return tile;
 }
 
+static v2f editor_tile_get_screen_pos(v2i tile) {
+    f32 scale = editor_ctx.cam.pixel_scale;
+    v2f pos = v2f_new(tile.x * TILE_WIDTH / scale, tile.y * TILE_HEIGHT / scale);
+    v2f offset = v2f_scale(editor_ctx.cam.transform.position, -1.0f / scale);
+    offset.x += io_ctx.window.width / 2.0f;
+    offset.y += io_ctx.window.height / 2.0f;
+    return v2f_add(pos, offset);
+}
+
 static void editor_tile_show_info(tile_t tile) {
     const ImGuiColorEditFlags col_flags = ImGuiColorEditFlags_None;
 
@@ -506,9 +505,9 @@ static void editor_tile_show_info(tile_t tile) {
     if(igTreeNode_Str(label)) {
         igSetNextItemOpen(true, ImGuiCond_Appearing);
         if(igTreeNode_Str("tags")) {
-            if(tile.tags == TILE_TAGS_NONE) igText("none");
-            if(tile.tags & TILE_TAGS_RENDER) igText("render");
-            if(tile.tags & TILE_TAGS_SOLID) igText("solid");
+            if(tile.tags == TILE_TAGS_NONE) igBulletText("none");
+            if(tile.tags & TILE_TAGS_RENDER) igBulletText("render");
+            if(tile.tags & TILE_TAGS_SOLID) igBulletText("solid");
             igTreePop();
         }
 
@@ -584,9 +583,14 @@ static void editor_select_range(v2i min, v2i max) {
 }
 
 static void editor_selection_update() {
-    if(input_key_pressed(KEY_ESCAPE)) editor_selection_clear();
-    if(input_key_down(KEY_LEFT_CONTROL) && input_key_pressed(KEY_D)) editor_selection_delete();
-    if(input_key_down(KEY_LEFT_CONTROL) && input_key_pressed(KEY_A)) editor_select_range(v2i_ZERO, v2i_new(ROOM_WIDTH - 1, ROOM_HEIGHT - 1));
+    if(input_key_pressed(KEY_ESCAPE))
+        editor_selection_clear();
+
+    if((input_key_down(KEY_LEFT_CONTROL) && input_key_pressed(KEY_D)) || input_key_pressed(KEY_DELETE))
+        editor_selection_delete();
+
+    if(input_key_down(KEY_LEFT_CONTROL) && input_key_pressed(KEY_A))
+        editor_select_range(v2i_ZERO, v2i_new(ROOM_WIDTH - 1, ROOM_HEIGHT - 1));
 
     if(!editor_ctx.selection.selected) return;
 
@@ -621,6 +625,19 @@ static void editor_selection_update() {
 
         editor_ctx.selection.min = range_min;
         editor_ctx.selection.max = range_max;
+    }
+
+    if(editor_ctx.alt_mode) {
+        v2f min = editor_tile_get_screen_pos(editor_ctx.selection.min);
+        v2f max = editor_tile_get_screen_pos(v2i_add(editor_ctx.selection.max, v2i_ONE));
+
+        render_push_draw_call(&editor_ctx.renderer.groups[2], (draw_call_t) {
+            .min = min,
+            .max = max,
+            .stroke = 2.0f,
+            .colour = v4f_new(0.0f, 1.0f, 0.0f, 0.9f),
+            .bg = v4f_new(1.0f, 1.0f, 1.0f, 0.2f),
+        });
     }
 }
 
@@ -727,6 +744,10 @@ static void editor_window_main() {
 
         igDragFloat2("position", editor_ctx.cam.transform.position.raw, 0.1f, -MAX_f32, MAX_f32, "%.2f", ImGuiSliderFlags_None);
         igDragFloat("zoom", &editor_ctx.cam.pixel_scale, 0.1f, 0.1f, editor_ctx.max_zoom, "%.1f", ImGuiSliderFlags_None);
+    }
+
+    if(editor_ctx.alt_mode) {
+        igSeparatorText("ALT MODE");
     }
 
     editor_selection_show_info();
@@ -1085,8 +1106,15 @@ static void editor_tool_select() {
     if(drag->state != DRAG_STATE_DRAGGING)
         editor_ctx.select_tool.selecting = false;
 
-    if(editor_ctx.select_tool.selecting)
-        render_push_draw_call(&editor_ctx.renderer.groups[2], (draw_call_t) {});
+    if(editor_ctx.select_tool.selecting) {
+        render_push_draw_call(&editor_ctx.renderer.groups[2], (draw_call_t) {
+            .min = drag->min,
+            .max = drag->max,
+            .stroke = 2.0f,
+            .colour = v4f_new(0.0f, 1.0f, 0.0f, 0.9f),
+            .bg = v4f_new(1.0f, 1.0f, 1.0f, 0.2f),
+        });
+    }
 }
 
 static void editor_tool_delete() {

@@ -71,7 +71,11 @@ typedef struct draw_call_t {
     v3f position;
     v3f rotation;
     v3f scale;
+    v2f min;
+    v2f max;
     v4f colour;
+    v4f bg;
+    f32 stroke;
     sampler_slot_t sampler;
 } draw_call_t;
 
