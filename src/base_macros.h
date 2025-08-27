@@ -96,6 +96,43 @@
 #define v3f_expand(_x) (_x).x, (_x).y, (_x).z
 #define v4f_expand(_x) (_x).x, (_x).y, (_x).z, (_x).w
 
+#define v2i_add(_x, _y) (glms_ivec2_add(_x, _y))
+#define v3i_add(_x, _y) (glms_ivec3_add(_x, _y))
+#define v4i_add(_x, _y) (glms_ivec4_add(_x, _y))
+
+#define v2i_sub(_x, _y) (glms_ivec2_sub(_x, _y))
+#define v3i_sub(_x, _y) (glms_ivec3_sub(_x, _y))
+#define v4i_sub(_x, _y) (glms_ivec4_sub(_x, _y))
+
+#define v2i_mul(_x, _y) (glms_ivec2_mul(_x, _y))
+#define v3i_mul(_x, _y) (glms_ivec3_mul(_x, _y))
+#define v4i_mul(_x, _y) (glms_ivec4_mul(_x, _y))
+
+#define v2i_div(_x, _y) (glms_ivec2_div(_x, _y))
+#define v3i_div(_x, _y) (glms_ivec3_div(_x, _y))
+#define v4i_div(_x, _y) (glms_ivec4_div(_x, _y))
+
+#define v2i_scale(_x, _y) (glms_ivec2_scale(_x, _y))
+#define v3i_scale(_x, _y) (glms_ivec3_scale(_x, _y))
+#define v4i_scale(_x, _y) (glms_ivec4_scale(_x, _y))
+
+#define v2i_dot(_x, _y) (glms_ivec2_dot(_x, _y))
+#define v3i_dot(_x, _y) (glms_ivec3_dot(_x, _y))
+#define v4i_dot(_x, _y) (glms_ivec4_dot(_x, _y))
+
+#define v2i_norm(_x) (glms_ivec2_normalize(_x))
+#define v3i_norm(_x) (glms_ivec3_normalize(_x))
+#define v4i_norm(_x) (glms_ivec4_normalize(_x))
+
+#define v2f_expand(_x) (_x).x, (_x).y
+#define v3f_expand(_x) (_x).x, (_x).y, (_x).z
+#define v4f_expand(_x) (_x).x, (_x).y, (_x).z, (_x).w
+
+// yes these do the same as the float version but i like symmetry
+#define v2i_expand(_x) (_x).x, (_x).y
+#define v3i_expand(_x) (_x).x, (_x).y, (_x).z
+#define v4i_expand(_x) (_x).x, (_x).y, (_x).z, (_x).w
+
 #define v2f_UNITX (v2f_new(1.0f, 0.0f))
 #define v2f_UNITY (v2f_new(0.0f, 1.0f))
 
