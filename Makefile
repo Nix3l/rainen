@@ -17,6 +17,9 @@ LDFLAGS := -lglfw -lassimp -lcglm -lm -Llib -Llib/so -Wl,-rpath,lib/so -lcimgui
 
 DEBUG_FLAGS := -g
 
+# force it to run under xwayland to prevent weird wayland issues
+RUN_ENV := GTK_IM_MODULE="" XDG_SESSION_TYPE=x11
+
 all: run
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
@@ -29,7 +32,7 @@ $(BUILD_DIR)/%.c.o: %.c
 compile: clean $(BUILD_DIR)/$(TARGET_EXEC)
 
 run: $(BUILD_DIR)/$(TARGET_EXEC)
-	$(BUILD_DIR)/$(TARGET_EXEC)
+	$(RUN_ENV) $(BUILD_DIR)/$(TARGET_EXEC)
 
 clean:
 	rm -r $(BUILD_DIR)/*

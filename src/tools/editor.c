@@ -1242,6 +1242,13 @@ static void editor_show_room() {
             }
         }
     }
+
+    editor_render_to_selection_pass((draw_call_t) {
+        .min = editor_tile_get_screen_pos(v2i_ZERO),
+        .max = editor_tile_get_screen_pos(v2i_new(ROOM_WIDTH, ROOM_HEIGHT)),
+        .stroke = 3.0f,
+        .colour = v4f_new(1.0f, 1.0f, 1.0f, 0.1f),
+    });
 }
 
 static void editor_render() {
