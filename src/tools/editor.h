@@ -56,6 +56,7 @@ typedef struct editor_ctx_t {
     } resviewer;
 
     v2i hovered_tile;
+    v4f hovered_col;
 
     struct {
         bool open;
@@ -63,7 +64,9 @@ typedef struct editor_ctx_t {
     } tools;
 
     struct {
-        tile_t tile;
+        bool picking;
+        tile_tags_t tags;
+        tile_data_t data;
     } place_tool;
 
     struct {

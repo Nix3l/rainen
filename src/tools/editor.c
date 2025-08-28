@@ -13,6 +13,7 @@
 #include "util/util.h"
 #include "util/math_util.h"
 #include "gfx/gfx.h"
+#include <math.h>
 
 // temporary because my cmp keeps auto including this stupid file and its causing errors
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
@@ -66,10 +67,12 @@ static void editor_tool_place();
 static void editor_tool_select();
 static void editor_tool_delete();
 static void editor_tool_update();
+static void editor_tool_show_settings();
 
 static void editor_show_grid();
 static void editor_show_room();
 
+static void editor_alt_mode_update();
 static void editor_camera_update();
 static void editor_hovered_tile_update();
 
@@ -414,8 +417,9 @@ void editor_init() {
         },
 
         .select_tool.drag.cancel_key = KEY_ESCAPE,
-        .selection = {
-            .tiles = {0},
+        .place_tool = {
+            .tags = TILE_TAGS_RENDER,
+            .data.col = v4f_ONE,
         },
 
         .room = room,
@@ -454,7 +458,7 @@ static void editor_render_to_selection_pass(draw_call_t call) {
 // TILES
 static void editor_tile_delete(v2i pos) {
     if(pos.x < 0 || pos.x >= ROOM_WIDTH || pos.y < 0 || pos.y >= ROOM_HEIGHT) {
-        LOG_ERR_CODE(ERR_EDITOR_SELECTION_OUTSIDE_BOUNDS);
+        LOG_ERR_CODE(ERR_EDITOR_TILE_OUTSIDE_BOUNDS);
         return;
     }
 
@@ -529,7 +533,7 @@ static void editor_tile_show_info(tile_t tile) {
             igTreePop();
         }
 
-        igColorEdit4("colour", tile.col.raw, col_flags);
+        igColorEdit4("colour", tile.data.col.raw, col_flags);
         igText("selected [%s]", editor_tile_selected(v2i_new(tile.x, tile.y)) ? "yes" : "no");
         igTreePop();
     }
@@ -550,7 +554,7 @@ static void editor_tile_show_settings(tile_t tile) {
             igTreePop();
         }
 
-        igColorEdit4("colour", tile.col.raw, col_flags);
+        igColorEdit4("colour", tile.data.col.raw, col_flags);
         igTreePop();
     }
 
@@ -684,8 +688,8 @@ static void editor_selection_update() {
 static void editor_selection_show_info() {
     if(!editor_ctx.selection.selected) return;
 
+    igSeparatorText("SELECTION");
     if(editor_ctx.selection.tiles.size > 1) {
-        igSeparatorText("SELECTION");
         igText("selected region: [%i, %i] to [%i, %i]", v2f_expand(editor_ctx.selection.min), v2f_expand(editor_ctx.selection.max));
         igText("number of selected tiles: [%u]", editor_ctx.selection.tiles.size);
     } else {
@@ -797,6 +801,7 @@ static void editor_window_main() {
     }
 
     editor_selection_show_info();
+    editor_tool_show_settings();
 
     igEnd();
 }
@@ -1085,7 +1090,16 @@ static void editor_tooltip_tile_info() {
     }
 }
 
-// CAMERA
+// UPDATES
+static void editor_alt_mode_update() {
+    bool alt_mode = false;
+
+    if(input_key_down(KEY_LEFT_ALT)) alt_mode = true;
+    if(editor_ctx.place_tool.picking) alt_mode = true;
+
+    editor_ctx.alt_mode = alt_mode;
+}
+
 static void editor_camera_update() {
     camera_t* cam = &editor_ctx.cam;
 
@@ -1104,7 +1118,6 @@ static void editor_camera_update() {
     }
 }
 
-// TOOLS
 static void editor_hovered_tile_update() {
     if(!editor_ctx.view.focused) {
         editor_ctx.hovered_tile = v2i_new(-1, -1);
@@ -1114,17 +1127,36 @@ static void editor_hovered_tile_update() {
     editor_ctx.hovered_tile = editor_tile_at_screen_pos(input_mouse_pos());
 }
 
+// TOOLS
 static void editor_tool_place() {
-    if(!input_button_down(BUTTON_LEFT)) return;
     if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
+    editor_ctx.hovered_col = v4f_new(1.0f, 1.0f, 1.0f, 0.6f);
 
-    room_set_tile(&editor_ctx.room, (tile_t) {
-        .x = editor_ctx.hovered_tile.x,
-        .y = editor_ctx.hovered_tile.y,
+    if(editor_ctx.place_tool.picking) {
+        if(input_key_pressed(KEY_ESCAPE)) {
+            editor_ctx.place_tool.picking = false;
+        }
 
-        .tags = TILE_TAGS_RENDER,
-        .col = v4f_new(0.2f, 0.84f, 0.55f, 1.0f),
-    });
+        if(input_button_pressed(BUTTON_LEFT)) {
+            editor_ctx.place_tool.picking = false;
+            tile_t tile = room_get_tile(&editor_ctx.room, editor_ctx.hovered_tile.x, editor_ctx.hovered_tile.y);
+            if(tile.tags != TILE_TAGS_NONE) {
+                editor_ctx.place_tool.tags = tile.tags;
+                editor_ctx.place_tool.data = tile.data;
+            }
+        }
+
+        editor_ctx.hovered_col.a = 0.0f;
+    }
+
+    if(input_button_down(BUTTON_LEFT)) {
+        room_set_tile(&editor_ctx.room, (tile_t) {
+            .tags = editor_ctx.place_tool.tags,
+            .x = editor_ctx.hovered_tile.x,
+            .y = editor_ctx.hovered_tile.y,
+            .data = editor_ctx.place_tool.data,
+        });
+    }
 }
 
 static void editor_tool_select() {
@@ -1164,13 +1196,21 @@ static void editor_tool_select() {
 }
 
 static void editor_tool_delete() {
-    if(!input_button_down(BUTTON_LEFT)) return;
     if(editor_ctx.hovered_tile.x < 0 || editor_ctx.hovered_tile.y < 0) return;
-    editor_tile_delete(editor_ctx.hovered_tile);
+    editor_ctx.hovered_col = v4f_new(0.92f, 0.04f, 0.12f, 0.6f);
+
+    if(input_button_down(BUTTON_LEFT)) {
+        editor_tile_delete(editor_ctx.hovered_tile);
+    }
 }
 
 static void editor_tool_update() {
-    if(!editor_ctx.select_tool.selecting) {
+    bool allow_swap = true;
+
+    if(editor_ctx.select_tool.selecting) allow_swap = false;
+    if(editor_ctx.place_tool.picking) allow_swap = false;
+
+    if(allow_swap) {
         for(u32 i = 1; i < _EDITOR_TOOLS_NUM; i ++) {
             if(input_key_pressed(KEY_0 + i)) {
                 editor_ctx.tools.active_tool = i;
@@ -1189,6 +1229,8 @@ static void editor_tool_update() {
         return;
     }
 
+    editor_ctx.hovered_col = v4f_ZERO;
+
     switch(editor_ctx.tools.active_tool) {
         case EDITOR_TOOL_PLACE: editor_tool_place(); break;
         case EDITOR_TOOL_SELECT: editor_tool_select(); break;
@@ -1196,20 +1238,41 @@ static void editor_tool_update() {
         default: break;
     }
 
-    const v4f hover_colours[_EDITOR_TOOLS_NUM] = {
-        [EDITOR_TOOL_NONE]   = v4f_ZERO,
-        [EDITOR_TOOL_PLACE]  = v4f_new(1.0, 1.0f, 1.0f, 0.6f),
-        [EDITOR_TOOL_SELECT] = v4f_ZERO,
-        [EDITOR_TOOL_DELETE] = v4f_new(0.92f, 0.04f, 0.12f, 0.6f),
-    };
+    if(editor_ctx.hovered_tile.x > 0 && editor_ctx.hovered_tile.y > 0 && editor_ctx.hovered_col.a > 0.0f) {
+        v2f pos = tile_get_world_pos((tile_t) { .x = editor_ctx.hovered_tile.x, .y = editor_ctx.hovered_tile.y });
+        editor_render_to_room_pass((draw_call_t) {
+            .position = v3f_new(pos.x, pos.y, 1),
+            .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
+            .colour = editor_ctx.hovered_col,
+        });
+    }
+}
 
-    v2f pos = tile_get_world_pos((tile_t) { .x = editor_ctx.hovered_tile.x, .y = editor_ctx.hovered_tile.y });
-    v4f col = hover_colours[editor_ctx.tools.active_tool];
-    editor_render_to_room_pass((draw_call_t) {
-        .position = v3f_new(pos.x, pos.y, 1),
-        .scale = v3f_new(TILE_WIDTH / 2.0f, TILE_HEIGHT / 2.0f, 1.0f),
-        .colour = col,
-    });
+static void editor_tool_show_settings() {
+    switch(editor_ctx.tools.active_tool) {
+        case EDITOR_TOOL_PLACE: {
+            // for now, hard code this
+            igSeparatorText("PLACE TOOL");
+
+            if(igSmallButton("TILE PICKER")) editor_ctx.place_tool.picking = true;
+
+            tile_tags_t tags = editor_ctx.place_tool.tags;
+            if(igTreeNode_Str("tags")) {
+                bool render = tags & TILE_TAGS_RENDER;
+                bool solid = tags & TILE_TAGS_SOLID;
+                igCheckbox("render", &render);
+                igCheckbox("solid", &solid);
+                igTreePop();
+            }
+
+            if(igTreeNode_Str("data")) {
+                igColorEdit4("col", editor_ctx.place_tool.data.col.raw, ImGuiColorEditFlags_None);
+                igTreePop();
+            }
+        } break;
+
+        default: break;
+    }
 }
 
 // GRID
@@ -1230,7 +1293,7 @@ static void editor_show_room() {
             editor_render_to_room_pass((draw_call_t) {
                 .position = v3f_new(pos.x, pos.y, 0),
                 .scale = scale,
-                .colour = tile.col,
+                .colour = tile.data.col,
             });
 
             if(editor_tile_selected(v2i_new(tile.x, tile.y))) {
@@ -1259,7 +1322,8 @@ static void editor_render() {
 }
 
 void editor_update() {
-    editor_ctx.alt_mode = input_key_down(KEY_LEFT_ALT);
+    editor_alt_mode_update();
+
     igPushStyleVar_Float(ImGuiStyleVar_TabRounding, 0.0f);
     editor_topbar();
     editor_dockspace();
