@@ -112,6 +112,24 @@ void entity_manager_push(entity_manager_t* manager, entity_t ent) {
     vector_push_data(&manager->batch, &ent);
 }
 
+bool entity_manager_iter(entity_manager_t* manager, entity_iter_t* iter) {
+    // i am a masochist
+    // if(!manager || !iter) return false;
+    if(manager->batch.size == 0) return false;
+    if(iter->index == manager->batch.size) return false;
+
+    iter->ent.id = ENT_INVALID_ID;
+    iter->slot = NULL;
+    while(iter->index < manager->batch.size && !iter->slot) {
+        vector_fetch(&manager->batch, iter->index++, &iter->ent);
+        iter->slot = entity_get_slot(iter->ent);
+        if(!iter->slot) LOG_ERR_CODE(ERR_ENT_BAD_SLOT);
+        else return true;
+    }
+
+    return false;
+}
+
 // RENDER MANAGER UPDATE
 static v3f entity_compute_draw_scale(transform_t transform) {
     return v3f_new(transform.size.x * transform.scale.x, transform.size.y * transform.scale.y, 1.0f);
@@ -131,21 +149,6 @@ static void entity_render_update(entity_t ent) {
         .colour = data->material.colour,
     });
 }
-
-// UPDATE
-#define entity_manager_update(_manager, _update) do {           \
-    for(u32 i = 0; i < entity_ctx._manager.batch.size; i ++) {  \
-        entity_t ent;                                           \
-        vector_fetch(&entity_ctx._manager.batch, i, &ent);      \
-        entity_slot_t* slot = entity_get_slot(ent);             \
-        if(!slot) {                                             \
-            LOG_ERR_CODE(ERR_ENT_BAD_SLOT);                     \
-            continue;                                           \
-        }                                                       \
-                                                                \
-        _update(ent);                                           \
-    }                                                           \
-} while(0)
 
 static void entity_manager_collect_garbage(entity_manager_t* manager) {
     if(!manager) {
@@ -193,7 +196,10 @@ static void entity_collect_garbage() {
 }
 
 void entity_update() {
-    entity_manager_update(render_manager, entity_render_update);
-    entity_manager_update(player_manager, (void));
+    entity_iter_t iter = {0};
+    while(entity_manager_iter(&entity_ctx.render_manager, &iter)) {
+        entity_render_update(iter.ent);
+    }
+
     if(&entity_ctx.num_dirty_entities > 0) entity_collect_garbage();
 }

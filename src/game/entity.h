@@ -69,6 +69,14 @@ typedef struct entity_manager_t {
 
 void entity_manager_push(entity_manager_t* manager, entity_t ent);
 
+typedef struct entity_iter_t {
+    u32 index;
+    entity_t ent;
+    entity_slot_t* slot;
+} entity_iter_t;
+
+bool entity_manager_iter(entity_manager_t* manager, entity_iter_t* iter);
+
 typedef struct entity_ctx_t {
     u32 num_dirty_entities;
     pool_t entity_pool;
