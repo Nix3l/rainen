@@ -101,10 +101,7 @@ void render_dispatch(renderer_t* renderer);
 // CONTEXT
 typedef struct render_ctx_t {
     mesh_t unit_square;
-
     draw_group_t active_group;
-
-    renderer_t renderer;
 } render_ctx_t;
 
 extern render_ctx_t render_ctx;

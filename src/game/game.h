@@ -6,23 +6,25 @@
 
 #include "entity.h"
 #include "camera.h"
-
-enum {
-    GAME_MAX_ENTITIES = 4096,
-};
+#include "room.h"
 
 typedef struct {
-    u32 num_dirty_entities;
-    pool_t* entity_pool;
-    entity_manager_t* render_manager;
+    entity_t player;
 
     camera_t camera;
+
+    renderer_t renderer;
+    room_t room;
 } game_ctx_t;
 
 extern game_ctx_t game_ctx;
 
 void game_init();
 void game_terminate();
+
 void game_update();
+void game_render();
+
+void game_load_room(room_t room);
 
 #endif

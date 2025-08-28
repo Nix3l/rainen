@@ -13,7 +13,6 @@
 #include "util/util.h"
 #include "util/math_util.h"
 #include "gfx/gfx.h"
-#include <math.h>
 
 // temporary because my cmp keeps auto including this stupid file and its causing errors
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
@@ -401,7 +400,7 @@ void editor_init() {
     room_t room = room_new();
 
     editor_ctx = (editor_ctx_t) {
-        .open = true,
+        .open = false,
 
         .cam = cam,
         .max_zoom = 2.0f,
@@ -1300,7 +1299,7 @@ static void editor_show_room() {
                 editor_render_to_room_pass((draw_call_t) {
                     .position = v3f_new(pos.x, pos.y, 1),
                     .scale = scale,
-                    .colour = v4f_new(0.0f, 1.0f, 0.0f, 0.4f),
+                    .colour = v4f_new(0.1f, 1.0f, 0.3f, 1.0f),
                 });
             }
         }

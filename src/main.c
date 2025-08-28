@@ -1,3 +1,4 @@
+#include "game/entity.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -21,6 +22,7 @@ int main(void) {
     window_new(1600, 900, "WINDOW");
     imgui_init();
     render_init();
+    entity_init();
     game_init();
     editor_init();
 
@@ -61,7 +63,7 @@ int main(void) {
 
         if(!editor_is_open()) {
             game_update();
-            render_dispatch(&render_ctx.renderer);
+            game_render();
         } else {
             editor_update();
         }
@@ -71,6 +73,7 @@ int main(void) {
     }
 
     editor_terminate();
+    entity_terminate();
     game_terminate();
     imgui_terminate();
     render_terminate();

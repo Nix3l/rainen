@@ -6,6 +6,10 @@
 
 #define ENT_INVALID_ID (0)
 
+enum {
+    ENTITY_MAX = 1024,
+};
+
 typedef struct { handle_t id; } entity_t;
 
 typedef enum entity_tags_t {
@@ -65,8 +69,26 @@ typedef struct entity_manager_t {
 
 void entity_manager_push(entity_manager_t* manager, entity_t ent);
 
-// TODO(nix3l): dirty entity garbage collection
+typedef struct entity_ctx_t {
+    u32 num_dirty_entities;
+    pool_t entity_pool;
 
+    u32 num_managers;
+
+    union {
+        struct {
+            entity_manager_t render_manager;
+            entity_manager_t player_manager;
+        };
+
+        entity_manager_t managers[];
+    };
+} entity_ctx_t;
+
+extern entity_ctx_t entity_ctx;
+
+void entity_init();
+void entity_terminate();
 void entity_update();
 
 #endif
