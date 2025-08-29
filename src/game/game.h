@@ -22,9 +22,9 @@ extern game_ctx_t game_ctx;
 void game_init();
 void game_terminate();
 
+void game_load_room(room_t room);
+
 void game_update();
 void game_render();
-
-void game_load_room(room_t room);
 
 #endif

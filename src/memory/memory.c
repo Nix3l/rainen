@@ -477,7 +477,7 @@ void pool_destroy(pool_t* pool) {
 }
 
 bool pool_iter(pool_t* pool, pool_iter_t* iter) {
-    if(!pool || !iter) return false;
+    // if(!pool || !iter) return false;
     if(pool->num_in_use == 0) return false;
 
     if(iter->absolute_index > pool->last_used_element) {

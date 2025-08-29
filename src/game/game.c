@@ -76,7 +76,7 @@ void game_init() {
         },
         .near = 0.1f,
         .far = 200.0f,
-        .pixel_scale = 2.0f,
+        .pixel_scale = 1.0f,
     };
 
     game_ctx = (game_ctx_t) {
@@ -89,11 +89,20 @@ void game_terminate() {
     // do things
 }
 
+void game_load_room(room_t room) {
+    game_ctx.room = room;
+    game_ctx.camera.transform.position = room.camvol.center;
+    game_ctx.camera.w = room.camvol.dimensions.x;
+    game_ctx.camera.h = room.camvol.dimensions.y;
+}
+
 void game_update() {
     entity_update();
 }
 
 void game_render() {
+    room_render(&game_ctx.room, &game_ctx.renderer.groups[0]);
+
     for(u32 i = 0; i < game_ctx.renderer.num_groups; i ++) {
         camera_attach(&game_ctx.camera, &game_ctx.renderer.groups[i].pass);
     }

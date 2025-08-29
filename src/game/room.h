@@ -4,6 +4,7 @@
 #include "base.h"
 #include "memory/memory.h"
 #include "gfx/gfx.h"
+#include "render/render.h"
 #include "physics/bounds.h"
 
 enum {
@@ -33,7 +34,15 @@ typedef struct tile_t {
 v2f tile_get_world_pos(tile_t tile);
 aabb_t tile_get_aabb(tile_t tile);
 
+typedef struct camera_volume_t {
+    v2f center;
+    v2f dimensions;
+} camera_volume_t;
+
+aabb_t camera_volume_bounds(camera_volume_t vol);
+
 typedef struct room_t {
+    camera_volume_t camvol;
     tile_t tiles[ROOM_HEIGHT][ROOM_WIDTH];
 } room_t;
 
@@ -41,5 +50,7 @@ room_t room_new();
 
 tile_t room_get_tile(room_t* room, u32 x, u32 y);
 void room_set_tile(room_t* room, tile_t tile);
+
+void room_render(room_t* room, draw_group_t* group);
 
 #endif
