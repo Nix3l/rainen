@@ -57,6 +57,7 @@ typedef struct editor_selection_t {
 typedef struct editor_ctx_t {
     bool open;
     bool alt_mode;
+    bool preview_mode;
 
     camera_t cam;
     f32 max_zoom;

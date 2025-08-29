@@ -90,6 +90,7 @@ static void editor_show_grid();
 static void editor_show_room();
 
 static void editor_alt_mode_update();
+static void editor_preview_mode_update();
 static void editor_camera_update();
 static void editor_hovered_tile_update();
 
@@ -856,12 +857,17 @@ static void editor_selection_show_info() {
 
 // EDITOR WINDOWS
 static void editor_topbar() {
+    if(editor_ctx.preview_mode) return;
+
     if(igBeginMainMenuBar()) {
         if(igBeginMenu("editor", true)) {
             if(igMenuItem_Bool("play room", NULL, false, true)) {
                 game_load_room(editor_ctx.room);
                 editor_toggle();
             }
+
+            if(igMenuItem_Bool("preview mode", "F1", false, true))
+                editor_ctx.preview_mode = true;
 
             if(igMenuItem_Bool("quit", "F10", false, true))
                 editor_toggle();
@@ -939,6 +945,7 @@ static void editor_window_view() {
 
 // MAIN
 static void editor_window_main() {
+    if(editor_ctx.preview_mode) return;
     if(!editor_ctx.editor.open) return;
     if(!igBegin("editor", &editor_ctx.editor.open, ImGuiWindowFlags_None)) {
         igEnd();
@@ -1089,6 +1096,7 @@ static void resviewer_show_shader_contents(shader_t shader) {
 }
 
 static void editor_window_resviewer() {
+    if(editor_ctx.preview_mode) return;
     if(!editor_ctx.resviewer.open) return;
     if(!igBegin("resviewer", &editor_ctx.resviewer.open, ImGuiWindowFlags_None)) {
         igEnd();
@@ -1234,6 +1242,8 @@ static void editor_window_resviewer() {
 }
 
 static void editor_window_tools() {
+    if(editor_ctx.preview_mode) return;
+
     if(!igBegin("tools", &editor_ctx.tools.open, ImGuiWindowFlags_None)) {
         igEnd();
         return;
@@ -1268,6 +1278,10 @@ static void editor_alt_mode_update() {
     if(editor_picker_any_active()) alt_mode = true;
 
     editor_ctx.alt_mode = alt_mode;
+}
+
+static void editor_preview_mode_update() {
+    if(input_key_pressed(KEY_F1)) editor_ctx.preview_mode = !editor_ctx.preview_mode;
 }
 
 static void editor_camera_update() {
@@ -1435,6 +1449,7 @@ static void editor_tool_show_settings() {
 
 // GRID
 static void editor_show_grid() {
+    if(editor_ctx.preview_mode) return;
     editor_render_to_grid_pass((draw_call_t) {});
 }
 
@@ -1500,6 +1515,7 @@ void editor_update() {
     editor_picker_update();
     editor_dragger_update();
     editor_alt_mode_update();
+    editor_preview_mode_update();
 
     igPushStyleVar_Float(ImGuiStyleVar_TabRounding, 0.0f);
     editor_topbar();
