@@ -33,53 +33,82 @@ v2f aabb_half_extents(aabb_t box) {
     return v2f_scale(v2f_sub(box.max, box.min), 0.5f);
 }
 
-// TODO(nix3l): redo this
 aabb_t aabb_minkowski_diff(aabb_t box1, aabb_t box2) {
-    v2f center1 = aabb_center(box1);
-    v2f center2 = aabb_center(box2);
-    v2f size1 = aabb_half_extents(box1);
-    v2f size2 = aabb_half_extents(box2);
-
-    v2f center = v2f_sub(center1, center2);
-    v2f he = v2f_add(size1, size2);
-
+    // just expanded out
+    // center = c1 - c2
+    // size = size1 + size2
+    // which is the one that makes more sense than this
     return (aabb_t) {
-        .min = v2f_sub(center, he),
-        .max = v2f_add(center, he),
+        .min = v2f_sub(box1.min, box2.max),
+        .max = v2f_sub(box1.max, box2.min),
     };
 }
 
-bool aabb_point_intersect(aabb_t box, v2f point) {
+bool aabb_point_check(aabb_t box, v2f point) {
     return
         (box.min.x < point.x && box.max.x > point.x) &&
         (box.min.y < point.y && box.max.y > point.y);
+}
+
+bool aabb_aabb_check(aabb_t box1, aabb_t box2) {
+    aabb_t minkowski = aabb_minkowski_diff(box1, box2);
+    return aabb_point_check(minkowski, v2f_ZERO);
+}
+
+intersection_t aabb_point_intersect(aabb_t box, v2f point) {
+    intersection_t res = {0};
+    if(!aabb_point_check(box, point)) return res;
+
+    f32 min_dist = point.x - box.min.x;
+    v2f dir = v2f_new(-1.0f, 0.0f);
+
+    if(box.max.x - point.x < min_dist) {
+        min_dist = box.max.x - point.x;
+        dir = v2f_new(1.0f, 0.0f);
+    }
+
+    if(point.y - box.min.y < min_dist) {
+        min_dist = point.y - box.min.y;
+        dir = v2f_new(0.0f, -1.0f);
+    }
+
+    if(box.max.y - point.y < min_dist) {
+        min_dist = box.max.y - point.y;
+        dir = v2f_new(0.0f, 1.0f);
+    }
+
+    res.inersect = true;
+    res.penetration = min_dist;
+    res.dir = dir;
+    return res;
 }
 
 intersection_t aabb_aabb_intersect(aabb_t box1, aabb_t box2) {
     intersection_t res = {0};
 
     aabb_t minkowski = aabb_minkowski_diff(box1, box2);
-    if(!aabb_point_intersect(minkowski, v2f_ZERO)) return res;
+    if(!aabb_point_check(minkowski, v2f_ZERO)) return res;
 
     f32 min_dist = fabsf(minkowski.min.x);
-    res.dir = v2f_new(-1.0f, 0.0f);
+    v2f dir = v2f_new(-1.0f, 0.0f);
 
     if(fabsf(minkowski.max.x) < min_dist) {
         min_dist = fabsf(minkowski.max.x);
-        res.dir = v2f_new(1.0f, 0.0f);
+        dir = v2f_new(1.0f, 0.0f);
     }
 
     if(fabsf(minkowski.min.y) < min_dist) {
         min_dist = fabsf(minkowski.min.y);
-        res.dir = v2f_new(0.0f, -1.0f);
+        dir = v2f_new(0.0f, -1.0f);
     }
 
     if(fabsf(minkowski.max.y) < min_dist) {
         min_dist = fabsf(minkowski.max.y);
-        res.dir = v2f_new(0.0f, 1.0f);
+        dir = v2f_new(0.0f, 1.0f);
     }
 
     res.inersect = true;
     res.penetration = min_dist;
+    res.dir = dir;
     return res;
 }
