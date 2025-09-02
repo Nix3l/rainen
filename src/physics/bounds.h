@@ -25,7 +25,7 @@ bool aabb_aabb_check(aabb_t box1, aabb_t box2);
 typedef struct intersection_t {
     bool inersect;
     f32 penetration;
-    v2f dir;
+    v2f normal;
 } intersection_t;
 
 // NOTE(nix3l): these can be optimised a bit further, but no need right now

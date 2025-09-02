@@ -4,6 +4,7 @@
 #include "base.h"
 #include "gfx/gfx.h"
 
+// TODO(nix3l): make render batch a linked list in arena
 // TODO(nix3l): move viewport to pipeline?
 
 enum {

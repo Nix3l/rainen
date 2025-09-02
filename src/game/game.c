@@ -1,10 +1,13 @@
 #include "game.h"
+#include "base_macros.h"
 #include "entity.h"
 #include "gfx/gfx.h"
 #include "memory/memory.h"
+#include "physics/bounds.h"
 #include "platform/platform.h"
 #include "render/render.h"
 #include "util/math_util.h"
+#include "io/io.h"
 
 game_ctx_t game_ctx;
 
@@ -54,6 +57,11 @@ void game_init() {
                     .pipeline = {
                         .clear = { .colour = true, .depth = true, },
                         .cull = { .enable = true, },
+                        .blend = {
+                            .enable = true,
+                            .dst_func = BLEND_FUNC_SRC_ONE_MINUS_ALPHA,
+                            .src_func = BLEND_FUNC_SRC_ALPHA,
+                        },
                         .depth = { .enable = true, },
                         .shader = shader,
                     },

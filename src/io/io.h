@@ -4,6 +4,8 @@
 #include "base.h"
 #include "memory/memory.h"
 
+// TODO(nix3l): add KEY_ANY and BUTTON_ANY
+
 // KEY/BUTTON DEFINITIONS
 typedef enum keycode_t {
     KEY_UNKNOWN = 0,

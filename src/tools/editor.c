@@ -22,6 +22,8 @@ editor_ctx_t editor_ctx = {0};
 
 // KEYBINDS:
 //  => GLOBAL
+//      - toggle editor     [F10]
+//      - toggle preview    [F1]
 //      - clear active tool [BACKSPACE]
 //      - place tool        [1]
 //      - select tool       [2]
@@ -419,7 +421,7 @@ void editor_init() {
     };
 
     editor_ctx = (editor_ctx_t) {
-        .open = true,
+        .open = false,
 
         .cam = cam,
         .max_zoom = 2.0f,
@@ -974,7 +976,11 @@ static void editor_window_main() {
 
     igSeparatorText("ROOM SETTINGS");
     if(igTreeNode_Str("camera volume")) {
-        if(igSmallButton("RECENTER VIEW")) editor_ctx.cam.transform.position = editor_ctx.room.camvol.center;
+        if(igSmallButton("RECENTER VIEW")) {
+            editor_ctx.cam.transform.position = editor_ctx.room.camvol.center;
+            editor_ctx.cam.pixel_scale = 1.0f;
+        }
+
         igDragFloat2("center", editor_ctx.room.camvol.center.raw, 10.0f, -MAX_f32, MAX_f32, "%.2f", ImGuiSliderFlags_None);
         igDragFloat2("dimensions", editor_ctx.room.camvol.dimensions.raw, 1.0f, 0.0f, MAX_f32, "%.2f", ImGuiSliderFlags_None);
         igTreePop();

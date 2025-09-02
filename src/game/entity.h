@@ -3,6 +3,7 @@
 
 #include "base.h"
 #include "gfx/gfx.h"
+#include "physics/physics.h"
 
 #define ENT_INVALID_ID (0)
 
@@ -13,8 +14,9 @@ enum {
 typedef struct { handle_t id; } entity_t;
 
 typedef enum entity_tags_t {
-    ENT_TAGS_NONE   = 0x00,
-    ENT_TAGS_RENDER = 0x01,
+    ENT_TAGS_NONE    = 0x00,
+    ENT_TAGS_RENDER  = 0x01,
+    ENT_TAGS_PHYSICS = 0x02,
 } entity_tags_t;
 
 // ENTITY DATA
@@ -34,12 +36,14 @@ typedef struct entity_data_t {
     entity_tags_t tags;
     transform_t transform;
     material_t material;
+    collider_t collider;
 } entity_data_t;
 
 typedef struct entity_info_t {
     entity_tags_t tags;
     transform_t transform;
     material_t material;
+    collider_t collider;
 } entity_info_t;
 
 typedef enum entity_slot_state_t {

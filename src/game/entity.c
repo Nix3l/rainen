@@ -2,6 +2,7 @@
 #include "base_macros.h"
 #include "errors/errors.h"
 #include "memory/memory.h"
+#include "physics/physics.h"
 #include "render/render.h"
 #include "game.h"
 
@@ -49,6 +50,7 @@ entity_t entity_new(entity_info_t info) {
     slot->data.material = info.material;
 
     if(info.tags & ENT_TAGS_RENDER) entity_manager_push(&entity_ctx.render_manager, ent);
+    if(info.tags & ENT_TAGS_PHYSICS) slot->data.collider = info.collider;
 
     return ent;
 }
@@ -142,8 +144,14 @@ static void entity_render_update(entity_t ent) {
         return;
     }
 
+    v3f position = v3f_new(data->transform.position.x, data->transform.position.y, data->transform.z);
+    if(data->tags & ENT_TAGS_PHYSICS) {
+        physobj_t* obj = collider_get_data(data->collider);
+        position = v3f_new(obj->pos.x, obj->pos.y, data->transform.z);
+    }
+
     render_push_draw_call(&game_ctx.renderer.groups[0], (draw_call_t) {
-        .position = v3f_new(data->transform.position.x, data->transform.position.y, data->transform.z),
+        .position = position,
         .rotation = v3f_new(0.0f, 0.0f, data->transform.rotation),
         .scale = entity_compute_draw_scale(data->transform),
         .colour = data->material.colour,

@@ -79,7 +79,7 @@ intersection_t aabb_point_intersect(aabb_t box, v2f point) {
 
     res.inersect = true;
     res.penetration = min_dist;
-    res.dir = dir;
+    res.normal = dir;
     return res;
 }
 
@@ -109,6 +109,6 @@ intersection_t aabb_aabb_intersect(aabb_t box1, aabb_t box2) {
 
     res.inersect = true;
     res.penetration = min_dist;
-    res.dir = dir;
+    res.normal = dir;
     return res;
 }

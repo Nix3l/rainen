@@ -487,7 +487,7 @@ bool pool_iter(pool_t* pool, pool_iter_t* iter) {
 
     bool found_elem = false;
     pool_element_t elem;
-    if(iter->absolute_index < pool->first_used_element) {
+    if(iter->iteration == 0 && (iter->absolute_index < pool->first_used_element || iter->absolute_index == 0)) {
         elem = pool->elements[pool->first_used_element];
         iter->absolute_index = pool->first_used_element;
     } else if(iter->iteration > 0) {
