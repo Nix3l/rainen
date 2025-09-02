@@ -47,18 +47,6 @@ int main(void) {
         .filter = TEXTURE_FILTER_NEAREST,
     });
 
-    v2f size1 = v2f_new(20, 20);
-    collider_t coll1 = collider_new((collider_info_t) {
-        .tags = COLLIDER_TAGS_NO_GRAV,
-        .pos = v2f_ZERO,
-        .bounds = {
-            .type = COLLIDER_SHAPE_AABB,
-            .box = aabb_new_rect(v2f_ZERO, size1),
-        },
-        .mass = 1.0f,
-        .restitution = 0.3f,
-    });
-
     v2f size2 = v2f_new(600, 100);
     collider_t coll2 = collider_new((collider_info_t) {
         .tags = COLLIDER_TAGS_STATIC,
@@ -68,6 +56,18 @@ int main(void) {
             .box = aabb_new_rect(v2f_ZERO, size2),
         },
         .restitution = 1.0f,
+    });
+
+    v2f size1 = v2f_new(20, 20);
+    collider_t coll1 = collider_new((collider_info_t) {
+        .tags = COLLIDER_TAGS_NO_GRAV,
+        .pos = v2f_ZERO,
+        .bounds = {
+            .type = COLLIDER_SHAPE_AABB,
+            .box = aabb_new_rect(v2f_ZERO, size1),
+        },
+        .mass = 10.0f,
+        .restitution = 0.3f,
     });
 
     v2f size3 = v2f_new(35, 35);
@@ -88,7 +88,7 @@ int main(void) {
             .type = COLLIDER_SHAPE_AABB,
             .box = aabb_new_rect(v2f_ZERO, size4),
         },
-        .mass = 4.0f,
+        .mass = 1.0f,
         .restitution = 1.0f,
     });
 
@@ -146,10 +146,10 @@ int main(void) {
 
         if(!editor_is_open()) {
             const f32 speed = 500.0f;
-            if(input_key_down(KEY_UP)) collider_apply_force(coll1, v2f_new(0.0f, speed));
+            if(input_key_down(KEY_UP))    collider_apply_force(coll1, v2f_new(0.0f, speed));
             if(input_key_down(KEY_RIGHT)) collider_apply_force(coll1, v2f_new(speed, 0.0f));
-            if(input_key_down(KEY_DOWN)) collider_apply_force(coll1, v2f_new(0.0f, -speed));
-            if(input_key_down(KEY_LEFT)) collider_apply_force(coll1, v2f_new(-speed, 0.0f));
+            if(input_key_down(KEY_DOWN))  collider_apply_force(coll1, v2f_new(0.0f, -speed));
+            if(input_key_down(KEY_LEFT))  collider_apply_force(coll1, v2f_new(-speed, 0.0f));
             physics_update();
             game_update();
             game_render();

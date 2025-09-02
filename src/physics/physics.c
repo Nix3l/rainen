@@ -122,7 +122,7 @@ static intersection_t physics_collide_objs(physobj_t* obj1, physobj_t* obj2) {
     return aabb_aabb_intersect(b1, b2);
 }
 
-static void physics_collisions_compute_pairs() {
+static void physics_collisions_compute_manifolds() {
     physics_ctx.narrow.pairs = arena_push_vector(&physics_ctx.arena, 128, sizeof(manifold_t));
     pool_iter_t major_iter = {0};
     while(pool_iter(&physics_ctx.obj_pool, &major_iter)) {
@@ -159,7 +159,12 @@ static void physics_manifold_correct_positions(manifold_t* pair) {
 static void physics_manifold_resolve(manifold_t* pair) {
     // impulse resolution
     v2f vr = v2f_sub(pair->obj1->vel, pair->obj2->vel);
-    f32 e = MIN(pair->obj1->restitution, pair->obj2->restitution);
+    // weird stuff happens when restitution is 1.0
+    // like objects keep accumulating velocity if they are resting on one another,
+    // so they kind of "snap" when they are no longer colliding
+    // but for some reason keeping it at 0.999 makes it fine so
+    // TODO(nix3l): figure out a better fix (or why that is happening in the first place)
+    f32 e = CLAMP(MIN(pair->obj1->restitution, pair->obj2->restitution), 0.0f, 0.999f);
     f32 vj1 = -(1.0f + e) * v2f_dot(vr, pair->inter.normal);
     f32 vj2 = -(1.0f + e) * v2f_dot(vr, pair->inter.normal);
     f32 J1 = vj1 / (pair->obj1->inv_m + pair->obj2->inv_m);
@@ -184,7 +189,7 @@ void physics_update() {
     for(u32 i = 1; i <= physics_ctx.substeps; i ++) {
         physics_integrate_positions(dt * i);
         physics_integrate_forces(dt * i);
-        physics_collisions_compute_pairs();
+        physics_collisions_compute_manifolds();
         physics_collisions_resolve();
         arena_clear(&physics_ctx.arena);
     }
