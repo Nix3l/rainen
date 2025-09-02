@@ -30,7 +30,7 @@ void physics_init() {
         .obj_pool = obj_pool,
         .arena = arena,
         .substeps = 8,
-        .global_gravity = v2f_new(0.0f, -98.1f),
+        .global_gravity = v2f_new(0.0f, -500.0f),
     };
 }
 
@@ -49,6 +49,7 @@ collider_t collider_new(collider_info_t info) {
     obj->acc = v2f_ZERO;
     obj->force = v2f_ZERO;
     obj->restitution = info.restitution;
+    obj->friction = info.friction;
 
     if(info.tags & COLLIDER_TAGS_STATIC) {
         obj->mass = 0.0f;
@@ -146,12 +147,11 @@ static void physics_collisions_compute_manifolds() {
 }
 
 static void physics_manifold_correct_positions(manifold_t* pair) {
-    const f32 amount = 0.9f;
+    const f32 amount = 0.7f;
     f32 r1 = pair->obj1->inv_m / (pair->obj1->inv_m + pair->obj2->inv_m);
     f32 r2 = pair->obj2->inv_m / (pair->obj1->inv_m + pair->obj2->inv_m);
     v2f dx1 = v2f_scale(pair->inter.normal, -amount * r1 * pair->inter.penetration);
     v2f dx2 = v2f_scale(pair->inter.normal,  amount * r2 * pair->inter.penetration);
-
     pair->obj1->pos = v2f_add(pair->obj1->pos, dx1);
     pair->obj2->pos = v2f_add(pair->obj2->pos, dx2);
 }
@@ -159,19 +159,24 @@ static void physics_manifold_correct_positions(manifold_t* pair) {
 static void physics_manifold_resolve(manifold_t* pair) {
     // impulse resolution
     v2f vr = v2f_sub(pair->obj1->vel, pair->obj2->vel);
+    v2f n = pair->inter.normal;
+
     // weird stuff happens when restitution is 1.0
     // like objects keep accumulating velocity if they are resting on one another,
     // so they kind of "snap" when they are no longer colliding
     // but for some reason keeping it at 0.999 makes it fine so
     // TODO(nix3l): figure out a better fix (or why that is happening in the first place)
     f32 e = CLAMP(MIN(pair->obj1->restitution, pair->obj2->restitution), 0.0f, 0.999f);
-    f32 vj1 = -(1.0f + e) * v2f_dot(vr, pair->inter.normal);
-    f32 vj2 = -(1.0f + e) * v2f_dot(vr, pair->inter.normal);
-    f32 J1 = vj1 / (pair->obj1->inv_m + pair->obj2->inv_m);
-    f32 J2 = vj2 / (pair->obj1->inv_m + pair->obj2->inv_m);
+    f32 vj = -(1.0f + e) * v2f_dot(vr, n);
+    f32 J = vj / (pair->obj1->inv_m + pair->obj2->inv_m);
 
-    pair->obj1->vel = v2f_add(pair->obj1->vel, v2f_scale(pair->inter.normal, pair->obj1->inv_m * J1));
-    pair->obj2->vel = v2f_sub(pair->obj2->vel, v2f_scale(pair->inter.normal, pair->obj2->inv_m * J2));
+    // friction
+    v2f t = v2f_scale(v2f_new(n.y, -n.x), v2f_cross(vr, n));
+    if(v2f_dot(t, vr) < 0) t = v2f_scale(t, -1);
+    f32 mu = MAX(pair->obj1->friction, pair->obj2->friction);
+
+    pair->obj1->vel = v2f_add(pair->obj1->vel, v2f_scale(v2f_add(n, v2f_scale(t, mu)), J * pair->obj1->inv_m));
+    pair->obj2->vel = v2f_sub(pair->obj2->vel, v2f_scale(v2f_add(n, v2f_scale(t, mu)), J * pair->obj2->inv_m));
 }
 
 static void physics_collisions_resolve() {

@@ -55,19 +55,20 @@ int main(void) {
             .type = COLLIDER_SHAPE_AABB,
             .box = aabb_new_rect(v2f_ZERO, size2),
         },
-        .restitution = 1.0f,
+        .restitution = 0.0f,
+        .friction = 0.008f,
     });
 
     v2f size1 = v2f_new(20, 20);
     collider_t coll1 = collider_new((collider_info_t) {
-        .tags = COLLIDER_TAGS_NO_GRAV,
+        //.tags = COLLIDER_TAGS_NO_GRAV,
         .pos = v2f_ZERO,
         .bounds = {
             .type = COLLIDER_SHAPE_AABB,
             .box = aabb_new_rect(v2f_ZERO, size1),
         },
         .mass = 10.0f,
-        .restitution = 0.3f,
+        .restitution = 0.0f,
     });
 
     v2f size3 = v2f_new(35, 35);
@@ -145,11 +146,10 @@ int main(void) {
         // igShowDemoWindow(NULL);
 
         if(!editor_is_open()) {
-            const f32 speed = 500.0f;
-            if(input_key_down(KEY_UP))    collider_apply_force(coll1, v2f_new(0.0f, speed));
+            const f32 speed = 1000.0f;
             if(input_key_down(KEY_RIGHT)) collider_apply_force(coll1, v2f_new(speed, 0.0f));
-            if(input_key_down(KEY_DOWN))  collider_apply_force(coll1, v2f_new(0.0f, -speed));
             if(input_key_down(KEY_LEFT))  collider_apply_force(coll1, v2f_new(-speed, 0.0f));
+            if(input_key_pressed(KEY_C))  collider_apply_force(coll1, v2f_new(0.0f, 400000.0f));
             physics_update();
             game_update();
             game_render();

@@ -37,6 +37,8 @@
 #define CLAMP_MAX(_x, _max) MIN(_x, _max)
 #define CLAMP_MIN(_x, _min) MAX(_x, _min)
 
+#define SIGN(_x) ((_x)<0?:-1:1)
+
 #define v2f_new(_x, _y) (v2f) { .x = (_x), .y = (_y) }
 #define v3f_new(_x, _y, _z) (v3f) { .x = (_x), .y = (_y), .z = (_z) }
 #define v4f_new(_x, _y, _z, _w) (v4f) { .x = (_x), .y = (_y), .z = (_z), .w = (_w) }
@@ -87,6 +89,10 @@
 #define v2f_dot(_x, _y) (glms_vec2_dot(_x, _y))
 #define v3f_dot(_x, _y) (glms_vec3_dot(_x, _y))
 #define v4f_dot(_x, _y) (glms_vec4_dot(_x, _y))
+
+#define v2f_cross(_x, _y) (glms_vec2_cross(_x, _y))
+#define v3f_cross(_x, _y) (glms_vec3_cross(_x, _y))
+#define v4f_cross(_x, _y) (glms_vec4_cross(_x, _y))
 
 #define v2f_norm(_x) (glms_vec2_normalize(_x))
 #define v3f_norm(_x) (glms_vec3_normalize(_x))

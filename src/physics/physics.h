@@ -43,8 +43,9 @@ typedef struct physobj_t {
     v2f acc;
     v2f force;
     f32 mass;
-    f32 inv_m; // 1.0f / mass
+    f32 inv_m;
     f32 restitution;
+    f32 friction;
 } physobj_t;
 
 typedef struct collider_info_t {
@@ -53,6 +54,7 @@ typedef struct collider_info_t {
     v2f pos;
     f32 mass;
     f32 restitution;
+    f32 friction;
 } collider_info_t;
 
 collider_t collider_new(collider_info_t info);
