@@ -101,131 +101,6 @@ void vector_destroy(vector_t* vector) {
     vector->data = NULL;
 }
 
-// ARENAS
-arena_t arena_new(range_t block, expand_type_t expand_type) {
-    return (arena_t) {
-        .size = 0,
-        .capacity = block.size,
-        .data = block.ptr,
-        .type = expand_type,
-    };
-}
-
-arena_t arena_alloc_new(usize capacity, expand_type_t expand_type) {
-    void* data = mem_calloc(capacity);
-    if(!data) PANIC("couldnt allocate memory for arena\n");
-
-    return (arena_t) {
-        .size = 0,
-        .capacity = capacity,
-        .data = data,
-        .type = expand_type,
-    };
-}
-
-void arena_resize(arena_t* arena, usize new_capacity) {
-    if(arena->type == EXPAND_TYPE_IMMUTABLE) return;
-
-    arena->capacity = new_capacity;
-    arena->data = mem_realloc(arena->data, new_capacity);
-
-    if(!arena->data) PANIC("couldnt resize arena\n");
-}
-
-void arena_prepare(arena_t* arena, usize bytes) {
-    arena_resize(arena, arena->capacity + bytes);
-}
-
-// TODO(nix3l): should these really be separate functions?
-static void grow_arena(arena_t* arena) {
-    arena->capacity *= 1.5f;
-    arena->data = mem_realloc(arena->data, arena->capacity);
-
-    if(!arena->data) PANIC("couldnt expand arena\n");
-}
-
-static void shrink_arena(arena_t* arena) {
-    arena->capacity *= 0.5f;
-    arena->data = mem_realloc(arena->data, arena->capacity);
-
-    if(!arena->data) PANIC("couldnt shrink arena\n");
-}
-
-void* arena_push(arena_t* arena, u32 bytes) {
-    if(arena->size + bytes > arena->capacity) {
-        if(arena->type == EXPAND_TYPE_AUTOEXPAND) grow_arena(arena);
-        else return NULL;
-    }
-
-    void* data = arena->data + arena->size;
-    arena->size += bytes;
-
-    return data;
-}
-
-void* arena_push_to_capacity(arena_t* arena) {
-    return arena_push(arena, arena->capacity - arena->size);
-}
-
-void arena_pop(arena_t* arena, u32 bytes) {
-    if(arena->type == EXPAND_TYPE_AUTOEXPAND && arena->size - bytes < arena->capacity * 0.5f)
-        shrink_arena(arena);
-
-    if(arena->size <= bytes) arena->size = 0;
-    else arena->size -= bytes;
-}
-
-bool arena_fits(arena_t* arena, u32 bytes) {
-    return arena->capacity - arena->size >= bytes;
-}
-
-usize arena_remaining(arena_t* arena) {
-    return arena->capacity - arena->size;
-}
-
-range_t arena_range(arena_t* arena, usize start, usize size) {
-    return (range_t) {
-        .size = size,
-        .ptr = arena->data + start,
-    };
-}
-
-range_t arena_range_full(arena_t* arena) {
-    return (range_t) {
-        .size = arena->size,
-        .ptr = arena->data,
-    };
-}
-
-range_t arena_push_range(arena_t* arena, u32 bytes) {
-    void* data = arena_push(arena, bytes);
-    if(!data) PANIC("could not push range in arena\n");
-
-    return (range_t) {
-        .ptr = data,
-        .size = bytes 
-    };
-}
-
-vector_t arena_push_vector(arena_t* arena, u32 num_elements, u32 element_size) {
-    u32 bytes = num_elements * element_size;
-    void* data = arena_push(arena, bytes);
-    if(!data) PANIC("couldnt push enough memory for vector in arena\n");
-
-    return vector_new(data, num_elements, element_size);
-}
-
-void arena_clear(arena_t* arena) {
-    arena->size = 0;
-}
-
-void arena_destroy(arena_t* arena) {
-    arena->size = 0;
-    arena->capacity = 0;
-    mem_free(arena->data);
-    arena->data = NULL;
-}
-
 // POOLS
 #define HANDLE_INDEX_MASK (0x00FFFFFF)
 #define HANDLE_GEN_MASK   (0xFF000000)
@@ -258,6 +133,34 @@ handle_t handle_inc_index(handle_t handle) {
 handle_t handle_inc_gen(handle_t handle) {
     u32 gen = handle_gen(handle) + 1;
     return (gen << 24) | (handle & HANDLE_INDEX_MASK);
+}
+
+pool_t pool_new(void* block, u32 capacity, u32 element_size, expand_type_t type) {
+    if(!block) PANIC("bad memory block for pool\n");
+
+    pool_element_t* elements = block + capacity * element_size;
+
+    for(u32 i = 0; i < capacity; i ++) {
+        elements[i] = (pool_element_t) {
+            .handle = handle_new(i, 0),
+            .state = POOL_ELEMENT_FREE,
+        };
+    }
+
+    return (pool_t) {
+        .element_size = element_size,
+
+        .num_in_use = 0,
+        .capacity = capacity,
+        .first_free_element = 0,
+        .first_used_element = 0,
+        .last_used_element = 0,
+
+        .type = type,
+
+        .data = block,
+        .elements = elements,
+    };
 }
 
 pool_t pool_alloc_new(u32 capacity, u32 element_size, expand_type_t type) {
@@ -508,5 +411,181 @@ bool pool_iter(pool_t* pool, pool_iter_t* iter) {
     iter->iteration ++;
     iter->handle = elem.handle;
     iter->data = pool_at_index(pool, iter->absolute_index);
+    return true;
+}
+
+// ARENAS
+arena_t arena_new(range_t block, expand_type_t expand_type) {
+    return (arena_t) {
+        .size = 0,
+        .capacity = block.size,
+        .data = block.ptr,
+        .type = expand_type,
+    };
+}
+
+arena_t arena_alloc_new(usize capacity, expand_type_t expand_type) {
+    void* data = mem_calloc(capacity);
+    if(!data) PANIC("couldnt allocate memory for arena\n");
+
+    return (arena_t) {
+        .size = 0,
+        .capacity = capacity,
+        .data = data,
+        .type = expand_type,
+    };
+}
+
+void arena_resize(arena_t* arena, usize new_capacity) {
+    if(arena->type == EXPAND_TYPE_IMMUTABLE) return;
+
+    arena->capacity = new_capacity;
+    arena->data = mem_realloc(arena->data, new_capacity);
+
+    if(!arena->data) PANIC("couldnt resize arena\n");
+}
+
+void arena_prepare(arena_t* arena, usize bytes) {
+    arena_resize(arena, arena->capacity + bytes);
+}
+
+// TODO(nix3l): should these really be separate functions?
+static void grow_arena(arena_t* arena) {
+    arena->capacity *= 1.5f;
+    arena->data = mem_realloc(arena->data, arena->capacity);
+
+    if(!arena->data) PANIC("couldnt expand arena\n");
+}
+
+static void shrink_arena(arena_t* arena) {
+    arena->capacity *= 0.5f;
+    arena->data = mem_realloc(arena->data, arena->capacity);
+
+    if(!arena->data) PANIC("couldnt shrink arena\n");
+}
+
+void* arena_push(arena_t* arena, u32 bytes) {
+    if(arena->size + bytes > arena->capacity) {
+        if(arena->type == EXPAND_TYPE_AUTOEXPAND) grow_arena(arena);
+        else return NULL;
+    }
+
+    void* data = arena->data + arena->size;
+    arena->size += bytes;
+
+    return data;
+}
+
+void* arena_push_to_capacity(arena_t* arena) {
+    return arena_push(arena, arena->capacity - arena->size);
+}
+
+void arena_pop(arena_t* arena, u32 bytes) {
+    if(arena->type == EXPAND_TYPE_AUTOEXPAND && arena->size - bytes < arena->capacity * 0.5f)
+        shrink_arena(arena);
+
+    if(arena->size <= bytes) arena->size = 0;
+    else arena->size -= bytes;
+}
+
+bool arena_fits(arena_t* arena, u32 bytes) {
+    return arena->capacity - arena->size >= bytes;
+}
+
+usize arena_remaining(arena_t* arena) {
+    return arena->capacity - arena->size;
+}
+
+range_t arena_range(arena_t* arena, usize start, usize size) {
+    return (range_t) {
+        .size = size,
+        .ptr = arena->data + start,
+    };
+}
+
+range_t arena_range_full(arena_t* arena) {
+    return (range_t) {
+        .size = arena->size,
+        .ptr = arena->data,
+    };
+}
+
+range_t arena_range_push(arena_t* arena, u32 bytes) {
+    void* data = arena_push(arena, bytes);
+    if(!data) PANIC("could not push range in arena\n");
+
+    return (range_t) {
+        .ptr = data,
+        .size = bytes 
+    };
+}
+
+vector_t arena_vector_push(arena_t* arena, u32 num_elements, u32 element_size) {
+    u32 bytes = num_elements * element_size;
+    void* data = arena_push(arena, bytes);
+    if(!data) PANIC("couldnt push enough memory for vector in arena\n");
+    return vector_new(data, num_elements, element_size);
+}
+
+pool_t arena_pool_push(arena_t* arena, u32 capacity, u32 element_size) {
+    u32 bytes = capacity * (element_size + sizeof(pool_element_t));
+    void* data = arena_push(arena, bytes);
+    if(!data) PANIC("couldnt push enough memory for pool in arena\n");
+    return pool_new(data, capacity, element_size, EXPAND_TYPE_IMMUTABLE);
+}
+
+void arena_clear(arena_t* arena) {
+    arena->size = 0;
+}
+
+void arena_destroy(arena_t* arena) {
+    arena->size = 0;
+    arena->capacity = 0;
+    mem_free(arena->data);
+    arena->data = NULL;
+}
+
+llist_t llist_new() {
+    return (llist_t) {};
+}
+
+llist_node_t* llist_push(llist_t* list, arena_t* arena, void* data) {
+    llist_node_t* node = arena_push(arena, sizeof(llist_node_t));
+
+    node->data = data;
+    node->prev = NULL;
+    node->next = NULL;
+
+    if(list->size == 0) {
+        list->start = node;
+        list->end = node;
+    } else {
+        node->prev = list->end;
+        list->end = node;
+    }
+
+    return node;
+}
+
+void llist_remove(llist_t* list, llist_node_t* node) {
+    if(list->size == 0) return;
+    if(!node->next) list->end = node->prev;
+    if(!node->prev) list->start = node->next;
+    node->next->prev = node->prev;
+    node->prev->next = node->next;
+}
+
+bool llist_iter(llist_t* list, llist_iter_t* iter) {
+    if(!iter->node) {
+        iter->node = list->start;
+        iter->data = iter->node->data;
+        return true;
+    }
+
+    if(!iter->node->next) return false;
+
+    iter->node = iter->node->next;
+    iter->data = iter->node->data;
+    iter->index ++;
     return true;
 }

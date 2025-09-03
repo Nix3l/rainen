@@ -62,43 +62,6 @@ void vector_clear(vector_t* vector);
 // frees the data in the vector
 void vector_destroy(vector_t* vector);
 
-// ARENAS
-typedef struct arena_t {
-    usize size;
-    usize capacity;
-    expand_type_t type;
-    void* data;
-} arena_t;
-
-arena_t arena_new(range_t block, expand_type_t expand_type);
-arena_t arena_alloc_new(usize capacity, expand_type_t expand_type);
-
-// only works on non-immutable arenas
-void arena_resize(arena_t* arena, usize new_capacity);
-// only works on non-immutable arenas
-void arena_prepare(arena_t* arena, usize bytes);
-
-void* arena_push(arena_t* arena, u32 bytes);
-void* arena_push_to_capacity(arena_t* arena);
-
-void arena_pop(arena_t* arena, u32 bytes);
-
-bool arena_fits(arena_t* arena, u32 bytes);
-usize arena_remaining(arena_t* arena);
-
-range_t arena_range(arena_t* arena, usize start, usize size);
-range_t arena_range_full(arena_t* arena);
-// allocates a range in an arena
-range_t arena_push_range(arena_t* arena, u32 bytes);
-
-// allocates an immutable vector in the arena
-vector_t arena_push_vector(arena_t* arena, u32 num_elements, u32 element_size);
-
-// resets the arena head to zero
-void arena_clear(arena_t* arena);
-// frees the arena
-void arena_destroy(arena_t* arena);
-
 // POOLS
 typedef u32 handle_t;
 
@@ -144,6 +107,7 @@ typedef struct pool_t {
     pool_element_t* elements;
 } pool_t;
 
+pool_t pool_new(void* block, u32 capacity, u32 element_size, expand_type_t expand_type);
 pool_t pool_alloc_new(u32 capacity, u32 element_size, expand_type_t expand_type);
 
 void pool_resize(pool_t* pool, u32 new_capacity);
@@ -174,6 +138,70 @@ typedef struct pool_iter_t {
 
 bool pool_iter(pool_t* pool, pool_iter_t* iter);
 
+// ARENAS
+typedef struct arena_t {
+    usize size;
+    usize capacity;
+    expand_type_t type;
+    void* data;
+} arena_t;
+
+arena_t arena_new(range_t block, expand_type_t expand_type);
+arena_t arena_alloc_new(usize capacity, expand_type_t expand_type);
+
+// only works on non-immutable arenas
+void arena_resize(arena_t* arena, usize new_capacity);
+// only works on non-immutable arenas
+void arena_prepare(arena_t* arena, usize bytes);
+
+void* arena_push(arena_t* arena, u32 bytes);
+void* arena_push_to_capacity(arena_t* arena);
+
+void arena_pop(arena_t* arena, u32 bytes);
+
+bool arena_fits(arena_t* arena, u32 bytes);
+usize arena_remaining(arena_t* arena);
+
+range_t arena_range(arena_t* arena, usize start, usize size);
+range_t arena_range_full(arena_t* arena);
+// allocates a range in an arena
+range_t arena_range_push(arena_t* arena, u32 bytes);
+
+// allocates an immutable vector in the arena
+vector_t arena_vector_push(arena_t* arena, u32 num_elements, u32 element_size);
+
+// allocates an immutable pool in the arena
+pool_t arena_pool_push(arena_t* arena, u32 capacity, u32 element_size);
+
+// resets the arena head to zero
+void arena_clear(arena_t* arena);
+// frees the arena
+void arena_destroy(arena_t* arena);
+
 // TODO(nix3l): LINKED LISTS
+typedef struct llist_node_t {
+    void* data;
+    struct llist_node_t* next;
+    struct llist_node_t* prev;
+} llist_node_t;
+
+typedef struct llist_t {
+    u32 size;
+    llist_node_t* start;
+    llist_node_t* end;
+} llist_t;
+
+llist_t llist_new();
+
+llist_node_t* llist_push(llist_t* list, arena_t* arena, void* data);
+void llist_remove(llist_t* list, llist_node_t* node);
+
+typedef struct llist_iter_t {
+    u32 index;
+    void* data;
+    llist_node_t* node;
+} llist_iter_t;
+
+bool llist_iter(llist_t* list, llist_iter_t* iter);
 
 #endif /* ifndef _MEMORY_H */
