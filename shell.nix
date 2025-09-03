@@ -8,6 +8,7 @@ pkgs.clangStdenv.mkDerivation {
     ];
 
     buildInputs = with pkgs; [
+        glibc
         libGL
         glfw-wayland
         # glfw

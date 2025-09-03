@@ -94,6 +94,6 @@ extern physics_ctx_t physics_ctx;
 void physics_init();
 void physics_terminate();
 
-void physics_update();
+void physics_update(f32 dt);
 
 #endif

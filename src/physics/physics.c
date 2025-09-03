@@ -160,7 +160,6 @@ static void physics_manifold_resolve(manifold_t* pair) {
     // impulse resolution
     v2f vr = v2f_sub(pair->obj1->vel, pair->obj2->vel);
     v2f n = pair->inter.normal;
-
     // weird stuff happens when restitution is 1.0
     // like objects keep accumulating velocity if they are resting on one another,
     // so they kind of "snap" when they are no longer colliding
@@ -187,10 +186,11 @@ static void physics_collisions_resolve() {
     }
 }
 
-void physics_update() {
+void physics_update(f32 dt) {
     physics_apply_gravity();
 
-    f32 dt = (1.0f / 165.0f) / physics_ctx.substeps;
+    dt = dt / physics_ctx.substeps;
+    LOG("%f\n", dt);
     for(u32 i = 1; i <= physics_ctx.substeps; i ++) {
         physics_integrate_positions(dt * i);
         physics_integrate_forces(dt * i);

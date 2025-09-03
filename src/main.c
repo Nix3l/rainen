@@ -1,6 +1,3 @@
-#include "base_macros.h"
-#include "game/entity.h"
-#include "physics/bounds.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -8,6 +5,7 @@
 
 #include "util/util.h"
 
+#include "stats/stats.h"
 #include "io/io.h"
 #include "gfx/gfx.h"
 #include "memory/memory.h"
@@ -19,6 +17,7 @@
 #include "tools/editor.h"
 
 int main(void) {
+    stats_init();
     gfx_init(GFX_BACKEND_GL);
     io_init();
     monitors_detect();
@@ -67,7 +66,7 @@ int main(void) {
             .type = COLLIDER_SHAPE_AABB,
             .box = aabb_new_rect(v2f_ZERO, size1),
         },
-        .mass = 10.0f,
+        .mass = 1.0f,
         .restitution = 0.0f,
     });
 
@@ -138,6 +137,7 @@ int main(void) {
     });
 
     while(!window_closing()) {
+        stats_start_frame();
         input_start_frame();
         imgui_start_frame();
 
@@ -149,8 +149,8 @@ int main(void) {
             const f32 speed = 1000.0f;
             if(input_key_down(KEY_RIGHT)) collider_apply_force(coll1, v2f_new(speed, 0.0f));
             if(input_key_down(KEY_LEFT))  collider_apply_force(coll1, v2f_new(-speed, 0.0f));
-            if(input_key_pressed(KEY_C))  collider_apply_force(coll1, v2f_new(0.0f, 400000.0f));
-            physics_update();
+            if(input_key_pressed(KEY_C))  collider_apply_force(coll1, v2f_new(0.0f, 40000.0f));
+            physics_update(stats_dt());
             game_update();
             game_render();
         } else {
