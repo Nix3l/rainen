@@ -1,6 +1,7 @@
 #include "io.h"
 
-#include "base_macros.h"
+#include "memory/memory.h"
+#include "rations/rations.h"
 #include "errors/errors.h"
 #include "util/util.h"
 #include "gfx/gfx.h"
@@ -216,7 +217,7 @@ static void gl_detect_monitors() {
     GLFWmonitor** glfw_monitors = glfwGetMonitors(&num_monitors);
     GLFWmonitor* primary_glfw_monitor = glfwGetPrimaryMonitor();
 
-    io_ctx.monitors = vector_alloc_new(num_monitors, sizeof(monitor_t));
+    io_ctx.monitors = arena_vector_push(&io_ctx.rations, num_monitors, sizeof(monitor_t));
     for(i32 i = 0; i < num_monitors; i ++) {
         monitor_t* monitor = vector_push(&io_ctx.monitors);
         GLFWmonitor* glfw_monitor = glfw_monitors[i];
@@ -225,7 +226,7 @@ static void gl_detect_monitors() {
         i32 num_video_modes;
         GLFWvidmode* video_modes = (GLFWvidmode*) glfwGetVideoModes(glfw_monitor, &num_video_modes);
         GLFWvidmode* active_mode = (GLFWvidmode*) glfwGetVideoMode(glfw_monitor);
-        monitor->video_modes = vector_alloc_new(num_video_modes, sizeof(video_mode_t));
+        monitor->video_modes = arena_vector_push(&io_ctx.rations, num_video_modes, sizeof(video_mode_t));
         for(i32 i = 0; i < num_video_modes; i ++) {
             GLFWvidmode gl_vidmode = video_modes[i];
             video_mode_t* mode = vector_push(&monitor->video_modes);
@@ -335,6 +336,8 @@ static void gl_io_terminate() {
 
 // CONTEXT
 void io_init() {
+    io_ctx.rations = arena_new(rations.io);
+
     switch(gfx_backend()) {
         case GFX_BACKEND_GL: gl_io_init(); break;
         default: UNREACHABLE; break;
@@ -346,6 +349,8 @@ void io_terminate() {
         case GFX_BACKEND_GL: gl_io_terminate(); break;
         default: UNREACHABLE; break;
     }
+
+    arena_clear(&io_ctx.rations);
 }
 
 // MONTORS

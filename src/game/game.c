@@ -1,5 +1,4 @@
 #include "game.h"
-#include "base_macros.h"
 #include "entity.h"
 #include "gfx/gfx.h"
 #include "memory/memory.h"
@@ -8,6 +7,7 @@
 #include "render/render.h"
 #include "util/math_util.h"
 #include "io/io.h"
+#include "rations/rations.h"
 
 game_ctx_t game_ctx;
 
@@ -28,12 +28,13 @@ static void construct_uniforms(void* out, draw_call_t* call) {
 }
 
 void game_init() {
-    arena_t code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
+    arena_t game_rations = arena_new(rations.game);
+
+    arena_t code_arena = arena_alloc_new(4096);
     range_t shader_vs = platform_load_file(&code_arena, "shader/default.vs");
     range_t shader_fs = platform_load_file(&code_arena, "shader/default.fs");
     shader_t shader = shader_new((shader_info_t) {
-        .name = "def",
-        .pretty_name = "default",
+        .name = "game shader",
         .attribs = {
             { .name = "vs_position" },
             { .name = "vs_uvs" },
@@ -70,7 +71,7 @@ void game_init() {
                         .projection = { .type = PROJECTION_ORTHO, },
                     },
                 },
-                .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+                .batch = llist_new(),
                 .construct_uniforms = construct_uniforms,
             },
         },
@@ -88,6 +89,7 @@ void game_init() {
     };
 
     game_ctx = (game_ctx_t) {
+        .rations = game_rations,
         .camera = camera,
         .renderer = renderer,
     };

@@ -5,9 +5,7 @@
 // needed to use posix functions (clock_gettime)
 #define _POSIX_C_SOURCE 199309L
 #include "platform.h"
-
 #include "util/util.h"
-
 #include <time.h>
 
 // gets the size of the entire file in bytes

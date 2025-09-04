@@ -1,10 +1,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+// TODO: global memory allocation
+
 #include "base.h"
 
 #include "util/util.h"
 
+#include "rations/rations.h"
 #include "stats/stats.h"
 #include "io/io.h"
 #include "gfx/gfx.h"
@@ -17,6 +20,7 @@
 #include "tools/editor.h"
 
 int main(void) {
+    rations_divide();
     stats_init();
     gfx_init(GFX_BACKEND_GL);
     io_init();
@@ -55,7 +59,7 @@ int main(void) {
             .box = aabb_new_rect(v2f_ZERO, size2),
         },
         .restitution = 0.0f,
-        .friction = 0.008f,
+        .friction = 0.033f,
     });
 
     v2f size1 = v2f_new(20, 20);
@@ -159,6 +163,8 @@ int main(void) {
 
         imgui_show();
         window_swap_buffers();
+
+        render_end_frame();
     }
 
     editor_terminate();

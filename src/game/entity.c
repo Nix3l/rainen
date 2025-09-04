@@ -4,37 +4,40 @@
 #include "memory/memory.h"
 #include "physics/physics.h"
 #include "render/render.h"
+#include "rations/rations.h"
 #include "game.h"
 
 entity_ctx_t entity_ctx = {0};
 
 void entity_init() {
     // ENTITIES
-    pool_t pool = pool_alloc_new(ENTITY_MAX, sizeof(entity_slot_t), EXPAND_TYPE_IMMUTABLE);
+    arena_t entity_rations = arena_new(rations.entity);
+    pool_t pool = arena_pool_push(&entity_rations, ENTITY_MAX, sizeof(entity_slot_t));
+
+    entity_manager_t render_manager = {
+        .label = "render-manager",
+        .batch = arena_vector_push(&entity_rations, ENTITY_MAX, sizeof(entity_t)),
+    };
+
+    entity_manager_t player_manager = {
+        .label = "player-manager",
+        .batch = arena_vector_push(&entity_rations, 1, sizeof(entity_t)),
+    };
 
     // reserve first element for invalid ids
-    pool_push(&pool, NULL);
+    (void) pool_push(&pool, NULL);
 
     entity_ctx = (entity_ctx_t) {
+        .rations = entity_rations,
         .entity_pool = pool,
         .num_managers = 2,
-        .render_manager = {
-            .label = "render-manager",
-            .batch = vector_alloc_new(ENTITY_MAX, sizeof(entity_t)),
-        },
-        .player_manager = {
-            .label = "player-manager",
-            .batch = vector_alloc_new(1, sizeof(entity_t)),
-        },
+        .render_manager = render_manager,
+        .player_manager = player_manager,
     };
 }
 
 void entity_terminate() {
-    for(u32 i = 0; i < entity_ctx.num_managers; i ++) {
-        vector_destroy(&entity_ctx.managers[i].batch);
-    }
-
-    pool_destroy(&entity_ctx.entity_pool);
+    arena_clear(&entity_ctx.rations);
 }
 
 entity_t entity_new(entity_info_t info) {

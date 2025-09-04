@@ -81,7 +81,7 @@ typedef struct draw_call_t {
 } draw_call_t;
 
 typedef struct draw_group_t {
-    vector_t batch;
+    llist_t batch;
     draw_pass_t pass;
     void (*construct_uniforms) (void* out, draw_call_t* call);
 } draw_group_t;
@@ -101,6 +101,7 @@ void render_dispatch(renderer_t* renderer);
 
 // CONTEXT
 typedef struct render_ctx_t {
+    arena_t rations;
     mesh_t unit_square;
     draw_group_t active_group;
 } render_ctx_t;
@@ -109,5 +110,7 @@ extern render_ctx_t render_ctx;
 
 void render_init();
 void render_terminate();
+
+void render_end_frame();
 
 #endif

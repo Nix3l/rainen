@@ -79,8 +79,9 @@ typedef struct narrow_phase_t {
 } narrow_phase_t;
 
 typedef struct physics_ctx_t {
+    arena_t rations;
     pool_t obj_pool;
-    arena_t arena;
+    arena_t frame_arena;
 
     u32 substeps;
 

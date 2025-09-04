@@ -1,6 +1,7 @@
 #include "gfx.h"
-#include "base.h"
+#include "rations/rations.h"
 #include "errors/errors.h"
+#include "memory/memory.h"
 #include "util/util.h"
 
 gfx_ctx_t gfx_ctx;
@@ -91,18 +92,18 @@ typedef struct gl_shader_internal_t {
 } gl_shader_internal_t;
 
 // pools
-static gfx_respool_t mesh_pool;
-static gfx_respool_t texture_pool;
-static gfx_respool_t sampler_pool;
-static gfx_respool_t attachments_pool;
-static gfx_respool_t shader_pool;
+static gfx_respool_t mesh_pool = {0};
+static gfx_respool_t texture_pool = {0};
+static gfx_respool_t sampler_pool = {0};
+static gfx_respool_t attachments_pool = {0};
+static gfx_respool_t shader_pool = {0};
 
 static gfx_respool_t gfx_respool_alloc_new(u32 capacity, u32 res_bytes, u32 internal_bytes) {
     gfx_respool_t pool = (gfx_respool_t) {
         .capacity = capacity,
-        .res_pool = pool_alloc_new(capacity, sizeof(gfx_res_slot_t), EXPAND_TYPE_IMMUTABLE),
-        .data_pool = pool_alloc_new(capacity, res_bytes, EXPAND_TYPE_IMMUTABLE),
-        .internal_pool = pool_alloc_new(capacity, internal_bytes, EXPAND_TYPE_IMMUTABLE),
+        .res_pool = arena_pool_push(&gfx_ctx.rations, capacity, sizeof(gfx_res_slot_t)),
+        .data_pool = arena_pool_push(&gfx_ctx.rations, capacity, res_bytes),
+        .internal_pool = arena_pool_push(&gfx_ctx.rations, capacity, internal_bytes),
     };
 
     // reserve the 0 index for invalid ids
@@ -148,13 +149,6 @@ static gfx_res_slot_t* gfx_respool_get_slot(gfx_respool_t* pool, handle_t id) {
     return pool_get(&pool->res_pool, id);
 }
 
-static void gfx_respool_destroy(gfx_respool_t* pool) {
-    pool->capacity = 0;
-    pool_destroy(&pool->res_pool);
-    pool_destroy(&pool->data_pool);
-    pool_destroy(&pool->internal_pool);
-}
-
 void gfx_init(gfx_backend_t backend) {
     gfx_backend_info_t opengl_core_info = (gfx_backend_info_t) {
         .backend = GFX_BACKEND_GL,
@@ -172,6 +166,7 @@ void gfx_init(gfx_backend_t backend) {
     };
 
     gfx_ctx = (gfx_ctx_t) {
+        .rations = arena_new(rations.gfx),
         .backend = backend,
         .backend_info = {
             (gfx_backend_info_t) {0},
@@ -182,7 +177,6 @@ void gfx_init(gfx_backend_t backend) {
     gfx_backend_info_t curr_backend_info = gfx_ctx.backend_info[backend];
     if(!curr_backend_info.supported) PANIC("chosen backend is not supported on current OS\n");
 
-    // for now, keep immutable
     mesh_pool = gfx_respool_alloc_new(GFX_MAX_MESHES, sizeof(mesh_data_t), curr_backend_info.mesh_internal_size);
     gfx_ctx.mesh_pool = &mesh_pool;
 
@@ -202,11 +196,7 @@ void gfx_init(gfx_backend_t backend) {
 }
 
 void gfx_terminate() {
-    gfx_respool_destroy(gfx_ctx.mesh_pool);
-    gfx_respool_destroy(gfx_ctx.texture_pool);
-    gfx_respool_destroy(gfx_ctx.sampler_pool);
-    gfx_respool_destroy(gfx_ctx.attachments_pool);
-    gfx_respool_destroy(gfx_ctx.shader_pool);
+    arena_clear(&gfx_ctx.rations);
 }
 
 gfx_backend_t gfx_backend() {
@@ -656,8 +646,8 @@ void shader_init(shader_t shader, shader_info_t info) {
         return;
     }
 
-    memcpy(shader_data->name, info.name, sizeof(shader_data->name));
-    memcpy(shader_data->pretty_name, info.pretty_name, sizeof(shader_data->pretty_name));
+    shader_data->name = info.name;
+
     memcpy(shader_data->attribs, info.attribs, sizeof(shader_data->attribs));
 
     shader_data->vertex_pass = (shader_pass_t) {
@@ -1201,7 +1191,7 @@ static void gl_shader_init(shader_t shader, shader_info_t info) {
 
         uniform_t* shader_uniform = &shader_data->uniform_block.uniforms[i];
         shader_uniform->glid = glGetUniformLocation(glshader->program, uniform_info.name);
-        if(shader_uniform->glid == (u32)-1) LOG_ERR("couldnt find uniform [%s] in shader [%s]\n", uniform_info.name, info.pretty_name);
+        if(shader_uniform->glid == (u32)-1) LOG_ERR("couldnt find uniform [%s] in shader [%s]\n", uniform_info.name, info.name);
         shader_uniform->name = uniform_info.name;
         shader_uniform->type = uniform_info.type;
         shader_data->uniform_block.bytes += uniform_type_get_bytes(uniform_info.type);

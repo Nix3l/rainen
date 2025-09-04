@@ -82,8 +82,9 @@ typedef struct entity_iter_t {
 bool entity_manager_iter(entity_manager_t* manager, entity_iter_t* iter);
 
 typedef struct entity_ctx_t {
-    u32 num_dirty_entities;
+    arena_t rations;
     pool_t entity_pool;
+    u32 num_dirty_entities;
 
     u32 num_managers;
 

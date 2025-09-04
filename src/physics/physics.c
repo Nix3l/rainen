@@ -2,6 +2,7 @@
 #include "base_macros.h"
 #include "memory/memory.h"
 #include "physics/bounds.h"
+#include "rations/rations.h"
 #include "util/util.h"
 
 // RESOURCES:
@@ -23,19 +24,21 @@
 physics_ctx_t physics_ctx = {0};
 
 void physics_init() {
-    pool_t obj_pool = pool_alloc_new(PHYS_MAX_OBJS, sizeof(physobj_t), EXPAND_TYPE_IMMUTABLE);
-    arena_t arena = arena_alloc_new(MEGABYTES(4), EXPAND_TYPE_IMMUTABLE);
+    arena_t physics_rations = arena_new(rations.physics);
+    pool_t obj_pool = arena_pool_push(&physics_rations, PHYS_MAX_OBJS, sizeof(physobj_t));
+    arena_t frame_arena = arena_new(arena_range_remaining(&physics_rations));
 
     physics_ctx = (physics_ctx_t) {
+        .rations = physics_rations,
         .obj_pool = obj_pool,
-        .arena = arena,
+        .frame_arena = frame_arena,
         .substeps = 8,
         .global_gravity = v2f_new(0.0f, -500.0f),
     };
 }
 
 void physics_terminate() {
-    // do stuff
+    arena_clear(&physics_ctx.rations);
 }
 
 collider_t collider_new(collider_info_t info) {
@@ -124,7 +127,7 @@ static intersection_t physics_collide_objs(physobj_t* obj1, physobj_t* obj2) {
 }
 
 static void physics_collisions_compute_manifolds() {
-    physics_ctx.narrow.pairs = arena_push_vector(&physics_ctx.arena, 128, sizeof(manifold_t));
+    physics_ctx.narrow.pairs = arena_vector_push(&physics_ctx.frame_arena, 128, sizeof(manifold_t));
     pool_iter_t major_iter = {0};
     while(pool_iter(&physics_ctx.obj_pool, &major_iter)) {
         physobj_t* obj1 = major_iter.data;
@@ -189,13 +192,12 @@ static void physics_collisions_resolve() {
 void physics_update(f32 dt) {
     physics_apply_gravity();
 
-    dt = dt / physics_ctx.substeps;
-    LOG("%f\n", dt);
+    dt /= physics_ctx.substeps;
     for(u32 i = 1; i <= physics_ctx.substeps; i ++) {
         physics_integrate_positions(dt * i);
         physics_integrate_forces(dt * i);
         physics_collisions_compute_manifolds();
         physics_collisions_resolve();
-        arena_clear(&physics_ctx.arena);
+        arena_clear(&physics_ctx.frame_arena);
     }
 }

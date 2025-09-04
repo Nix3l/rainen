@@ -257,11 +257,11 @@ static void selection_construct_uniforms(void* out, draw_call_t* call) {
 // STATE
 void editor_init() {
     // leak ALL the memory
-    arena_t code_arena = arena_alloc_new(4096, EXPAND_TYPE_IMMUTABLE);
+    arena_t code_arena = arena_alloc_new(4096);
     range_t grid_vs = platform_load_file(&code_arena, "shader/editor/grid.vs");
     range_t grid_fs = platform_load_file(&code_arena, "shader/editor/grid.fs");
     shader_t grid_shader = shader_new((shader_info_t) {
-        .pretty_name = "grid shader",
+        .name = "grid shader",
         .attribs = {
             { .name = "vs_position" },
             { .name = "vs_uvs" },
@@ -283,7 +283,7 @@ void editor_init() {
     range_t tile_vs = platform_load_file(&code_arena, "shader/editor/tile.vs");
     range_t tile_fs = platform_load_file(&code_arena, "shader/editor/tile.fs");
     shader_t tile_shader = shader_new((shader_info_t) {
-        .pretty_name = "room shader",
+        .name = "room shader",
         .attribs = {
             { .name = "vs_position" },
             { .name = "vs_uvs" },
@@ -299,7 +299,7 @@ void editor_init() {
     range_t outline_vs = platform_load_file(&code_arena, "shader/editor/outline.vs");
     range_t outline_fs = platform_load_file(&code_arena, "shader/editor/outline.fs");
     shader_t outline_shader = shader_new((shader_info_t) {
-        .pretty_name = "selection shader",
+        .name = "selection shader",
         .attribs = {
             { .name = "vs_position" },
             { .name = "vs_uvs" },
@@ -357,7 +357,7 @@ void editor_init() {
                         .shader = grid_shader,
                     },
                 },
-                .batch = vector_alloc_new(1, sizeof(draw_call_t)),
+                .batch = llist_new(),
                 .construct_uniforms = grid_construct_uniforms,
             },
             [1] = {
@@ -384,7 +384,7 @@ void editor_init() {
                         .projection = { .type = PROJECTION_ORTHO, },
                     },
                 },
-                .batch = vector_alloc_new(RENDER_MAX_CALLS, sizeof(draw_call_t)),
+                .batch = llist_new(),
                 .construct_uniforms = room_construct_uniforms,
             },
             [2] = {
@@ -405,7 +405,7 @@ void editor_init() {
                         .shader = outline_shader,
                     },
                 },
-                .batch = vector_alloc_new(16, sizeof(draw_call_t)),
+                .batch = llist_new(),
                 .construct_uniforms = selection_construct_uniforms,
             },
         }
@@ -1076,7 +1076,7 @@ static void resviewer_show_shader_contents(shader_t shader) {
         return;
     }
 
-    igText("label [%s]", shader_data->pretty_name);
+    igText("label [%s]", shader_data->name);
 
     char label[32];
     snprintf(label, sizeof(label), "uniforms [%u]", shader_data->uniform_block.num);

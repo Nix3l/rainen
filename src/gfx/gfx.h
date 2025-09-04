@@ -386,9 +386,7 @@ typedef struct shader_pass_t {
 } shader_pass_t;
 
 typedef struct shader_data_t {
-    // TODO(nix3l): remove these. no need.
-    char name[8];
-    char pretty_name[16];
+    const char* name;
     shader_pass_t vertex_pass;
     shader_pass_t fragment_pass;
     // TODO(nix3l): compute
@@ -397,8 +395,7 @@ typedef struct shader_data_t {
 } shader_data_t;
 
 typedef struct shader_info_t {
-    char name[8];
-    char pretty_name[16];
+    const char* name;
     range_t vertex_src;
     range_t fragment_src;
     shader_vertex_attribute_t attribs[GFX_MAX_VERTEX_ATTRIBS];
@@ -518,6 +515,8 @@ void gfx_viewport(viewport_t view);
 
 // CONTEXT
 typedef struct gfx_ctx_t {
+    arena_t rations;
+
     gfx_backend_t backend;
     gfx_backend_info_t backend_info[GFX_BACKEND_NUM];
 

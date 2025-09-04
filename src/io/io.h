@@ -271,6 +271,8 @@ void input_drag(mouse_drag_t* drag);
 void input_drag_interrupt(mouse_drag_t* drag);
 
 typedef struct io_ctx_t {
+    arena_t rations;
+
     vector_t monitors;
     monitor_t* active_monitor;
     monitor_t* primary_monitor;

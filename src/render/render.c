@@ -5,6 +5,8 @@
 #include "util/util.h"
 #include "util/math_util.h"
 #include "errors/errors.h"
+#include "rations/rations.h"
+#include <string.h>
 
 render_ctx_t render_ctx;
 
@@ -40,13 +42,14 @@ void render_init() {
     });
 
     render_ctx = (render_ctx_t) {
+        .rations = arena_new(rations.render),
         .unit_square = mesh,
         .active_group = {0},
     };
 }
 
 void render_terminate() {
-    // do stuff
+    arena_clear(&render_ctx.rations);
 }
 
 void render_activate_group(draw_group_t group) {
@@ -65,12 +68,9 @@ void render_clear_active_group() {
 }
 
 void render_push_draw_call(draw_group_t* group, draw_call_t call) {
-    if(group->batch.size == group->batch.capacity) {
-        LOG_ERR_CODE(ERR_RENDER_CALL_LIMIT_REACHED);
-        return;
-    }
-
-    vector_push_data(&group->batch, &call);
+    draw_call_t* data = arena_push(&render_ctx.rations, sizeof(draw_call_t));
+    memcpy(data, &call, sizeof(draw_call_t));
+    llist_push(&group->batch, &render_ctx.rations, data);
 }
 
 static mat4s pass_get_proj_view(draw_pass_t pass) {
@@ -90,7 +90,7 @@ static mat4s pass_get_proj_view(draw_pass_t pass) {
     return projView;
 }
 
-static void group_update_cache() {
+static void render_group_update_cache() {
     if(render_ctx.active_group.pass.type == DRAW_PASS_INVALID) {
         LOG_ERR_CODE(ERR_RENDER_NO_ACTIVE_GROUP);
         return;
@@ -109,10 +109,12 @@ static void render_active_group() {
         return;
     }
 
+    // TODO(nix3l): maybe move this to the rations? maybe dont? i dont think it would really impact performace. like at all.
     range_t uniforms = range_alloc_new(shader_get_uniforms_size(pass.pipeline.shader));
 
-    for(u32 i = 0; i < group.batch.size; i ++) {
-        draw_call_t* call = vector_get(&group.batch, i);
+    llist_iter_t iter = {0};
+    while(llist_iter(&group.batch, &iter)) {
+        draw_call_t* call = iter.data;
         if(!call) {
             LOG_ERR_CODE(ERR_RENDER_BAD_CALL);
             UNREACHABLE; // bit harsh but just to make sure in dev
@@ -139,10 +141,14 @@ static void render_active_group() {
 void render_dispatch(renderer_t* renderer) {
     for(u32 i = 0; i < renderer->num_groups; i ++) {
         render_activate_group(renderer->groups[i]);
-        group_update_cache();
+        render_group_update_cache();
         render_active_group();
-        vector_clear(&renderer->groups[i].batch);
+        llist_clear(&renderer->groups[i].batch);
         render_clear_active_group();
         gfx_clear_active_pipeline();
     }
+}
+
+void render_end_frame() {
+    arena_clear(&render_ctx.rations);
 }

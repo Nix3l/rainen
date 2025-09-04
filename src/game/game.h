@@ -9,10 +9,10 @@
 #include "room.h"
 
 typedef struct {
+    arena_t rations;
+
     entity_t player;
-
     camera_t camera;
-
     renderer_t renderer;
     room_t room;
 } game_ctx_t;
