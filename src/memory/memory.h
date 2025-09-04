@@ -107,8 +107,13 @@ typedef struct pool_t {
     pool_element_t* elements;
 } pool_t;
 
-pool_t pool_new(void* block, u32 capacity, u32 element_size, expand_type_t expand_type);
-pool_t pool_alloc_new(u32 capacity, u32 element_size, expand_type_t expand_type);
+// immutable pool creation
+pool_t pool_new(void* block, u32 capacity, u32 element_size);
+pool_t pool_alloc_new(u32 capacity, u32 element_size);
+
+// expandable pool creation
+pool_t pool_new_expand(void* block, u32 capacity, u32 element_size, expand_type_t expand_type);
+pool_t pool_alloc_new_expand(u32 capacity, u32 element_size, expand_type_t expand_type);
 
 void pool_resize(pool_t* pool, u32 new_capacity);
 void pool_prepare(pool_t* pool, u32 num_new_elements);
@@ -146,8 +151,13 @@ typedef struct arena_t {
     void* data;
 } arena_t;
 
-arena_t arena_new(range_t block, expand_type_t expand_type);
-arena_t arena_alloc_new(usize capacity, expand_type_t expand_type);
+// immutable arena creation
+arena_t arena_new(range_t block);
+arena_t arena_alloc_new(usize capacity);
+
+// expandable array creation
+arena_t arena_new_expand(range_t block, expand_type_t expand_type);
+arena_t arena_alloc_new_expand(usize capacity, expand_type_t expand_type);
 
 // only works on non-immutable arenas
 void arena_resize(arena_t* arena, usize new_capacity);
@@ -162,7 +172,11 @@ void arena_pop(arena_t* arena, u32 bytes);
 bool arena_fits(arena_t* arena, u32 bytes);
 usize arena_remaining(arena_t* arena);
 
+// returns a range within the arena
 range_t arena_range(arena_t* arena, usize start, usize size);
+// returns a range with the unallocated memory in the arena
+range_t arena_range_remaining(arena_t* arena);
+// returns a range containing the entire arena
 range_t arena_range_full(arena_t* arena);
 // allocates a range in an arena
 range_t arena_range_push(arena_t* arena, u32 bytes);
@@ -178,7 +192,6 @@ void arena_clear(arena_t* arena);
 // frees the arena
 void arena_destroy(arena_t* arena);
 
-// TODO(nix3l): LINKED LISTS
 typedef struct llist_node_t {
     void* data;
     struct llist_node_t* next;
@@ -194,7 +207,11 @@ typedef struct llist_t {
 llist_t llist_new();
 
 llist_node_t* llist_push(llist_t* list, arena_t* arena, void* data);
+
+// does not deallocate data
 void llist_remove(llist_t* list, llist_node_t* node);
+// does not deallocate data
+void llist_clear(llist_t* list);
 
 typedef struct llist_iter_t {
     u32 index;
@@ -204,4 +221,4 @@ typedef struct llist_iter_t {
 
 bool llist_iter(llist_t* list, llist_iter_t* iter);
 
-#endif /* ifndef _MEMORY_H */
+#endif

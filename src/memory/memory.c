@@ -135,7 +135,64 @@ handle_t handle_inc_gen(handle_t handle) {
     return (gen << 24) | (handle & HANDLE_INDEX_MASK);
 }
 
-pool_t pool_new(void* block, u32 capacity, u32 element_size, expand_type_t type) {
+pool_t pool_new(void* block, u32 capacity, u32 element_size) {
+    if(!block) PANIC("bad memory block for pool\n");
+
+    pool_element_t* elements = block + capacity * element_size;
+
+    for(u32 i = 0; i < capacity; i ++) {
+        elements[i] = (pool_element_t) {
+            .handle = handle_new(i, 0),
+            .state = POOL_ELEMENT_FREE,
+        };
+    }
+
+    return (pool_t) {
+        .element_size = element_size,
+
+        .num_in_use = 0,
+        .capacity = capacity,
+        .first_free_element = 0,
+        .first_used_element = 0,
+        .last_used_element = 0,
+
+        .type = EXPAND_TYPE_IMMUTABLE,
+
+        .data = block,
+        .elements = elements,
+    };
+}
+
+pool_t pool_alloc_new(u32 capacity, u32 element_size) {
+    void* data = mem_calloc(capacity * element_size);
+    pool_element_t* elements = mem_calloc(capacity * sizeof(pool_element_t));
+
+    if(!data || !elements) PANIC("couldnt allocate memory for pool\n");
+
+    for(u32 i = 0; i < capacity; i ++) {
+        elements[i] = (pool_element_t) {
+            .handle = handle_new(i, 0),
+            .state = POOL_ELEMENT_FREE,
+        };
+    }
+
+    return (pool_t) {
+        .element_size = element_size,
+
+        .num_in_use = 0,
+        .capacity = capacity,
+        .first_free_element = 0,
+        .first_used_element = 0,
+        .last_used_element = 0,
+
+        .type = EXPAND_TYPE_IMMUTABLE,
+
+        .data = data,
+        .elements = elements,
+    };
+}
+
+pool_t pool_new_expand(void* block, u32 capacity, u32 element_size, expand_type_t type) {
     if(!block) PANIC("bad memory block for pool\n");
 
     pool_element_t* elements = block + capacity * element_size;
@@ -163,7 +220,7 @@ pool_t pool_new(void* block, u32 capacity, u32 element_size, expand_type_t type)
     };
 }
 
-pool_t pool_alloc_new(u32 capacity, u32 element_size, expand_type_t type) {
+pool_t pool_alloc_new_expand(u32 capacity, u32 element_size, expand_type_t type) {
     void* data = mem_calloc(capacity * element_size);
     pool_element_t* elements = mem_calloc(capacity * sizeof(pool_element_t));
 
@@ -415,7 +472,28 @@ bool pool_iter(pool_t* pool, pool_iter_t* iter) {
 }
 
 // ARENAS
-arena_t arena_new(range_t block, expand_type_t expand_type) {
+arena_t arena_new(range_t block) {
+    return (arena_t) {
+        .size = 0,
+        .capacity = block.size,
+        .data = block.ptr,
+        .type = EXPAND_TYPE_IMMUTABLE,
+    };
+}
+
+arena_t arena_alloc_new(usize capacity) {
+    void* data = mem_calloc(capacity);
+    if(!data) PANIC("couldnt allocate memory for arena\n");
+
+    return (arena_t) {
+        .size = 0,
+        .capacity = capacity,
+        .data = data,
+        .type = EXPAND_TYPE_IMMUTABLE,
+    };
+}
+
+arena_t arena_new_expand(range_t block, expand_type_t expand_type) {
     return (arena_t) {
         .size = 0,
         .capacity = block.size,
@@ -424,7 +502,7 @@ arena_t arena_new(range_t block, expand_type_t expand_type) {
     };
 }
 
-arena_t arena_alloc_new(usize capacity, expand_type_t expand_type) {
+arena_t arena_alloc_new_expand(usize capacity, expand_type_t expand_type) {
     void* data = mem_calloc(capacity);
     if(!data) PANIC("couldnt allocate memory for arena\n");
 
@@ -503,6 +581,13 @@ range_t arena_range(arena_t* arena, usize start, usize size) {
     };
 }
 
+range_t arena_range_remaining(arena_t* arena) {
+    return (range_t) {
+        .size = arena->capacity - arena->size,
+        .ptr = arena_push_to_capacity(arena),
+    };
+}
+
 range_t arena_range_full(arena_t* arena) {
     return (range_t) {
         .size = arena->size,
@@ -531,7 +616,7 @@ pool_t arena_pool_push(arena_t* arena, u32 capacity, u32 element_size) {
     u32 bytes = capacity * (element_size + sizeof(pool_element_t));
     void* data = arena_push(arena, bytes);
     if(!data) PANIC("couldnt push enough memory for pool in arena\n");
-    return pool_new(data, capacity, element_size, EXPAND_TYPE_IMMUTABLE);
+    return pool_new(data, capacity, element_size);
 }
 
 void arena_clear(arena_t* arena) {
@@ -561,9 +646,13 @@ llist_node_t* llist_push(llist_t* list, arena_t* arena, void* data) {
         list->end = node;
     } else {
         node->prev = list->end;
+        list->end->next = node;
         list->end = node;
     }
 
+    node->next = NULL;
+
+    list->size ++;
     return node;
 }
 
@@ -573,6 +662,12 @@ void llist_remove(llist_t* list, llist_node_t* node) {
     if(!node->prev) list->start = node->next;
     node->next->prev = node->prev;
     node->prev->next = node->next;
+}
+
+void llist_clear(llist_t* list) {
+    list->size = 0;
+    list->start = NULL;
+    list->end = NULL;
 }
 
 bool llist_iter(llist_t* list, llist_iter_t* iter) {
