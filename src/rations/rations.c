@@ -1,10 +1,10 @@
 #include "rations.h"
-#include "memory/memory.h"
 
 rations_t rations = {0};
 
 void rations_divide() {
     const u32 total =
+        RATIONS_EVENTS  +
         RATIONS_IO      +
         RATIONS_GFX     +
         RATIONS_RENDER  + 
@@ -16,11 +16,12 @@ void rations_divide() {
     mem_clear(rations.bank.ptr, total);
     arena_t bank = arena_new(rations.bank);
 
+    rations.entity  = arena_range_push(&bank, RATIONS_ENTITY);
     rations.io      = arena_range_push(&bank, RATIONS_IO);
     rations.gfx     = arena_range_push(&bank, RATIONS_GFX);
     rations.render  = arena_range_push(&bank, RATIONS_RENDER);
     rations.physics = arena_range_push(&bank, RATIONS_PHYSICS);
-    rations.entity  = arena_range_push(&bank, RATIONS_ENTITY);
+    rations.events  = arena_range_push(&bank, RATIONS_EVENTS);
     rations.game    = arena_range_push(&bank, RATIONS_GAME);
 }
 

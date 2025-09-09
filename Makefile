@@ -12,7 +12,7 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-CCFLAGS := -std=c23 -Wall -Wextra
+CCFLAGS := -std=c11 -Wall -Wextra -O2
 LDFLAGS := -lglfw -lassimp -lcglm -lm -Llib -Llib/so -Wl,-rpath,lib/so -lcimgui
 
 DEBUG_FLAGS := -g

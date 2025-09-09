@@ -671,6 +671,8 @@ void llist_clear(llist_t* list) {
 }
 
 bool llist_iter(llist_t* list, llist_iter_t* iter) {
+    if(list->size == 0) return false;
+
     if(!iter->node) {
         iter->node = list->start;
         iter->data = iter->node->data;

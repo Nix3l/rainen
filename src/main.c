@@ -1,7 +1,6 @@
+#include "event/events.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
-// TODO: global memory allocation
 
 #include "base.h"
 
@@ -21,6 +20,7 @@
 
 int main(void) {
     rations_divide();
+    events_init();
     stats_init();
     gfx_init(GFX_BACKEND_GL);
     io_init();
@@ -58,7 +58,7 @@ int main(void) {
             .type = COLLIDER_SHAPE_AABB,
             .box = aabb_new_rect(v2f_ZERO, size2),
         },
-        .restitution = 0.0f,
+        .restitution = 1.0f,
         .friction = 0.033f,
     });
 
@@ -176,5 +176,6 @@ int main(void) {
     gfx_terminate();
     window_destroy();
     io_terminate();
+    events_terminate();
     return 0;
 }

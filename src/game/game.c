@@ -96,7 +96,7 @@ void game_init() {
 }
 
 void game_terminate() {
-    // do things
+    arena_clear(&game_ctx.rations);
 }
 
 void game_load_room(room_t room) {
