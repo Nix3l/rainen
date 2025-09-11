@@ -5,12 +5,14 @@
 #include "memory/memory.h"
 #include "bounds.h"
 
+// TODO: change EVERYTHING
+//  => manifolds should persist across frames
+//  => manifolds should also include persistent friction and normal impulses
+
 enum {
     PHYS_MAX_OBJS = 256,
 };
 
-// 4 bits are taken from the top of the index
-// they identify the type of object its id refers to
 typedef struct { handle_t id; } collider_t;
 
 typedef enum collider_tags_t {

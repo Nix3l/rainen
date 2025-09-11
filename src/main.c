@@ -1,4 +1,3 @@
-#include "event/events.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -17,6 +16,7 @@
 #include "imgui/imgui_manager.h"
 #include "physics/physics.h"
 #include "tools/editor.h"
+#include "event/events.h"
 
 int main(void) {
     rations_divide();
@@ -58,8 +58,8 @@ int main(void) {
             .type = COLLIDER_SHAPE_AABB,
             .box = aabb_new_rect(v2f_ZERO, size2),
         },
-        .restitution = 1.0f,
-        .friction = 0.033f,
+        .restitution = 0.0f,
+        .friction = 1.8f,
     });
 
     v2f size1 = v2f_new(20, 20);
@@ -71,7 +71,7 @@ int main(void) {
             .box = aabb_new_rect(v2f_ZERO, size1),
         },
         .mass = 1.0f,
-        .restitution = 0.0f,
+        .restitution = 1.0f,
     });
 
     v2f size3 = v2f_new(35, 35);
@@ -150,10 +150,10 @@ int main(void) {
         // igShowDemoWindow(NULL);
 
         if(!editor_is_open()) {
-            const f32 speed = 1000.0f;
+            const f32 speed = 5000.0f;
             if(input_key_down(KEY_RIGHT)) collider_apply_force(coll1, v2f_new(speed, 0.0f));
             if(input_key_down(KEY_LEFT))  collider_apply_force(coll1, v2f_new(-speed, 0.0f));
-            if(input_key_pressed(KEY_C))  collider_apply_force(coll1, v2f_new(0.0f, 40000.0f));
+            if(input_key_pressed(KEY_C))  collider_apply_force(coll1, v2f_new(0.0f, speed * 24.0f));
             physics_update(stats_dt());
             game_update();
             game_render();
@@ -177,5 +177,6 @@ int main(void) {
     window_destroy();
     io_terminate();
     events_terminate();
+
     return 0;
 }

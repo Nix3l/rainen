@@ -21,6 +21,14 @@
 //  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/physicstutorials/6accelerationstructures/Physics%20-%20Spatial%20Acceleration%20Structures.pdf
 //  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/physicstutorials/8constraintsandsolvers/Physics%20-%20Constraints%20and%20Solvers.pdf
 
+//  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/previousinformation/physics1introductiontonewtoniandynamics/2017%20Tutorial%201%20-%20Introduction%20to%20Newtonian%20Dynamics.pdf
+//  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/previousinformation/physics2numericalintegrationmethods/2017%20Tutorial%202%20-%20Numerical%20Integration%20Methods.pdf
+//  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/previousinformation/physics3constraints/2017%20Tutorial%203%20-%20Constraints.pdf
+//  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/previousinformation/physics4collisiondetection/2017%20Tutorial%204%20-%20Collision%20Detection.pdf
+//  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/previousinformation/physics5collisionmanifolds/2017%20Tutorial%205%20-%20Collision%20Manifolds.pdf
+//  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/previousinformation/physics6collisionresponse/2017%20Tutorial%206%20-%20Collision%20Response.pdf
+//  => https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/previousinformation/physics7solvers/2017%20Tutorial%207%20-%20Solvers.pdf
+
 physics_ctx_t physics_ctx = {0};
 
 void physics_init() {
@@ -33,7 +41,7 @@ void physics_init() {
         .obj_pool = obj_pool,
         .frame_arena = frame_arena,
         .substeps = 8,
-        .global_gravity = v2f_new(0.0f, -500.0f),
+        .global_gravity = v2f_new(0.0f, -981.0f),
     };
 }
 
@@ -149,42 +157,44 @@ static void physics_collisions_compute_manifolds() {
     }
 }
 
-static void physics_manifold_correct_positions(manifold_t* pair) {
-    const f32 amount = 0.7f;
+static void physics_manifold_resolve(manifold_t* pair) {
+    // position correction
+    const f32 correction_amount = 0.7f;
     f32 r1 = pair->obj1->inv_m / (pair->obj1->inv_m + pair->obj2->inv_m);
     f32 r2 = pair->obj2->inv_m / (pair->obj1->inv_m + pair->obj2->inv_m);
-    v2f dx1 = v2f_scale(pair->inter.normal, -amount * r1 * pair->inter.penetration);
-    v2f dx2 = v2f_scale(pair->inter.normal,  amount * r2 * pair->inter.penetration);
+    v2f dx1 = v2f_scale(pair->inter.normal, -correction_amount * r1 * pair->inter.penetration);
+    v2f dx2 = v2f_scale(pair->inter.normal,  correction_amount * r2 * pair->inter.penetration);
     pair->obj1->pos = v2f_add(pair->obj1->pos, dx1);
     pair->obj2->pos = v2f_add(pair->obj2->pos, dx2);
-}
 
-static void physics_manifold_resolve(manifold_t* pair) {
     // impulse resolution
     v2f vr = v2f_sub(pair->obj1->vel, pair->obj2->vel);
     v2f n = pair->inter.normal;
+    f32 ndvr = v2f_dot(n, vr);
     // weird stuff happens when restitution is 1.0
     // like objects keep accumulating velocity if they are resting on one another,
     // so they kind of "snap" when they are no longer colliding
     // but for some reason keeping it at 0.999 makes it fine so
     // TODO(nix3l): figure out a better fix (or why that is happening in the first place)
-    f32 e = CLAMP(MIN(pair->obj1->restitution, pair->obj2->restitution), 0.0f, 0.999f);
-    f32 vj = -(1.0f + e) * v2f_dot(vr, n);
+    f32 e = CLAMP_MAX(MIN(pair->obj1->restitution, pair->obj2->restitution), 0.999f);
+    f32 vj = -(1.0f + e) * ndvr;
     f32 J = vj / (pair->obj1->inv_m + pair->obj2->inv_m);
 
     // friction
-    v2f t = v2f_scale(v2f_new(n.y, -n.x), v2f_cross(vr, n));
-    if(v2f_dot(t, vr) < 0) t = v2f_scale(t, -1);
+    v2f fr = v2f_ZERO;
+    v2f t = v2f_scale(v2f_new(n.y, -n.x), SIGN(ndvr));
     f32 mu = MAX(pair->obj1->friction, pair->obj2->friction);
+    f32 tdvr = v2f_dot(t, vr);
+    f32 fr_scale = CLAMP(mu * tdvr / (pair->obj1->inv_m + pair->obj2->inv_m), -mu, mu);
+    fr = v2f_scale(t, fr_scale);
 
-    pair->obj1->vel = v2f_add(pair->obj1->vel, v2f_scale(v2f_add(n, v2f_scale(t, mu)), J * pair->obj1->inv_m));
-    pair->obj2->vel = v2f_sub(pair->obj2->vel, v2f_scale(v2f_add(n, v2f_scale(t, mu)), J * pair->obj2->inv_m));
+    pair->obj1->vel = v2f_add(pair->obj1->vel, v2f_scale(v2f_add(n, fr), J * pair->obj1->inv_m));
+    pair->obj2->vel = v2f_sub(pair->obj2->vel, v2f_scale(v2f_add(n, fr), J * pair->obj2->inv_m));
 }
 
 static void physics_collisions_resolve() {
     for(u32 i = 0; i < physics_ctx.narrow.pairs.size; i ++) {
         manifold_t* pair = vector_get(&physics_ctx.narrow.pairs, i);
-        physics_manifold_correct_positions(pair);
         physics_manifold_resolve(pair);
     }
 }
@@ -193,9 +203,9 @@ void physics_update(f32 dt) {
     physics_apply_gravity();
 
     dt /= physics_ctx.substeps;
-    for(u32 i = 1; i <= physics_ctx.substeps; i ++) {
-        physics_integrate_positions(dt * i);
-        physics_integrate_forces(dt * i);
+    for(u32 i = 0; i < physics_ctx.substeps; i ++) {
+        physics_integrate_positions(dt);
+        physics_integrate_forces(dt);
         physics_collisions_compute_manifolds();
         physics_collisions_resolve();
         arena_clear(&physics_ctx.frame_arena);

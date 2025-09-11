@@ -1353,6 +1353,9 @@ static void gl_activate_pipeline(render_pipeline_t pip) {
     glUseProgram(glshader->program);
 }
 
+// TODO(nix3l): !!! THIS IS TEMPORARY !!!
+// TODO(nix3l): !!! THIS IS TEMPORARY !!!
+// TODO(nix3l): !!! THIS IS TEMPORARY !!!
 static void gl_clear_pipeline(void) {
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);

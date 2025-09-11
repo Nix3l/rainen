@@ -37,7 +37,10 @@
 #define CLAMP_MAX(_x, _max) MIN(_x, _max)
 #define CLAMP_MIN(_x, _min) MAX(_x, _min)
 
-#define SIGN(_x) ((_x)<0?:-1:1)
+#define SIGN(_x) ((_x)<0?-1:1)
+
+#define IN_RANGE(_x, _min, _max) ((_x)>(_min)&&(_x) < (_max))
+#define IN_EPSILON(_x, _e) ((_x)>-(_e)&&(_x)<(_e))
 
 #define v2f_new(_x, _y) (v2f) { .x = (_x), .y = (_y) }
 #define v3f_new(_x, _y, _z) (v3f) { .x = (_x), .y = (_y), .z = (_z) }
