@@ -131,7 +131,7 @@ handle_t handle_inc_index(handle_t handle) {
 }
 
 handle_t handle_inc_gen(handle_t handle) {
-    u32 gen = handle_gen(handle) + 1;
+    u8 gen = handle_gen(handle) + 1;
     return (gen << 24) | (handle & HANDLE_INDEX_MASK);
 }
 
