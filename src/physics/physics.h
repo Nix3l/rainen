@@ -5,10 +5,6 @@
 #include "memory/memory.h"
 #include "bounds.h"
 
-// TODO: change EVERYTHING
-//  => manifolds should persist across frames
-//  => manifolds should also include persistent friction and normal impulses
-
 enum {
     PHYS_MAX_OBJS = 256,
 };
@@ -37,7 +33,7 @@ typedef struct collider_shape_t {
     };
 } collider_shape_t;
 
-typedef struct physobj_t {
+typedef struct rigidbody_t {
     collider_tags_t tags;
     collider_shape_t bounds;
     v2f pos;
@@ -47,8 +43,9 @@ typedef struct physobj_t {
     f32 mass;
     f32 inv_m;
     f32 restitution;
-    f32 friction;
-} physobj_t;
+    f32 fr_static;
+    f32 fr_dynamic;
+} rigidbody_t;
 
 typedef struct collider_info_t {
     collider_tags_t tags;
@@ -56,22 +53,37 @@ typedef struct collider_info_t {
     v2f pos;
     f32 mass;
     f32 restitution;
-    f32 friction;
+    f32 fr_static;
+    f32 fr_dynamic;
 } collider_info_t;
 
 collider_t collider_new(collider_info_t info);
 void collider_destroy(collider_t collider);
 
-physobj_t* collider_get_data(collider_t collider);
+rigidbody_t* collider_get_data(collider_t collider);
 
 void collider_apply_force(collider_t collider, v2f force);
 
+typedef struct manifold_point_t {
+    v2f pos;
+    v2f fromA;
+    v2f fromB;
+    f32 penetration;
+    f32 normal_impulse;
+    f32 tangent_impulse;
+} manifold_point_t;
+
 typedef struct manifold_t {
-    collider_t coll1;
-    collider_t coll2;
-    physobj_t* obj1;
-    physobj_t* obj2;
-    intersection_t inter;
+    collider_t collA;
+    collider_t collB;
+    rigidbody_t* rbA;
+    rigidbody_t* rbB;
+
+    u32 point_count;
+    manifold_point_t points[2];
+
+    v2f normal;
+    v2f tangent;
 } manifold_t;
 
 // TODO: broad phase

@@ -58,8 +58,9 @@ int main(void) {
             .type = COLLIDER_SHAPE_AABB,
             .box = aabb_new_rect(v2f_ZERO, size2),
         },
-        .restitution = 0.0f,
-        .friction = 1.8f,
+        .restitution = 1.0f,
+        .fr_static = 4.0f,
+        .fr_dynamic = 4.0f,
     });
 
     v2f size1 = v2f_new(20, 20);
@@ -71,11 +72,12 @@ int main(void) {
             .box = aabb_new_rect(v2f_ZERO, size1),
         },
         .mass = 1.0f,
-        .restitution = 1.0f,
+        .restitution = 0.3f,
     });
 
     v2f size3 = v2f_new(35, 35);
     collider_t coll3 = collider_new((collider_info_t) {
+        .tags = COLLIDER_TAGS_NO_GRAV,
         .pos = v2f_new(100, 200),
         .bounds = {
             .type = COLLIDER_SHAPE_AABB,
@@ -87,6 +89,7 @@ int main(void) {
 
     v2f size4 = v2f_new(100, 35);
     collider_t coll4 = collider_new((collider_info_t) {
+        .tags = COLLIDER_TAGS_NO_GRAV,
         .pos = v2f_new(100, 300),
         .bounds = {
             .type = COLLIDER_SHAPE_AABB,
@@ -153,7 +156,8 @@ int main(void) {
             const f32 speed = 5000.0f;
             if(input_key_down(KEY_RIGHT)) collider_apply_force(coll1, v2f_new(speed, 0.0f));
             if(input_key_down(KEY_LEFT))  collider_apply_force(coll1, v2f_new(-speed, 0.0f));
-            if(input_key_pressed(KEY_C))  collider_apply_force(coll1, v2f_new(0.0f, speed * 24.0f));
+            if(input_key_down(KEY_UP))    collider_apply_force(coll1, v2f_new(0.0f, speed));
+            if(input_key_down(KEY_DOWN))  collider_apply_force(coll1, v2f_new(0.0f, -speed));
             physics_update(stats_dt());
             game_update();
             game_render();

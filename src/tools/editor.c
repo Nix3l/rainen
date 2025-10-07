@@ -34,7 +34,7 @@ editor_ctx_t editor_ctx = {0};
 //      - delete selection  [CTRL+D] [DEL]
 //      - select all        [CTRL+A]
 
-static v2f editor_world_to_screen_pos(v2f world);
+static v2f  editor_world_to_screen_pos(v2f world);
 
 static void editor_picker_update();
 static void editor_picker_activate(u32 owner, keycode_t cancel_key);
