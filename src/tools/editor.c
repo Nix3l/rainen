@@ -664,7 +664,7 @@ static v2i editor_tile_at_screen_pos(v2f offset) {
     );
 
     if(tile.x >= ROOM_WIDTH) tile.x = -1;
-    if(tile.y >= ROOM_HEIGHT) tile.x = -1;
+    if(tile.y >= ROOM_HEIGHT) tile.y = -1;
 
     return tile;
 }
