@@ -630,6 +630,7 @@ void arena_destroy(arena_t* arena) {
     arena->data = NULL;
 }
 
+// LINKED LISTS
 llist_t llist_new() {
     return (llist_t) {};
 }
@@ -659,9 +660,10 @@ llist_node_t* llist_push(llist_t* list, arena_t* arena, void* data) {
 void llist_remove(llist_t* list, llist_node_t* node) {
     if(list->size == 0) return;
     if(!node->next) list->end = node->prev;
+    else node->next->prev = node->prev;
     if(!node->prev) list->start = node->next;
-    node->next->prev = node->prev;
-    node->prev->next = node->next;
+    else node->prev->next = node->next;
+    list->size --;
 }
 
 void llist_clear(llist_t* list) {

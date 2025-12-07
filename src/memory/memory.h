@@ -32,7 +32,7 @@ range_t range_alloc_new(usize bytes);
 // frees the range
 void range_destroy(range_t* range);
 
-// a range that you can dynamically add and remove elements from
+// a copy-on-write range that you can dynamically add and remove elements from
 // currently, no expanding/shrinking
 typedef struct vector_t {
     u32 size; // in elements
@@ -97,7 +97,6 @@ typedef struct pool_t {
     u32 capacity; // in number of elements
     u32 first_free_element;
     u32 first_used_element;
-
     // NOTE(nix3l): make sure to use <= in loop conditions,
     // as this points to a used element
     u32 last_used_element;
