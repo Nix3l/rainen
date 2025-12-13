@@ -436,7 +436,7 @@ typedef struct render_target_t {
 } render_target_t;
 
 typedef enum cull_face_t {
-    CULL_FACE_UNDEFINED = 0, // will be assumed back
+    CULL_FACE_UNDEFINED = 0, // will be assumed CULL_FACE_BACK
     CULL_FACE_FRONT,
     CULL_FACE_BACK,
     CULL_FACE_FRONT_AND_BACK,
@@ -448,7 +448,7 @@ typedef struct render_cull_state_t {
 } render_cull_state_t;
 
 typedef enum depth_func_t {
-    DEPTH_FUNC_UNDEFINED = 0, // will be assumed less
+    DEPTH_FUNC_UNDEFINED = 0, // will be assumed DEPTH_FUNC_LESS
     DEPTH_FUNC_NEVER,
     DEPTH_FUNC_ALWAYS,
     DEPTH_FUNC_LESS,

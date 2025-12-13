@@ -4,7 +4,6 @@
 #include "base.h"
 #include "gfx/gfx.h"
 
-// TODO(nix3l): make render batch a linked list in arena
 // TODO(nix3l): move viewport to pipeline?
 
 enum {
@@ -54,7 +53,7 @@ typedef struct draw_pass_state_t {
 } draw_pass_state_t;
 
 typedef struct draw_pass_cache_t {
-    mat4s projView;
+    mat4s proj_view;
 } draw_pass_cache_t;
 
 typedef struct draw_pass_t {
@@ -68,6 +67,8 @@ typedef struct draw_pass_t {
 // the omega draw call struct
 // put ALL the things in here (dont be shy)
 // until memory becomes an issue everything goes in here
+//
+// TODO(nix3l): maybe have this be a union? or just have generic slots for data?
 typedef struct draw_call_t {
     v3f position;
     v3f rotation;
@@ -77,17 +78,24 @@ typedef struct draw_call_t {
     v4f colour;
     v4f bg;
     f32 stroke;
+    // i32 layer;
     sampler_slot_t sampler;
 } draw_call_t;
 
 typedef struct draw_group_t {
     llist_t batch;
     draw_pass_t pass;
+    // TODO(nix3l): change *out to an arena and add helper functions for each uniform type
     void (*construct_uniforms) (void* out, draw_call_t* call);
 } draw_group_t;
 
 void render_activate_group(draw_group_t group);
 void render_clear_active_group();
+
+draw_group_t* render_get_active_group();
+draw_pass_t* render_get_active_pass();
+draw_pass_cache_t* render_get_active_cache();
+
 void render_push_draw_call(draw_group_t* group, draw_call_t call);
 
 // RENDERER

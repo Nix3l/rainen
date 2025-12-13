@@ -12,15 +12,15 @@
 game_ctx_t game_ctx;
 
 static void construct_uniforms(void* out, draw_call_t* call) {
-    draw_pass_cache_t cache = render_ctx.active_group.pass.cache;
+    draw_pass_cache_t* cache = render_get_active_cache();
 
     struct __attribute__((packed)) {
-        mat4 projViewModel;
+        mat4 proj_viewModel;
         vec4 col;
     } uniforms;
 
-    mat4s projViewModel = glms_mat4_mul(cache.projView, model_matrix_new(call->position, call->rotation, call->scale));
-    memcpy(uniforms.projViewModel, projViewModel.raw, sizeof(mat4));
+    mat4s proj_viewModel = glms_mat4_mul(cache->proj_view, model_matrix_new(call->position, call->rotation, call->scale));
+    memcpy(uniforms.proj_viewModel, proj_viewModel.raw, sizeof(mat4));
 
     memcpy(uniforms.col, call->colour.raw, sizeof(vec4));
 
@@ -40,7 +40,7 @@ void game_init() {
             { .name = "vs_uvs" },
         },
         .uniforms = {
-            { .name = "projViewModel", .type = UNIFORM_TYPE_mat4, },
+            { .name = "model_mat", .type = UNIFORM_TYPE_mat4, },
             { .name = "col", .type = UNIFORM_TYPE_v4f, },
         },
         .vertex_src = shader_vs,

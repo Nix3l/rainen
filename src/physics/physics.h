@@ -20,6 +20,7 @@ typedef enum collider_tags_t {
 typedef enum collider_type_t {
     COLLIDER_SHAPE_INVALID = 0,
     COLLIDER_SHAPE_AABB,
+    // TODO(nix3l):
     // COLLIDER_SHAPE_CIRCLE,
     // COLLIDER_SHAPE_TRIANGLE,
     // COLLIDER_SHAPE_CAPSULE,
@@ -43,8 +44,7 @@ typedef struct rigidbody_t {
     f32 mass;
     f32 inv_m;
     f32 restitution;
-    f32 fr_static;
-    f32 fr_dynamic;
+    f32 friction;
 } rigidbody_t;
 
 typedef struct collider_info_t {
@@ -53,8 +53,7 @@ typedef struct collider_info_t {
     v2f pos;
     f32 mass;
     f32 restitution;
-    f32 fr_static;
-    f32 fr_dynamic;
+    f32 friction;
 } collider_info_t;
 
 collider_t collider_new(collider_info_t info);

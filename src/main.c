@@ -16,7 +16,13 @@
 #include "imgui/imgui_manager.h"
 #include "physics/physics.h"
 #include "tools/editor.h"
+#include "tools/debug_render.h"
 #include "event/events.h"
+
+// TODO(nix3l):
+//  => update gfx.c (fix cache, add way to do wireframe, more docs in header)
+//  => update render.c
+//  => redo cameras
 
 int main(void) {
     rations_divide();
@@ -31,7 +37,9 @@ int main(void) {
     physics_init();
     entity_init();
     game_init();
+
     editor_init();
+    debug_render_init();
 
     stbi_set_flip_vertically_on_load(true);
     i32 x, y;
@@ -50,99 +58,6 @@ int main(void) {
         .filter = TEXTURE_FILTER_NEAREST,
     });
 
-    v2f size2 = v2f_new(600, 100);
-    collider_t coll2 = collider_new((collider_info_t) {
-        .tags = COLLIDER_TAGS_STATIC,
-        .pos = v2f_new(0, -250),
-        .bounds = {
-            .type = COLLIDER_SHAPE_AABB,
-            .box = aabb_new_rect(v2f_ZERO, size2),
-        },
-        .restitution = 1.0f,
-        .fr_static = 4.0f,
-        .fr_dynamic = 4.0f,
-    });
-
-    v2f size1 = v2f_new(20, 20);
-    collider_t coll1 = collider_new((collider_info_t) {
-        //.tags = COLLIDER_TAGS_NO_GRAV,
-        .pos = v2f_ZERO,
-        .bounds = {
-            .type = COLLIDER_SHAPE_AABB,
-            .box = aabb_new_rect(v2f_ZERO, size1),
-        },
-        .mass = 1.0f,
-        .restitution = 0.3f,
-    });
-
-    v2f size3 = v2f_new(35, 35);
-    collider_t coll3 = collider_new((collider_info_t) {
-        .tags = COLLIDER_TAGS_NO_GRAV,
-        .pos = v2f_new(100, 200),
-        .bounds = {
-            .type = COLLIDER_SHAPE_AABB,
-            .box = aabb_new_rect(v2f_ZERO, size3),
-        },
-        .mass = 4.0f,
-        .restitution = 1.0f,
-    });
-
-    v2f size4 = v2f_new(100, 35);
-    collider_t coll4 = collider_new((collider_info_t) {
-        .tags = COLLIDER_TAGS_NO_GRAV,
-        .pos = v2f_new(100, 300),
-        .bounds = {
-            .type = COLLIDER_SHAPE_AABB,
-            .box = aabb_new_rect(v2f_ZERO, size4),
-        },
-        .mass = 1.0f,
-        .restitution = 1.0f,
-    });
-
-    entity_new((entity_info_t) {
-        .tags = ENT_TAGS_RENDER | ENT_TAGS_PHYSICS,
-        .material = {
-            .colour = v4f_new(0.82f, 1.0f, 0.05f, 1.0f),
-        },
-        .transform = {
-            .size = size1,
-        },
-        .collider = coll1,
-    });
-
-    entity_new((entity_info_t) {
-        .tags = ENT_TAGS_RENDER | ENT_TAGS_PHYSICS,
-        .material = {
-            .colour = v4f_new(1.0f, 1.0f, 1.0f, 1.0f),
-        },
-        .transform = {
-            .size = size2,
-        },
-        .collider = coll2,
-    });
-
-    entity_new((entity_info_t) {
-        .tags = ENT_TAGS_RENDER | ENT_TAGS_PHYSICS,
-        .material = {
-            .colour = v4f_new(0.0f, 1.0f, 1.0f, 1.0f),
-        },
-        .transform = {
-            .size = size3,
-        },
-        .collider = coll3,
-    });
-
-    entity_new((entity_info_t) {
-        .tags = ENT_TAGS_RENDER | ENT_TAGS_PHYSICS,
-        .material = {
-            .colour = v4f_new(0.2f, 0.93f, 0.14f, 1.0f),
-        },
-        .transform = {
-            .size = size4,
-        },
-        .collider = coll4,
-    });
-
     while(!window_closing()) {
         stats_start_frame();
         input_start_frame();
@@ -153,14 +68,20 @@ int main(void) {
         // igShowDemoWindow(NULL);
 
         if(!editor_is_open()) {
-            const f32 speed = 5000.0f;
-            if(input_key_down(KEY_RIGHT)) collider_apply_force(coll1, v2f_new(speed, 0.0f));
-            if(input_key_down(KEY_LEFT))  collider_apply_force(coll1, v2f_new(-speed, 0.0f));
-            if(input_key_down(KEY_UP))    collider_apply_force(coll1, v2f_new(0.0f, speed));
-            if(input_key_down(KEY_DOWN))  collider_apply_force(coll1, v2f_new(0.0f, -speed));
             physics_update(stats_dt());
             game_update();
             game_render();
+
+            debug_render((debug_render_call_t) {
+                .shape = DEBUG_SHAPE_CIRCLE,
+                .data.circle = {
+                    .centre = v2f_new(80.0f, 120.0f),
+                    .radius = 16.0f,
+                },
+                .color = DEBUG_COLOR_WHITE,
+            });
+
+            debug_render_dispatch();
         } else {
             editor_update();
         }
@@ -171,7 +92,9 @@ int main(void) {
         render_end_frame();
     }
 
+    debug_render_terminate();
     editor_terminate();
+
     game_terminate();
     entity_terminate();
     physics_terminate();

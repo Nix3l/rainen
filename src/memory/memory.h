@@ -150,6 +150,8 @@ typedef struct arena_t {
     void* data;
 } arena_t;
 
+// TODO(nix3l): subarena_new
+
 // immutable arena creation
 arena_t arena_new(range_t block);
 arena_t arena_alloc_new(usize capacity);

@@ -149,7 +149,7 @@ static void entity_render_update(entity_t ent) {
 
     v3f position = v3f_new(data->transform.position.x, data->transform.position.y, data->transform.z);
     if(data->tags & ENT_TAGS_PHYSICS) {
-        physobj_t* obj = collider_get_data(data->collider);
+        rigidbody_t* obj = collider_get_data(data->collider);
         position = v3f_new(obj->pos.x, obj->pos.y, data->transform.z);
     }
 

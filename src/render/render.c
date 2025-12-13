@@ -6,7 +6,6 @@
 #include "util/math_util.h"
 #include "errors/errors.h"
 #include "rations/rations.h"
-#include <string.h>
 
 render_ctx_t render_ctx;
 
@@ -67,6 +66,21 @@ void render_clear_active_group() {
     render_ctx.active_group = (draw_group_t) {0};
 }
 
+draw_group_t* render_get_active_group() {
+    if(render_ctx.active_group.pass.type == DRAW_PASS_INVALID) return NULL;
+    return &render_ctx.active_group;
+}
+
+draw_pass_t* render_get_active_pass() {
+    if(render_ctx.active_group.pass.type == DRAW_PASS_INVALID) return NULL;
+    return &render_ctx.active_group.pass;
+}
+
+draw_pass_cache_t* render_get_active_cache() {
+    if(render_ctx.active_group.pass.type == DRAW_PASS_INVALID) return NULL;
+    return &render_ctx.active_group.pass.cache;
+}
+
 void render_push_draw_call(draw_group_t* group, draw_call_t call) {
     draw_call_t* data = arena_push(&render_ctx.rations, sizeof(draw_call_t));
     memcpy(data, &call, sizeof(draw_call_t));
@@ -77,17 +91,17 @@ static mat4s pass_get_proj_view(draw_pass_t pass) {
     draw_anchor_t anchor = pass.state.anchor;
     draw_projection_t proj = pass.state.projection;
 
-    mat4s projView = mat4_IDENTITY;
+    mat4s proj_view = mat4_IDENTITY;
 
     if(proj.type == PROJECTION_PERSPECTIVE)
-        projView = glms_mat4_mul(projView, proj_perspective_matrix_new(proj.fov, proj.aspect_ratio, proj.near, proj.far));
+        proj_view = glms_mat4_mul(proj_view, proj_perspective_matrix_new(proj.fov, proj.aspect_ratio, proj.near, proj.far));
     else if(proj.type == PROJECTION_ORTHO)
-        projView = glms_mat4_mul(projView, proj_ortho_matrix_new(proj.w, proj.h, proj.near, proj.far));
+        proj_view = glms_mat4_mul(proj_view, proj_ortho_matrix_new(proj.w, proj.h, proj.near, proj.far));
 
     if(anchor.enable)
-        projView = glms_mat4_mul(projView, view_matrix_new(anchor.position, anchor.rotation));
+        proj_view = glms_mat4_mul(proj_view, view_matrix_new(anchor.position, anchor.rotation));
 
-    return projView;
+    return proj_view;
 }
 
 static void render_group_update_cache() {
@@ -97,11 +111,11 @@ static void render_group_update_cache() {
     }
 
     render_ctx.active_group.pass.cache = (draw_pass_cache_t) {
-        .projView = pass_get_proj_view(render_ctx.active_group.pass),
+        .proj_view = pass_get_proj_view(render_ctx.active_group.pass),
     };
 }
 
-static void render_active_group() {
+static void render_dispatch_active_group() {
     draw_group_t group = render_ctx.active_group;
     draw_pass_t pass = group.pass;
     if(pass.type == DRAW_PASS_INVALID) {
@@ -142,7 +156,7 @@ void render_dispatch(renderer_t* renderer) {
     for(u32 i = 0; i < renderer->num_groups; i ++) {
         render_activate_group(renderer->groups[i]);
         render_group_update_cache();
-        render_active_group();
+        render_dispatch_active_group();
         llist_clear(&renderer->groups[i].batch);
         render_clear_active_group();
         gfx_clear_active_pipeline();

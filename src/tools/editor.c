@@ -219,15 +219,15 @@ static void grid_construct_uniforms(void* out, draw_call_t* call) {
 }
 
 static void room_construct_uniforms(void* out, draw_call_t* call) {
-    draw_pass_cache_t cache = render_ctx.active_group.pass.cache;
+    draw_pass_cache_t* cache = render_get_active_cache();
 
     struct  __attribute__((packed)){
-        mat4 projViewModel;
+        mat4 model_mat;
         vec4 col;
     } uniforms;
 
-    mat4s modelViewProj = glms_mat4_mul(cache.projView, model_matrix_new(call->position, call->rotation, call->scale));
-    glm_mat4_copy(modelViewProj.raw, uniforms.projViewModel);
+    mat4s model_mat = glms_mat4_mul(cache->proj_view, model_matrix_new(call->position, call->rotation, call->scale));
+    glm_mat4_copy(model_mat.raw, uniforms.model_mat);
 
     memcpy(uniforms.col, call->colour.raw, sizeof(vec4));
 
@@ -289,7 +289,7 @@ void editor_init() {
             { .name = "vs_uvs" },
         },
         .uniforms = {
-            { .name = "projViewModel", .type = UNIFORM_TYPE_mat4, },
+            { .name = "model_mat", .type = UNIFORM_TYPE_mat4, },
             { .name = "col", .type = UNIFORM_TYPE_v4f, },
         },
         .vertex_src = tile_vs,

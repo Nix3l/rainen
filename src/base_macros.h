@@ -67,7 +67,7 @@
 #define v4i_ONE v4i_new(1, 1, 1, 1)
 
 #define v3f_rgb(_r, _g, _b) v3f_new((_r) / 255.0f, (_g) / 255.0f, (_b) / 255.0f)
-#define v4f_rgba(_r, _g, _b, _a) v3f_new((_r) / 255.0f, (_g) / 255.0f, (_b) / 255.0f, (_a) / 255.0f)
+#define v4f_rgba(_r, _g, _b, _a) v4f_new((_r) / 255.0f, (_g) / 255.0f, (_b) / 255.0f, (_a) / 255.0f)
 
 #define v2f_add(_x, _y) (glms_vec2_add(_x, _y))
 #define v3f_add(_x, _y) (glms_vec3_add(_x, _y))

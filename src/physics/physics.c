@@ -60,8 +60,7 @@ collider_t collider_new(collider_info_t info) {
     obj->acc = v2f_ZERO;
     obj->force = v2f_ZERO;
     obj->restitution = info.restitution;
-    obj->fr_static = info.fr_static;
-    obj->fr_dynamic = info.fr_dynamic;
+    obj->friction = info.friction;
 
     if(info.tags & COLLIDER_TAGS_STATIC) {
         obj->mass = 0.0f;
